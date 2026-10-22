@@ -18,7 +18,7 @@ export function StatBar({ state }: { state: MonitorState }) {
     <div className="flex flex-wrap gap-3">
       <Stat value={state.repos.length} label="repos" dot="bg-slate-500" />
       <Stat value={worktreeCount} label="worktrees" dot="bg-brand" />
-      <Stat value={state.tabs.length} label="cmux tabs" dot="bg-ok" />
+      <Stat value={state.tabs.length} label="terminal tabs" dot="bg-ok" />
       <Stat value={state.agents.length} label="bare agents" dot="bg-warn" />
     </div>
   )

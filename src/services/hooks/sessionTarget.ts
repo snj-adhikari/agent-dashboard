@@ -2,7 +2,7 @@ import { execFileSync } from 'child_process'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
-import { cmuxWorkspaces } from '../cmux'
+import { terminalTabs } from '../terminal'
 import { HOOK_TAB_PREFIX } from './types'
 
 const CONTEXT_LIMIT_PCT = 50
@@ -104,7 +104,7 @@ function worktreeRoots(repoPath: string): string[] {
 /** Live, non-hook Claude tabs whose cwd is inside the repo or one of its worktrees. */
 export function repoSessions(repoPath: string): SessionUsage[] {
   const roots = worktreeRoots(repoPath)
-  return cmuxWorkspaces()
+  return terminalTabs()
     .filter((t) => {
       // macOS paths are case-insensitive and a repo directory can be reached under either casing
       const cwd = t.cwd.toLowerCase()

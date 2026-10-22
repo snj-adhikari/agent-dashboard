@@ -180,7 +180,7 @@ export default function App() {
 
               <aside className="space-y-5">
                 <div>
-                  <SectionHeader title="cmux tabs" count={data?.state.tabs.length} />
+                  <SectionHeader title="terminal tabs" count={data?.state.tabs.length} />
                   {data && <TabList tabs={data.state.tabs} />}
                 </div>
                 <div>

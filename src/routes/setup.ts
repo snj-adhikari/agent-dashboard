@@ -5,6 +5,7 @@ import { readJsonBody, sendJson } from '../http'
 import { mongoStatus } from '../services/db'
 import { expandHome } from '../utils'
 import { saveSettings, settings, SETUP_STEPS, type SetupStep } from '../services/settings'
+import { terminalInfo } from '../services/terminal'
 import { cleanSecrets, generateLaunchAgent, installLaunchAgent, serviceDefaults } from '../services/launchAgent'
 
 const REQUIRED: SetupStep[] = ['mongo', 'repos', 'profile']
@@ -34,7 +35,7 @@ export function missingSteps(mongoUp: boolean): SetupStep[] {
 
 export async function handleSetupStatus(res: ServerResponse): Promise<void> {
   const mongo = await mongoStatus()
-  sendJson(res, { mongo, missing: missingSteps(mongo.up), onboarded: !!settings().onboardedAt || !!settings().completedSteps?.length, serviceDefaults: serviceDefaults() })
+  sendJson(res, { mongo, missing: missingSteps(mongo.up), onboarded: !!settings().onboardedAt || !!settings().completedSteps?.length, serviceDefaults: serviceDefaults(), terminal: terminalInfo() })
 }
 
 export async function handleCheckDir(req: IncomingMessage, res: ServerResponse): Promise<void> {

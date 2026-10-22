@@ -7,9 +7,8 @@ import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, cl
 import { DeferredError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
 import { loadConfig, POLL_INTERVAL_MIN } from './config'
-import { openOpUnlockTab, OpLockedError } from './op'
-import { cmuxWorkspaces } from '../cmux'
-import { sendKey, sendToWorkspace } from '../cmuxControl'
+import { OpLockedError } from './op'
+import { openOpUnlockTab, sendKey, sendToWorkspace, terminalTabs } from '../terminal'
 import { log, logError } from './logger'
 import { HOOK_TAB_PREFIX } from './types'
 import type { HookStart, Trigger } from './types'
@@ -28,7 +27,7 @@ function errorMessage(e: unknown): string {
 }
 
 function activeHookTabs(): string[] {
-  return cmuxWorkspaces()
+  return terminalTabs()
     .filter((t) => t.title.startsWith(HOOK_TAB_PREFIX))
     .map((t) => t.ref)
 }

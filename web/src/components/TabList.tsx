@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CmuxTab } from '../types'
 import { api } from '../api'
 import { Card, CardPath, CardMeta, Button } from './Card'
 import { EmptyState } from './EmptyState'
 
-function TabCard({ tab }: { tab: CmuxTab }) {
+function useTerminal() {
+  const [t, setT] = useState({ canSend: true, canRead: true })
+  useEffect(() => {
+    api.setupStatus().then((s) => setT(s.terminal)).catch(() => {})
+  }, [])
+  return t
+}
+
+function TabCard({ tab, canSend, canRead }: { tab: CmuxTab; canSend: boolean; canRead: boolean }) {
   const [expanded, setExpanded] = useState(false)
   const [screen, setScreen] = useState('')
   const [prompt, setPrompt] = useState('')
@@ -65,21 +73,25 @@ function TabCard({ tab }: { tab: CmuxTab }) {
         </CardMeta>
       )}
       <div>
-        <Button loading={loadingScreen} onClick={toggle}>
-          {expanded ? 'Collapse output' : 'Expand output'}
-        </Button>
-        <Button loading={creatingArtifact} onClick={createArtifact}>
-          Create artifact
-        </Button>
+        {canRead && (
+          <Button loading={loadingScreen} onClick={toggle}>
+            {expanded ? 'Collapse output' : 'Expand output'}
+          </Button>
+        )}
+        {canSend && (
+          <Button loading={creatingArtifact} onClick={createArtifact}>
+            Create artifact
+          </Button>
+        )}
       </div>
-      <input
+      {canSend && <input
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && send()}
         placeholder={sending ? 'Sending…' : 'Send a prompt to this session…'}
         disabled={sending}
         className="w-full box-border rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-200 mt-1.5 outline-none focus:border-emerald-600 disabled:opacity-60"
-      />
+      />}
       {expanded && (
         <pre className="mt-1.5 max-h-56 overflow-auto whitespace-pre-wrap rounded-md border border-slate-800 bg-slate-950 p-2 text-[10px] text-slate-400">
           {screen}
@@ -90,11 +102,12 @@ function TabCard({ tab }: { tab: CmuxTab }) {
 }
 
 export function TabList({ tabs }: { tabs: CmuxTab[] }) {
-  if (!tabs.length) return <EmptyState label="No cmux tabs open" />
+  const { canSend, canRead } = useTerminal()
+  if (!tabs.length) return <EmptyState label="No terminal tabs open" />
   return (
     <>
       {tabs.map((t) => (
-        <TabCard key={t.ref} tab={t} />
+        <TabCard key={t.ref} tab={t} canSend={canSend} canRead={canRead} />
       ))}
     </>
   )

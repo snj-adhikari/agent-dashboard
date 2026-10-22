@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http'
-import { sendToWorkspace } from '../services/cmuxControl'
+import { sendToWorkspace } from '../services/terminal'
 import { readJsonBody, sendJson } from '../http'
 
 export async function handleSend(req: IncomingMessage, res: ServerResponse): Promise<void> {

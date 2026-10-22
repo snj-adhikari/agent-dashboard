@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import { readJsonBody, sendJson } from '../http'
 import { loadSettings, saveSettings, settings, SETUP_STEPS, type Settings } from '../services/settings'
 
-const KEYS: (keyof Settings)[] = ['repoDirs', 'vaultPath', 'usageStatePath', 'profile', 'atlassian', 'hooks', 'service', 'blocker', 'completedSteps', 'onboardedAt']
+const KEYS: (keyof Settings)[] = ['repoDirs', 'vaultPath', 'usageStatePath', 'profile', 'atlassian', 'hooks', 'service', 'blocker', 'terminal', 'terminalOpenWindow', 'completedSteps', 'onboardedAt']
 
 function validate(patch: Partial<Settings>): string | null {
   const site = patch.atlassian?.siteUrl
@@ -11,6 +11,8 @@ function validate(patch: Partial<Settings>): string | null {
   const steps = patch.completedSteps
   if (steps && !(Array.isArray(steps) && steps.every((s) => (SETUP_STEPS as readonly string[]).includes(s)))) return 'Unknown setup step'
   if (patch.repoDirs && !(Array.isArray(patch.repoDirs) && patch.repoDirs.every((d) => typeof d === 'string'))) return 'repoDirs must be a list of paths'
+  if (patch.terminal !== undefined && !['auto', 'cmux', 'tmux', 'terminal'].includes(patch.terminal)) return 'Unknown terminal backend'
+  if (patch.terminalOpenWindow !== undefined && typeof patch.terminalOpenWindow !== 'boolean') return 'terminalOpenWindow must be true or false'
   return null
 }
 

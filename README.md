@@ -1,6 +1,6 @@
 # Agent Dashboard - The one place to Visualise AI
 
-Live dashboard of git worktrees, cmux tabs and bare agent CLI processes (Claude Code, Copilot, Codex, etc.) across the repo folders you configure.
+Live dashboard of git worktrees, terminal tabs (cmux or tmux) and bare agent CLI processes (Claude Code, Copilot, Codex, etc.) across the repo folders you configure.
 
 ![home](docs/home.png)
 
@@ -11,7 +11,7 @@ flowchart TD
   B[Browser dashboard] <--> S[Local Node server :5818]
   S <--> M[(MongoDB: settings and history)]
   S --> R[Repo folders and git worktrees]
-  S --> T[cmux tabs]
+  S --> T["terminal tabs: cmux or tmux"]
   S --> A[Agent CLI processes]
   S --> H[Hooks]
   H -->|claude -p polls| J[Jira and Slack]
@@ -29,7 +29,7 @@ flowchart TD
 | git | yes | worktree discovery |
 | MongoDB | yes | settings and history (step 2) |
 | gh | no | open-PR badges |
-| cmux | no | tab listing and new sessions |
+| cmux or tmux | no | tab listing, send, read and new sessions; without either, Terminal.app opens sessions only |
 | Claude CLI | no | hooks run `claude -p` |
 
 ```bash
@@ -154,7 +154,7 @@ curl -s http://localhost:5818/api/graph | head -c 100
 launchctl list | grep agent-monitor   # service only; use your label
 ```
 
-- Home shows repos, worktrees, cmux tabs and agents.
+- Home shows repos, worktrees, terminal tabs and agents.
 - The curl prints JSON starting with a mermaid graph and state.
 - Without MongoDB, `/api/history` errors but the rest still works.
 
@@ -168,6 +168,7 @@ agent-dashboard/
 │   ├── services/
 │   │   ├── repos.ts              git worktree discovery
 │   │   ├── processes.ts          agent process discovery
+│   │   ├── terminal.ts           terminal backend: cmux, tmux or Terminal.app
 │   │   ├── cmux*.ts              cmux tabs and control
 │   │   ├── settings.ts           settings in MongoDB
 │   │   ├── launchAgent.ts        macOS service plist
@@ -215,6 +216,16 @@ flowchart TD
   DOCS --> D1[docs screenshots]
   DOCS --> D2[.claude-plugin]
 ```
+
+## Terminal backends
+
+Set `terminal` in Setup (Profile) or the `TERMINAL_BACKEND` env var to `auto`, `cmux`, `tmux` or `terminal`. Auto picks cmux if its CLI answers, else tmux if installed, else Terminal.app.
+
+| Backend | List tabs | Send / read output | Open session |
+| --- | --- | --- | --- |
+| cmux | yes | yes | new workspace |
+| tmux | sessions prefixed `ad-` | yes | detached session, plus a Terminal window on macOS when `terminalOpenWindow` is on |
+| terminal (Terminal.app) | no (bare agent processes are still detected) | no | new window |
 
 ## Pages
 
@@ -310,6 +321,7 @@ Settings live in the MongoDB `settings` collection; env vars override them.
 | `DISABLE_HOOKS` | unset | `1` disables hook polling |
 | `CLAUDE_BIN` | `claude` on `PATH` | path to the Claude binary |
 | `MONGO_SERVICE` | `mongodb-community` | Homebrew service the Setup guide starts |
+| `TERMINAL_BACKEND` | `auto` | `cmux`, `tmux` or `terminal`; overrides the Setup choice |
 
 ## Migrating an existing install
 

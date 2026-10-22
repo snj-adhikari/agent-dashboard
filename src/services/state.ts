@@ -1,5 +1,5 @@
 import { findRepos } from './repos'
-import { cmuxWorkspaces } from './cmux'
+import { terminalTabs } from './terminal'
 import { agentProcesses } from './processes'
 import { activeCwds } from '../utils'
 import type { MonitorState } from '../types'
@@ -9,7 +9,7 @@ let inflight: Promise<MonitorState> | null = null
 let cached: { at: number; state: MonitorState } | null = null
 
 async function buildState(): Promise<MonitorState> {
-  const tabs = cmuxWorkspaces()
+  const tabs = terminalTabs()
   const agents = agentProcesses()
   return { repos: await findRepos(activeCwds({ tabs, agents })), tabs, agents }
 }
@@ -29,5 +29,5 @@ export function collectState(): Promise<MonitorState> {
 }
 
 export function currentActiveCwds(): Set<string> {
-  return activeCwds({ tabs: cmuxWorkspaces(), agents: agentProcesses() })
+  return activeCwds({ tabs: terminalTabs(), agents: agentProcesses() })
 }

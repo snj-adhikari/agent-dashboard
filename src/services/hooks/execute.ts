@@ -1,7 +1,7 @@
 import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { createWorktreeSession } from '../newSession'
-import { openClaudeTab, sendToWorkspace } from '../cmuxControl'
+import { openClaudeTab, sendToWorkspace } from '../terminal'
 import { resolveBranchName } from './branchName'
 import { baseBranchFor } from './repoMatch'
 import { pickSessionTarget, repoSessions } from './sessionTarget'

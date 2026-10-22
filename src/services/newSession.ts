@@ -1,6 +1,6 @@
 import { execFileSync } from 'child_process'
 import path from 'path'
-import { openClaudeTab } from './cmuxControl'
+import { openClaudeTab } from './terminal'
 
 export interface SessionOptions {
   tabName?: string

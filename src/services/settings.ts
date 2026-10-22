@@ -32,6 +32,8 @@ export interface BlockerSettings {
 }
 
 export interface Settings {
+  terminal: 'auto' | 'cmux' | 'tmux' | 'terminal'
+  terminalOpenWindow: boolean
   repoDirs: string[]
   vaultPath: string
   usageStatePath: string

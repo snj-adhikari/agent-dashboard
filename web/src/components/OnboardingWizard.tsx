@@ -5,7 +5,7 @@ export const WIZARD_STEPS = [
   { id: 'welcome', title: 'Welcome', sectioned: false, optional: false },
   { id: 'mongo', title: 'MongoDB', sectioned: true, optional: false },
   { id: 'repos', title: 'Repo folders', sectioned: true, optional: false },
-  { id: 'profile', title: 'Profile', sectioned: true, optional: false },
+  { id: 'profile', title: 'Profile and terminal', sectioned: true, optional: false },
   { id: 'vault', title: 'Vault', sectioned: true, optional: true },
   { id: 'atlassian', title: 'Atlassian and hooks', sectioned: true, optional: true },
   { id: 'service', title: 'Background service and cmux', sectioned: true, optional: true },
@@ -17,13 +17,13 @@ export const WIZARD_STEPS = [
 export type WizardStepId = (typeof WIZARD_STEPS)[number]['id']
 
 const WELCOME = [
-  'See every git worktree, cmux tab and agent CLI process across your repo folders in one place.',
+  'See every git worktree, terminal tab and agent CLI process across your repo folders in one place.',
   'Start, message and clean up agent sessions without leaving the dashboard.',
   'Optional automation hooks turn assigned Jira tickets and PR review requests into ready sessions.'
 ]
 
 const TOUR: [string, string][] = [
-  ['Home', 'Live graph of repos, worktrees, cmux tabs and agents, with controls for each.'],
+  ['Home', 'Live graph of repos, worktrees, terminal tabs and agents, with controls for each.'],
   ['History', 'Usage and session history over time, with links back to open tabs.'],
   ['Vault', 'Browse your notes folder as a tree and graph.'],
   ['Hooks', 'Status of the automation queue and the usage gate.'],

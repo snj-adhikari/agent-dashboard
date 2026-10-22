@@ -10,7 +10,7 @@ let initialized = false
 const LEGEND: { label: string; dot: string }[] = [
   { label: 'repo', dot: 'bg-slate-500' },
   { label: 'worktree', dot: 'bg-brand' },
-  { label: 'cmux tab', dot: 'bg-ok' },
+  { label: 'terminal tab', dot: 'bg-ok' },
   { label: 'bare agent', dot: 'bg-warn' }
 ]
 

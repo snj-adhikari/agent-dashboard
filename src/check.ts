@@ -4,7 +4,15 @@ import path from 'path'
 import fs from 'fs'
 import { activeCwds, isActiveWorktree, isUnder } from './utils'
 import { downsample, summarise, type Snapshot } from './services/history'
+import { tmuxKey, tmuxName } from './services/terminal'
 import { keepReason, recentlyModified, type WorktreeFacts } from './services/repos'
+
+assert.strictEqual(tmuxName('[hook:jira] Fix: a/b.c'), 'ad-hook-jira-Fix-a-b-c')
+assert.strictEqual(tmuxName('x', ['ad-x', 'ad-x-2']), 'ad-x-3', 'collision gets a suffix')
+assert.strictEqual(tmuxName('///'), 'ad-session')
+assert.ok(/^[A-Za-z0-9._-]+$/.test(tmuxName('we ird;"$(x)')))
+assert.strictEqual(tmuxKey('escape'), 'Escape')
+assert.strictEqual(tmuxKey('enter'), 'Enter')
 
 const wt = path.join(os.homedir(), 'Code', 'repo-worktrees', 'fix-a')
 const active = (...cwds: string[]) => activeCwds({ tabs: cwds.map((cwd) => ({ ref: 't', cwd, title: '', lastActive: null })), agents: [] })

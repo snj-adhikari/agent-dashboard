@@ -188,7 +188,7 @@ export function HistoryPage() {
                 <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="tabs" stroke="#22c55e" name="cmux tabs" dot={false} />
+                <Line type="monotone" dataKey="tabs" stroke="#22c55e" name="terminal tabs" dot={false} />
                 <Line type="monotone" dataKey="agents" stroke="#f59e0b" name="bare agents" dot={false} />
                 <Line type="monotone" dataKey="worktrees" stroke="#3b82f6" name="worktrees" dot={false} />
               </LineChart>
@@ -248,7 +248,7 @@ export function HistoryPage() {
 
           <h2 className="mb-2 text-sm font-medium text-slate-400">Sessions seen in this range</h2>
           <p className="mb-2 text-xs text-slate-600">
-            "Switch" only works if the cmux tab is still open — closed sessions are read-only history.
+            "Switch" only works if the terminal tab is still open — closed sessions are read-only history.
           </p>
           {data.sessions.length ? (
             data.sessions.slice(0, shown).map((s) => (

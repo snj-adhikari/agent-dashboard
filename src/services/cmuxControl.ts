@@ -16,10 +16,13 @@ export function shellQuote(s: string): string {
   return `'${s.replace(/'/g, `'\\''`)}'`
 }
 
-// cmux types --command into the user's shell, so a prompt must be shell-quoted to arrive as one argument.
-export function openClaudeTab(name: string, cwd: string, prompt?: string, env: Record<string, string> = {}): string {
+export function claudeCommand(prompt?: string, env: Record<string, string> = {}): string {
   const vars = Object.entries(env).map(([k, v]) => `${k}=${shellQuote(v)} `).join('')
-  const command = `${vars}${prompt ? `claude ${shellQuote(prompt.replace(/[\r\n]+/g, ' '))}` : 'claude'}`
+  return `${vars}${prompt ? `claude ${shellQuote(prompt.replace(/[\r\n]+/g, ' '))}` : 'claude'}`
+}
+
+// cmux types --command into the user's shell, so a prompt must be shell-quoted to arrive as one argument.
+export function openCmuxTab(name: string, cwd: string, command: string): string {
   const out = execFileSync(
     'cmux',
     ['workspace', 'create', '--name', name, '--cwd', cwd, '--command', command, '--focus', 'false'],

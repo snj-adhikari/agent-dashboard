@@ -25,6 +25,8 @@ const clean = (l: string[]) => l.map((x) => x.trim()).filter(Boolean)
 
 const withDefaults = (s: Partial<Settings>, d: ServiceSettings): Settings => ({
   repoDirs: s.repoDirs ?? [],
+  terminal: s.terminal ?? 'auto',
+  terminalOpenWindow: s.terminalOpenWindow ?? true,
   vaultPath: s.vaultPath ?? '',
   usageStatePath: s.usageStatePath ?? '',
   profile: { displayName: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...s.profile },
@@ -257,7 +259,7 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
           id="profile"
           title="Profile"
           done={!missing('profile')}
-          onSave={() => save('profile', { profile: s.profile })}
+          onSave={() => save('profile', { profile: s.profile, terminal: s.terminal, terminalOpenWindow: s.terminalOpenWindow })}
           saving={busy === 'profile'}
           saved={saved('profile')}
         >
@@ -273,6 +275,22 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
           <Field label="PR review skill" hint="Optional. Skill name hooks invoke to review a PR.">
             <TextInput value={s.profile.prReviewSkill} onChange={(v) => upd({ profile: { ...s.profile, prReviewSkill: v } })} />
           </Field>
+          <Field label="Terminal" hint={status ? `Active: ${status.terminal.backend}. Auto uses cmux, then tmux, then Terminal.app (open only).` : undefined}>
+            <select
+              value={s.terminal}
+              onChange={(e) => upd({ terminal: e.target.value as Settings['terminal'] })}
+              className="w-full box-border rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-sm text-slate-100 outline-none focus:border-brand"
+            >
+              <option value="auto">auto</option>
+              <option value="cmux">cmux</option>
+              <option value="tmux">tmux</option>
+              <option value="terminal">terminal (Terminal.app, open only)</option>
+            </select>
+          </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input type="checkbox" checked={s.terminalOpenWindow} onChange={(e) => upd({ terminalOpenWindow: e.target.checked })} />
+            Open a Terminal window for new tmux sessions (macOS)
+          </label>
         </Section>
 
         <Section

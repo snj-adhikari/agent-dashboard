@@ -181,6 +181,8 @@ export interface BlockerSettings {
 export type SetupStep = 'mongo' | 'repos' | 'profile' | 'vault' | 'atlassian' | 'service' | 'blocker'
 
 export interface Settings {
+  terminal: 'auto' | 'cmux' | 'tmux' | 'terminal'
+  terminalOpenWindow: boolean
   repoDirs: string[]
   vaultPath: string
   usageStatePath: string
@@ -198,4 +200,5 @@ export interface SetupStatus {
   missing: SetupStep[]
   onboarded: boolean
   serviceDefaults: ServiceSettings
+  terminal: { backend: 'cmux' | 'tmux' | 'terminal'; canSend: boolean; canRead: boolean }
 }

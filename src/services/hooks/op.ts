@@ -1,13 +1,6 @@
 import { execFileSync } from 'child_process'
-import os from 'os'
 
 export class OpLockedError extends Error {}
-
-export function openOpUnlockTab(): void {
-  execFileSync('cmux', ['workspace', 'create', '--name', 'op-unlock', '--cwd', os.homedir(), '--command', 'op signin', '--focus', 'false'], {
-    encoding: 'utf8'
-  })
-}
 
 // ponytail: fallback path only — the claude-CLI/MCP poll path is primary and normally needs no secret.
 export function opRead(ref: string): string {
