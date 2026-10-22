@@ -5,7 +5,7 @@ import { MongoClient, Db } from 'mongodb'
 
 const execFileAsync = promisify(execFile)
 
-const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017'
+export const MONGO_URL = process.env.MONGO_URL || 'mongodb://127.0.0.1:27017'
 const DB_NAME = process.env.MONGO_DB || 'agent_monitor'
 const RETRY_AFTER_MS = 10_000
 const MONGO_SERVICE = process.env.MONGO_SERVICE || 'mongodb-community'

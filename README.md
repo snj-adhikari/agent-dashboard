@@ -43,7 +43,7 @@ echo 'MONGO_URL=mongodb://127.0.0.1:27017' > .env   # optional, this is the defa
 npm start       # serves web/dist + the API on :5818
 ```
 
-Open http://localhost:5818. Until setup is complete you are redirected to the **Setup** guide. `npm run dev` builds and starts in one go.
+The server prints the Setup URL (e.g. `Setup incomplete: open http://localhost:5818/setup`) while setup is incomplete or MongoDB is unreachable. Open http://localhost:5818: on first run a welcome guide walks through MongoDB, repo folders, profile, vault, Atlassian and hooks, the LaunchAgent with cmux socket access, and the Chrome blocker. Re-run it any time from the **Setup** page. `npm run dev` builds and starts in one go.
 
 ## Setup
 
@@ -124,7 +124,7 @@ default) — so a standalone LaunchAgent always sees "0 cmux tabs" even when tab
 needs `cmux`/`git`/`gh` on `PATH`, which a LaunchAgent's default `PATH`
 (`/usr/bin:/bin:/usr/sbin:/sbin`) doesn't include.
 
-Fix (one-time):
+The **Setup** page (Background service step, "cmux socket access") does this for you: it generates a token, shows the cmux settings snippet to copy, and writes the same token into the plist as `CMUX_SOCKET_PASSWORD`. The token is never stored in MongoDB. To do it by hand instead (one-time):
 
 1. In `~/.config/cmux/cmux.json`, back up the file first, then add an **uncommented** block:
    ```jsonc

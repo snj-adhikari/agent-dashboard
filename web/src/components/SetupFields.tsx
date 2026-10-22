@@ -23,7 +23,7 @@ export function TextInput({
   value: string | number
   onChange: (v: string) => void
   placeholder?: string
-  type?: 'text' | 'number'
+  type?: 'text' | 'number' | 'password'
   onBlur?: () => void
 }) {
   return (

@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react'
 import { api } from '../api'
 import type { BaseBranchRule, HooksConfig, ServiceSettings, Settings, SetupStatus, SetupStep } from '../types'
 import { Button, Card } from './Card'
 import { Modal } from './Modal'
 import { Pending } from './Spinner'
+import { CmuxSocketGuide, CMUX_SECRET } from './CmuxSocketGuide'
+import { WizardShell, WIZARD_STEPS, type WizardStepId } from './OnboardingWizard'
 import { ChipList, CopyLine, Field, fromRows, RowsEditor, TextInput, toRows } from './SetupFields'
 
 const DEFAULT_HOOKS: HooksConfig = {
@@ -47,7 +49,12 @@ const MONGO_COMMANDS = [
   'docker run -d --name mongo -p 27017:27017 mongo:7'
 ]
 
+type SaveFn = () => Promise<boolean> | void
+
+const WizardCtx = createContext<{ only: WizardStepId; saveRef: MutableRefObject<SaveFn | undefined> } | null>(null)
+
 function Section({
+  id,
   title,
   done,
   children,
@@ -55,13 +62,20 @@ function Section({
   saving,
   saved
 }: {
+  id: WizardStepId
   title: string
   done: boolean
   children: ReactNode
-  onSave?: () => void
+  onSave?: SaveFn
   saving?: boolean
   saved?: string
 }) {
+  const wizard = useContext(WizardCtx)
+  if (wizard) {
+    if (wizard.only !== id) return null
+    wizard.saveRef.current = onSave
+    return <Card>{children}</Card>
+  }
   return (
     <section className="mb-6">
       <div className="mb-2 flex items-center gap-2">
@@ -88,7 +102,7 @@ function Section({
 
 const num = (v: string, fallback: number) => (Number.isFinite(Number(v)) && v.trim() !== '' ? Number(v) : fallback)
 
-export function SetupPage() {
+export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; onClose?: () => void; onRunGuide?: () => void }) {
   const [s, setS] = useState<Settings | null>(null)
   const [status, setStatus] = useState<SetupStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -98,6 +112,9 @@ export function SetupPage() {
   const [mongoMsg, setMongoMsg] = useState('')
   const [service, setService] = useState<{ path: string; plist: string; commands: string[]; note?: string } | null>(null)
   const [confirmInstall, setConfirmInstall] = useState(false)
+  const [cmuxToken, setCmuxToken] = useState('')
+  const [stepIdx, setStepIdx] = useState(0)
+  const saveRef = useRef<SaveFn | undefined>(undefined)
 
   const refreshStatus = useCallback(() => api.setupStatus().then(setStatus), [])
 
@@ -106,6 +123,7 @@ export function SetupPage() {
       const [settings, st] = await Promise.all([api.settings(), api.setupStatus()])
       setStatus(st)
       setS(withDefaults(settings, st.serviceDefaults))
+      if (wizard && !st.mongo.up) setStepIdx(1)
     } catch (e) {
       setError((e as Error).message)
     }
@@ -123,7 +141,7 @@ export function SetupPage() {
   const upd = (patch: Partial<Settings>) => setS({ ...s, ...patch })
   const updHooks = (patch: Partial<HooksConfig>) => upd({ hooks: { ...s.hooks, ...patch } })
 
-  async function save(step: SetupStep, patch: Partial<Settings>, markDone = true) {
+  async function save(step: SetupStep, patch: Partial<Settings>, markDone = true): Promise<boolean> {
     setBusy(step)
     const completedSteps = markDone ? [...new Set([...s!.completedSteps, step])] : s!.completedSteps
     try {
@@ -133,10 +151,13 @@ export function SetupPage() {
         await refreshStatus()
       }
       setMsg((m) => ({ ...m, [step]: r.ok ? 'Saved' : (r.error ?? 'Save failed') }))
+      setBusy(null)
+      return r.ok
     } catch (e) {
       setMsg((m) => ({ ...m, [step]: (e as Error).message }))
     }
     setBusy(null)
+    return false
   }
 
   async function checkDir(path: string) {
@@ -155,7 +176,7 @@ export function SetupPage() {
 
   async function generate() {
     setBusy('generate')
-    const r = await api.generateService(s!.service)
+    const r = await api.generateService(s!.service, cmuxToken ? { [CMUX_SECRET]: cmuxToken } : undefined)
     if (r.ok) setService({ path: r.path, plist: r.plist, commands: r.commands, note: r.note })
     setMsg((m) => ({ ...m, service: r.ok ? '' : (r.error ?? 'Generate failed') }))
     setBusy(null)
@@ -164,7 +185,7 @@ export function SetupPage() {
   async function install() {
     setConfirmInstall(false)
     setBusy('install')
-    const r = await api.installService()
+    const r = await api.installService(cmuxToken ? { [CMUX_SECRET]: cmuxToken } : undefined)
     setMsg((m) => ({ ...m, service: r.ok ? 'Installed' + (r.output ? `: ${r.output}` : '') : (r.error ?? 'Install failed') }))
     setBusy(null)
   }
@@ -172,9 +193,14 @@ export function SetupPage() {
   const saved = (k: string) => (busy === k ? 'Saving...' : msg[k])
   const baseRows = s.hooks.baseBranches.map((b) => [b.repo, b.titleMatch ?? '', b.base])
 
-  return (
+  const content = (
     <div className="max-w-3xl">
-      <Section title="MongoDB" done={up}>
+      {onRunGuide && (
+        <div className="mb-4">
+          <Button onClick={onRunGuide}>Run setup guide again</Button>
+        </div>
+      )}
+      <Section id="mongo" title="MongoDB" done={up}>
         <div className="mb-2 flex items-center gap-2 text-sm">
           <span className={`inline-block h-2 w-2 rounded-full ${up ? 'bg-ok' : 'bg-danger'}`} />
           {up ? 'MongoDB is reachable.' : 'MongoDB is not reachable. Start it, then check again.'}
@@ -204,6 +230,7 @@ export function SetupPage() {
 
       <fieldset disabled={!up} className={`min-w-0 border-0 p-0 ${up ? '' : 'pointer-events-none opacity-50'}`}>
         <Section
+          id="repos"
           title="Repo folders"
           done={!missing('repos')}
           onSave={() => save('repos', { repoDirs: clean(s.repoDirs) })}
@@ -227,6 +254,7 @@ export function SetupPage() {
         </Section>
 
         <Section
+          id="profile"
           title="Profile"
           done={!missing('profile')}
           onSave={() => save('profile', { profile: s.profile })}
@@ -248,6 +276,7 @@ export function SetupPage() {
         </Section>
 
         <Section
+          id="vault"
           title="Vault"
           done={!missing('vault')}
           onSave={() => save('vault', { vaultPath: s.vaultPath })}
@@ -260,6 +289,7 @@ export function SetupPage() {
         </Section>
 
         <Section
+          id="atlassian"
           title="Atlassian and hooks"
           done={!missing('atlassian')}
           onSave={() =>
@@ -350,6 +380,7 @@ export function SetupPage() {
         </Section>
 
         <Section
+          id="service"
           title="Background service"
           done={!missing('service')}
           onSave={() => save('service', { service: { ...s.service, secretEnvNames: clean(s.service.secretEnvNames) } })}
@@ -378,6 +409,7 @@ export function SetupPage() {
           <Field label="Secret env names" hint="Names only. Values stay in the plist and are never stored in MongoDB.">
             <ChipList value={s.service.secretEnvNames} onChange={(v) => upd({ service: { ...s.service, secretEnvNames: v } })} />
           </Field>
+          <CmuxSocketGuide token={cmuxToken} onChange={setCmuxToken} />
           <div className="mb-2">
             <Button loading={busy === 'generate'} onClick={generate}>
               Generate
@@ -401,6 +433,7 @@ export function SetupPage() {
         </Section>
 
         <Section
+          id="blocker"
           title="Chrome blocker"
           done={!missing('blocker')}
           onSave={() => {
@@ -439,5 +472,42 @@ export function SetupPage() {
         </Modal>
       )}
     </div>
+  )
+
+  if (!wizard) return content
+
+  const step = WIZARD_STEPS[stepIdx]
+  const last = stepIdx === WIZARD_STEPS.length - 1
+  const nextBlocked =
+    (step.id === 'mongo' && !up) ||
+    (step.id === 'repos' && clean(s.repoDirs).length === 0) ||
+    (step.id === 'profile' && !s.profile.displayName.trim())
+
+  async function next() {
+    if (last) {
+      setBusy('finish')
+      const r = await api.saveSettings({ onboardedAt: new Date().toISOString() })
+      setBusy(null)
+      if (r.ok) onClose?.()
+      else setMsg((m) => ({ ...m, finish: r.error ?? 'Could not finish' }))
+      return
+    }
+    const ok = step.sectioned ? (await saveRef.current?.()) !== false : true
+    if (ok) setStepIdx(stepIdx + 1)
+  }
+
+  return (
+    <WizardShell
+      index={stepIdx}
+      busy={!!busy}
+      nextBlocked={nextBlocked}
+      error={step.sectioned ? msg[step.id] && msg[step.id] !== 'Saved' ? msg[step.id] : '' : msg.finish}
+      onBack={() => setStepIdx(stepIdx - 1)}
+      onNext={next}
+      onSkip={() => setStepIdx(stepIdx + 1)}
+      onExit={() => onClose?.()}
+    >
+      {step.sectioned ? <WizardCtx.Provider value={{ only: step.id, saveRef }}>{content}</WizardCtx.Provider> : null}
+    </WizardShell>
   )
 }

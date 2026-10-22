@@ -22,6 +22,8 @@ import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
 import { loadSettings } from './services/settings'
+import { MONGO_URL } from './services/db'
+import { missingSteps } from './routes/setup'
 
 const PORT = Number(process.env.MONITOR_PORT) || 5818
 const WEB_DIST = path.join(__dirname, '..', 'web', 'dist')
@@ -94,11 +96,22 @@ const server = http.createServer(async (req, res) => {
 
 const SETTINGS_RETRY_MS = 30_000
 
+function setupHint(mongoUp: boolean): void {
+  if (!missingSteps(mongoUp).length) return
+  const url = `http://localhost:${PORT}/setup`
+  console.log(mongoUp ? `Setup incomplete: open ${url}` : `MongoDB not reachable at ${MONGO_URL.replace(/\/\/[^@/]*@/, '//')}; open ${url} for the install guide`)
+}
+
+let downHinted = false
+
 async function initSettings(): Promise<void> {
   try {
     await loadSettings()
+    setupHint(true)
   } catch (e) {
     console.error(`settings not loaded, retrying in ${SETTINGS_RETRY_MS / 1000}s: ${(e as Error).message}`)
+    if (!downHinted) setupHint(false)
+    downHinted = true
     setTimeout(initSettings, SETTINGS_RETRY_MS)
   }
 }

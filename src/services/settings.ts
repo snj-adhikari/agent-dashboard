@@ -41,6 +41,7 @@ export interface Settings {
   service: ServiceSettings
   blocker: BlockerSettings
   completedSteps: SetupStep[]
+  onboardedAt?: string
 }
 
 export const SETUP_STEPS = ['mongo', 'repos', 'profile', 'vault', 'atlassian', 'service', 'blocker'] as const

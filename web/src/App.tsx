@@ -61,6 +61,8 @@ export default function App() {
   const [online, setOnline] = useState(true)
   const [expandedRepos, setExpandedRepos] = useState<string[]>([])
   const [modalRepo, setModalRepo] = useState<Repo | null>(null)
+  const [wizardOpen, setWizardOpen] = useState(false)
+  const [setupKey, setSetupKey] = useState(0)
   const mongo = useMongoStatus()
 
   const setView = useCallback((next: View) => {
@@ -69,14 +71,10 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (window.location.pathname === VIEW_PATHS.setup) return
     api
       .setupStatus()
       .then((st) => {
-        if (st.missing.some((m) => m === 'mongo' || m === 'repos' || m === 'profile')) {
-          window.history.replaceState(null, '', VIEW_PATHS.setup)
-          setViewState('setup')
-        }
+        if (!st.onboarded || st.missing.some((m) => m === 'mongo' || m === 'repos' || m === 'profile')) setWizardOpen(true)
       })
       .catch(() => {})
   }, [])
@@ -148,7 +146,7 @@ export default function App() {
           {view === 'home' && <div className="mt-4">{data && <StatBar state={data.state} />}</div>}
         </header>
 
-        <MongoAlerts status={mongo} hidePopup={view === 'setup'} />
+        <MongoAlerts status={mongo} hidePopup={view === 'setup' || wizardOpen} />
         <ErrorBoundary key={view}>
           <Suspense fallback={<Pending />}>
           {view === 'history' ? (
@@ -156,7 +154,7 @@ export default function App() {
           ) : view === 'vault' ? (
             <VaultPage />
           ) : view === 'setup' ? (
-            <SetupPage />
+            <SetupPage key={setupKey} onRunGuide={() => setWizardOpen(true)} />
           ) : view === 'plugin' ? (
             <PluginPage />
           ) : view === 'hooks' ? (
@@ -198,6 +196,15 @@ export default function App() {
                 </div>
               </aside>
             </div>
+          )}
+          {wizardOpen && (
+            <SetupPage
+              wizard
+              onClose={() => {
+                setWizardOpen(false)
+                setSetupKey((k) => k + 1)
+              }}
+            />
           )}
           </Suspense>
         </ErrorBoundary>

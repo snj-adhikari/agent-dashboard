@@ -40,12 +40,14 @@ export function Button({
   danger,
   primary,
   loading,
+  disabled,
   onClick,
   children
 }: {
   danger?: boolean
   primary?: boolean
   loading?: boolean
+  disabled?: boolean
   onClick: () => void
   children: ReactNode
 }) {
@@ -58,8 +60,8 @@ export function Button({
   return (
     <button
       onClick={onClick}
-      disabled={loading}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium mr-1.5 mb-1 transition-colors disabled:opacity-60 disabled:cursor-wait ${style}`}
+      disabled={loading || disabled}
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium mr-1.5 mb-1 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${style}`}
     >
       {loading && <Spinner />}
       {children}

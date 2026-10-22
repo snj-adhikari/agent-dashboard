@@ -57,7 +57,7 @@ export const api = {
   saveSettings: (patch: Partial<Settings>) => postJson<ApiResult & { settings?: Partial<Settings> }>('/api/settings', patch),
   setupStatus: (): Promise<SetupStatus> => fetch('/api/setup/status').then((r) => r.json()),
   checkDir: (path: string) => postJson<ApiResult & { exists: boolean; repoCount: number }>('/api/setup/check-dir', { path }),
-  generateService: (service?: ServiceSettings) =>
-    postJson<ApiResult & { path: string; plist: string; commands: string[]; note?: string }>('/api/setup/service/generate', { service }),
-  installService: () => postJson<ApiResult & { output?: string }>('/api/setup/service/install', {})
+  generateService: (service?: ServiceSettings, secrets?: Record<string, string>) =>
+    postJson<ApiResult & { path: string; plist: string; commands: string[]; note?: string }>('/api/setup/service/generate', { service, secrets }),
+  installService: (secrets?: Record<string, string>) => postJson<ApiResult & { output?: string }>('/api/setup/service/install', { secrets })
 }

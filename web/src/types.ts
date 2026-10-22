@@ -190,10 +190,12 @@ export interface Settings {
   service: ServiceSettings
   blocker: BlockerSettings
   completedSteps: SetupStep[]
+  onboardedAt?: string
 }
 
 export interface SetupStatus {
   mongo: { up: boolean; error?: string }
   missing: SetupStep[]
+  onboarded: boolean
   serviceDefaults: ServiceSettings
 }
