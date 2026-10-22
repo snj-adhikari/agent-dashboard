@@ -1,4 +1,4 @@
-# agent-monitor
+# agent-dashboard
 
 Live dashboard of git worktrees, cmux tabs, and bare agent CLI processes (Claude Code, Copilot, Codex, etc.) across the repo folders you configure.
 
@@ -36,7 +36,7 @@ web/                     Vite + React + TypeScript + Tailwind v4 frontend
 
 ```bash
 git clone https://github.com/snj-adhikari/agent-dashboard.git
-cd agent-monitor
+cd agent-dashboard
 npm install
 npm run build   # web/ (Vite/React/Tailwind), then the server (tsc)
 echo 'MONGO_URL=mongodb://127.0.0.1:27017' > .env   # optional, this is the default
@@ -251,7 +251,7 @@ unzip agent-sessions.zip -d agent-sessions && claude --plugin-dir ./agent-sessio
 
 **Add to this device**: each mod card on the Plugin page has an **Add to this device** button next to Download. It copies the mod into `~/.claude/skills/<name>`, where Claude Code loads plugin folders in every new session; it refuses if a folder of that name exists and isn't that plugin. Download only gives the zip. On the GTA - Blocker card it copies the extension to `~/Library/Application Support/agent-monitor/extensions/njw-analytic-blocker`, opens `chrome://extensions`, shows the folder in Finder and puts its path on the clipboard; Chrome then needs one **Load unpacked** (it can't be installed from outside), and later clicks only need the extension's reload icon.
 
-**GTA - Blocker**: `njw-analytic-blocker/` is a Chrome extension (not a session plugin) for running browser automation on production sites without side effects. It blocks GA, GTM, Google ad and Insider requests, strips ad click ids, deletes tracking cookies and hides cookies from page scripts. The sites it applies to are set in Setup or on the extension's options page (multiple domains). Load it unpacked at `chrome://extensions`, or download the zip from the Plugin page.
+**GTA - Blocker**: `extensions/njw-analytic-blocker/` is a Chrome extension (not a session plugin) for running browser automation on production sites without side effects. It blocks GA, GTM, Google ad and Insider requests, strips ad click ids, deletes tracking cookies and hides cookies from page scripts. The sites it applies to are set in Setup or on the extension's options page (multiple domains). Load it unpacked at `chrome://extensions`, or download the zip from the Plugin page.
 
 ![plugin](docs/plugin.png)
 

@@ -19,7 +19,7 @@ const EXTENSION_DIR = path.join(os.homedir(), 'Library', 'Application Support', 
 
 export async function handlePluginDownload(res: ServerResponse, name: string): Promise<void> {
   const mod = MODS.includes(name) || name === EXTENSION ? name : MODS[0]
-  let dir = mod === EXTENSION ? path.join(MODS_DIR, '..', EXTENSION) : path.join(MODS_DIR, mod)
+  let dir = mod === EXTENSION ? path.join(MODS_DIR, '..', 'extensions', EXTENSION) : path.join(MODS_DIR, mod)
   let tmp: string | undefined
   try {
     if (mod === EXTENSION) {
@@ -52,7 +52,7 @@ function copyPlugin(src: string, dest: string): void {
 }
 
 function stageExtension(dest: string): void {
-  copyPlugin(path.join(MODS_DIR, '..', EXTENSION), dest)
+  copyPlugin(path.join(MODS_DIR, '..', 'extensions', EXTENSION), dest)
   const { name, sites } = settings().blocker ?? { name: '', sites: [] }
   const manifestPath = path.join(dest, 'manifest.json')
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
