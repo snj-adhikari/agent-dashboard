@@ -1,0 +1,11 @@
+{
+  "name": "agent-monitor",
+  "owner": { "name": "S.N.J" },
+  "metadata": { "description": "Claude Code plugins for the agent-monitor dashboard." },
+  "plugins": [
+    { "name": "agent-monitor-hook", "source": "./mods/agent-monitor-hook" },
+    { "name": "agent-sessions", "source": "./mods/agent-sessions" },
+    { "name": "stop-slop", "source": "./mods/stop-slop" },
+    { "name": "factory", "source": "./mods/factory" }
+  ]
+}

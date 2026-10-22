@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Monitor",
+  "version": "0.1.0",
+  "author": "S.N.J",
+  "description": "Live view of your coding agent sessions and the worktrees they are working in, from the local agent-monitor.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Agent Monitor"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:5818/*"
+  ]
+}

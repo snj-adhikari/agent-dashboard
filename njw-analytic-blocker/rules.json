@@ -1,0 +1,319 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "googletagmanager.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "google-analytics.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "analytics.google.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "googletagservices.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "doubleclick.net"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "googlesyndication.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 7,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "googleadservices.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 8,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "adservice.google.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 9,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "adservice.google.com.au"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 10,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "useinsider.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 11,
+    "priority": 1,
+    "action": {
+      "type": "block"
+    },
+    "condition": {
+      "requestDomains": [
+        "insiderone.com"
+      ],
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame",
+        "script",
+        "image",
+        "xmlhttprequest",
+        "ping",
+        "stylesheet",
+        "font",
+        "media",
+        "websocket",
+        "object",
+        "other"
+      ]
+    }
+  },
+  {
+    "id": 100,
+    "priority": 1,
+    "action": {
+      "type": "redirect",
+      "redirect": {
+        "transform": {
+          "queryTransform": {
+            "removeParams": [
+              "gclid",
+              "gclsrc",
+              "dclid",
+              "gbraid",
+              "wbraid",
+              "gad_source",
+              "gad_campaignid",
+              "fbclid",
+              "msclkid",
+              "_gl"
+            ]
+          }
+        }
+      }
+    },
+    "condition": {
+      "resourceTypes": [
+        "main_frame",
+        "sub_frame"
+      ]
+    }
+  }
+]

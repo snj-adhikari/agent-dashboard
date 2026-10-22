@@ -1,0 +1,48 @@
+const assert = require('assert')
+const rules = require('./rules.json')
+const manifest = require('./manifest.json')
+const config = require('./config.json')
+const { isTracking, onSite } = require('./cookies')
+const { CLAUDE_GROUP, buildRules } = require('./scope')
+
+assert.strictEqual(new Set(rules.map((r) => r.id)).size, rules.length)
+const blockRules = rules.filter((r) => r.action.type === 'block')
+for (const r of blockRules) assert.strictEqual(r.condition.requestDomains.length, 1)
+const blocked = new Set(blockRules.flatMap((r) => r.condition.requestDomains))
+for (const d of ['googletagmanager.com', 'google-analytics.com', 'doubleclick.net', 'googleadservices.com', 'googlesyndication.com', 'useinsider.com'])
+  assert.ok(blocked.has(d), d)
+
+const strip = rules.find((r) => r.action.type === 'redirect')
+assert.ok(strip.action.redirect.transform.queryTransform.removeParams.includes('gclid'))
+
+assert.ok(Array.isArray(config.sites) && config.sites.every((s) => typeof s === 'string'))
+assert.ok(!manifest.declarative_net_request && !manifest.content_scripts)
+assert.ok(manifest.permissions.includes('storage') && manifest.options_ui.page === 'options.html')
+assert.ok(manifest.optional_host_permissions.length && !manifest.host_permissions)
+
+const sites = ['example.com', 'shop.test']
+assert.ok(onSite('example.com', sites) && onSite('a.example.com', sites) && onSite('shop.test', sites))
+assert.ok(!onSite('notexample.com', sites) && !onSite('example.com.evil.test', sites))
+
+const c = (name, domain = '.example.com') => ({ name, domain })
+for (const n of ['_ga', '_ga_ABC123', '_gid', '_gcl_aw', '_gcl_au', '_fbp', 'gclid', '__gads', 'ins-product-id'])
+  assert.ok(isTracking(c(n), sites), n)
+for (const n of ['session', 'auth_token', 'consent', 'insecure_ok'])
+  assert.ok(!isTracking(c(n), sites), n)
+assert.ok(!isTracking(c('_ga', '.other.com'), sites))
+assert.ok(!isTracking(c('_ga', 'notexample.com'), sites))
+assert.ok(isTracking(c('_ga', 'www.shop.test'), sites))
+assert.ok(!isTracking(c('_ga'), []))
+
+assert.ok(CLAUDE_GROUP.test('Claude') && CLAUDE_GROUP.test('Claude (MCP)') && !CLAUDE_GROUP.test('Work'))
+const scoped = buildRules(rules, [7, 9], sites)
+assert.strictEqual(scoped.length, rules.length + 1)
+assert.strictEqual(new Set(scoped.map((r) => r.id)).size, scoped.length)
+for (const r of scoped) assert.deepStrictEqual(r.condition.tabIds, [7, 9])
+for (const r of scoped.filter((r) => r.action.type !== 'redirect')) assert.deepStrictEqual(r.condition.initiatorDomains, sites)
+assert.deepStrictEqual(scoped.find((r) => r.action.type === 'redirect').condition.requestDomains, sites)
+const tp = scoped.find((r) => r.id === 200).condition
+assert.strictEqual(tp.domainType, 'thirdParty')
+assert.ok(!tp.resourceTypes.includes('script') && !tp.resourceTypes.includes('image'))
+assert.ok(!rules.some((r) => r.condition.tabIds || r.condition.initiatorDomains))
+console.log(`ok: ${rules.length} rules`)

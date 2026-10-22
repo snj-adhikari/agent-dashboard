@@ -1,0 +1,29 @@
+{
+  "pollModel": "claude-sonnet-5",
+  "completion": "approve",
+  "maxConcurrent": 1,
+  "gate": {
+    "fiveHourPct": 50,
+    "sevenDayPct": 95
+  },
+  "jiraProjects": [
+    "PROJ"
+  ],
+  "projectRepos": {
+    "PROJ": "my-repo"
+  },
+  "repositoryField": {
+    "Web": "my-repo"
+  },
+  "repoDescriptions": {
+    "my-repo": "frontend web app"
+  },
+  "baseBranches": [
+    {
+      "repo": "my-repo",
+      "titleMatch": "migration",
+      "base": "origin/next"
+    }
+  ],
+  "allowedGithubOrgs": []
+}

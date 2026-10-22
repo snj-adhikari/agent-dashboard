@@ -1,0 +1,6 @@
+{
+  "name": "stop-slop",
+  "version": "0.1.0",
+  "author": { "name": "S.N.J" },
+  "description": "Makes every session write like a person: short bullets, plain words, no AI tells. Adds a stop-slop editing skill for tickets, comments, PR text and reports."
+}

@@ -1,0 +1,1 @@
+{ "name": "factory", "version": "0.1.0", "description": "Lead agent grills you, then drives research, plan, dev and QA agents until the goal is met", "author": { "name": "Snj - nightwalker" }, "types": "./types/index.d.ts" }

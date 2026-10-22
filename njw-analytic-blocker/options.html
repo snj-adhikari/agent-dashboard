@@ -1,0 +1,26 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Sites</title>
+  <style>
+    body { font: 14px system-ui, sans-serif; max-width: 520px; margin: 32px auto; padding: 0 16px; }
+    ul { list-style: none; padding: 0; }
+    li { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid #ddd; }
+    li span { flex: 1; }
+    small { color: #888; }
+    form { display: flex; gap: 8px; }
+    input { flex: 1; padding: 4px 6px; }
+  </style>
+</head>
+<body>
+  <h1 id="title"></h1>
+  <p>Blocking applies to Claude in Chrome tabs on these sites and their subdomains. Grant access so tracking cookies can be purged and hidden.</p>
+  <ul id="sites"></ul>
+  <form id="add">
+    <input id="site" placeholder="example.com" required>
+    <button>Add</button>
+  </form>
+  <script src="options.js"></script>
+</body>
+</html>

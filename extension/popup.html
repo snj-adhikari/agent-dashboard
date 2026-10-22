@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Agent Monitor</title>
+  <style>
+    body { width: 420px; max-height: 560px; overflow-y: auto; margin: 0; padding: 12px; font: 12px/1.4 system-ui, sans-serif; background: #0f172a; color: #e2e8f0; }
+    h1 { font-size: 13px; margin: 0 0 8px; display: flex; justify-content: space-between; align-items: baseline; }
+    a { color: #93c5fd; font-weight: 400; }
+    .repo { margin-top: 10px; font-weight: 600; }
+    .repo small { color: #94a3b8; font-weight: 400; }
+    .wt { margin: 4px 0 0 8px; padding-left: 8px; border-left: 2px solid #334155; }
+    .branch { color: #a5b4fc; }
+    .changed { color: #fbbf24; }
+    .session { margin: 2px 0 0 10px; color: #cbd5e1; }
+    .session small { color: #94a3b8; }
+    .msg { color: #94a3b8; margin-top: 8px; }
+    .err { color: #fca5a5; }
+  </style>
+</head>
+<body>
+  <h1><span id="total">Agent Monitor</span><a id="open" href="http://localhost:5818/" target="_blank">Open dashboard</a></h1>
+  <div id="out" class="msg">Loading...</div>
+  <script src="sessions.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

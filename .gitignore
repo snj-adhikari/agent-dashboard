@@ -1,0 +1,9 @@
+node_modules/
+dist/
+web/node_modules/
+web/dist/
+*.log
+.env
+hooks-state.json
+hooks.config.json
+mods/*/tsconfig.json

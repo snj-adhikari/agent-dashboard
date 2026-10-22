@@ -1,0 +1,6 @@
+{
+  "name": "agent-monitor-hook",
+  "version": "0.2.0",
+  "author": { "name": "S.N.J" },
+  "description": "Shows the agent-monitor hook ticket in the status line and reports session phase back to the monitor."
+}

@@ -1,0 +1,25 @@
+{
+  "name": "agent-monitor",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Live dashboard (React UI) of git worktrees, cmux tabs, and bare agent CLI processes across your repo folders.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build:server": "tsc -p tsconfig.json",
+    "build:web": "cd web && npm install --no-audit --no-fund && npm run build",
+    "build": "npm run build:web && npm run build:server",
+    "start": "node dist/index.js",
+    "check": "npm run build:server && node dist/check.js",
+    "check:hooks": "npm run build:server && node dist/services/hooks/check.js",
+    "dev": "npm run build && npm run start",
+    "settings:import": "npm run build:server && node dist/scripts/importSettings.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "mongodb": "^7.6.0"
+  }
+}

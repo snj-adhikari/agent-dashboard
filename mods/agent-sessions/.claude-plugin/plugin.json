@@ -1,0 +1,6 @@
+{
+  "name": "agent-sessions",
+  "version": "0.1.0",
+  "author": { "name": "S.N.J" },
+  "description": "Adds /agent-sessions: a terminal tree of every Claude session and the worktree it is working in, from the agent-monitor."
+}
