@@ -11,7 +11,7 @@ Chrome extension that stops browser automation from polluting analytics, tag man
 ## Sites
 
 - Sites live in `chrome.storage.sync`, edited on the options page (opens on first install; also Extensions -> Details -> Extension options). Add as many as you like; subdomains are included.
-- On first run the list is seeded from `config.json` (`{ "name": "...", "sites": ["example.com"] }`). The Agent Monitor plugin page writes this file from your settings when it stages or zips the extension.
+- On first run the list is seeded from `config.json` (`{ "name": "...", "sites": ["example.com"] }`). The Agent Dashboard plugin page writes this file from your settings when it stages or zips the extension.
 - Adding a site asks Chrome for host access to it (optional host permissions); grant it so cookie purging and hiding work.
 
 ## What it does
@@ -24,7 +24,7 @@ Chrome extension that stops browser automation from polluting analytics, tag man
 
 ## Install
 
-1. `chrome://extensions` -> Developer mode -> Load unpacked -> this folder (or use "Add to this device" on the Agent Monitor plugin page).
+1. `chrome://extensions` -> Developer mode -> Load unpacked -> this folder (or use "Add to this device" on the Agent Dashboard plugin page).
 2. Set your sites on the options page and keep the extension enabled while running Claude in Chrome.
 
 ## Check

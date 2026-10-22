@@ -116,7 +116,7 @@ export default function App() {
         <header className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-white">Agent Monitor</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-white">Agent Dashboard</h1>
               <p className="mt-1 text-sm text-slate-400">Browse, monitor, and control your AI coding sessions</p>
             </div>
             <div className="flex items-center gap-4">
