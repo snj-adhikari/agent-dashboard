@@ -188,7 +188,9 @@ agent-dashboard/
 ├── mods/                         Claude Code plugins
 │   ├── agent-monitor-hook/       hook status line
 │   ├── agent-sessions/           /agent-sessions tree
+│   ├── dev-kit/                  setup, learning, guards, dev and QA skills
 │   ├── factory/                  /factory agent team
+│   ├── guards/                   blocks risky git and rm commands
 │   └── stop-slop/                writing rules
 ├── extensions/                   Chrome extensions
 │   ├── agent-monitor/            session popup
@@ -317,6 +319,8 @@ Inactive worktrees collapse into one "+N inactive" node per repo on Home; click 
 | `agent-monitor-hook` | shows hook ticket and phase in the status line, reports to `/api/hook-session` | marketplace, or `claude plugin validate mods/agent-monitor-hook` |
 | `stop-slop` | writing rules for replies and drafts (short bullets, no AI tells) plus an editing skill | marketplace, or `claude --plugin-dir ./mods/stop-slop` |
 | `factory` | `/factory <goal>`: grills you one question at a time, then runs lead, researchers, planner, developers and QA unattended | marketplace, or `claude --plugin-dir ./mods/factory --model opus` |
+| `guards` | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
+| `dev-kit` | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
 | `extensions/njw-analytic-blocker` | Chrome extension (GTA - Blocker): blocks analytics and ad requests, strips click ids, hides tracking cookies on the sites you set | Load unpacked |
 | `extensions/agent-monitor` | Chrome toolbar popup listing agent sessions by repo and worktree | Load unpacked |
 

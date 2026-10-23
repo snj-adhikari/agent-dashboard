@@ -1,0 +1,6 @@
+{
+  "name": "dev-kit",
+  "version": "0.1.0",
+  "author": { "name": "S.N.J" },
+  "description": "Skills that set up a Claude Code instance (working rules, learning notes, guards) and run a dev or QA task end to end with approval gates."
+}

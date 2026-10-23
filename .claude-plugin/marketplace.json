@@ -6,6 +6,8 @@
     { "name": "agent-monitor-hook", "source": "./mods/agent-monitor-hook" },
     { "name": "agent-sessions", "source": "./mods/agent-sessions" },
     { "name": "stop-slop", "source": "./mods/stop-slop" },
-    { "name": "factory", "source": "./mods/factory" }
+    { "name": "factory", "source": "./mods/factory" },
+    { "name": "guards", "source": "./mods/guards" },
+    { "name": "dev-kit", "source": "./mods/dev-kit" }
   ]
 }

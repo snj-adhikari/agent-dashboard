@@ -1,0 +1,6 @@
+{
+  "name": "guards",
+  "version": "0.1.0",
+  "author": { "name": "S.N.J" },
+  "description": "Blocks risky shell commands before they run: force pushes, commits or pushes on protected branches, and rm -rf on the home or root folder."
+}
