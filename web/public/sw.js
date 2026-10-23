@@ -1,7 +1,7 @@
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {}
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Agent Monitor', {
+    self.registration.showNotification(data.title || 'Agent Dashboard', {
       body: data.body || '',
       tag: data.tag,
       icon: '/favicon.svg',

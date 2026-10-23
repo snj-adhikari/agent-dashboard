@@ -1,4 +1,4 @@
-Set up phone access to agent-monitor over Tailscale, following the README "Mobile (phone over Tailscale)" section. agent-monitor should already be running on port 5818.
+Set up phone access to Agent Dashboard over Tailscale, following the README "Mobile (phone over Tailscale)" section. Agent Dashboard should already be running on port 5818.
 
 1. Check Tailscale on this Mac: `tailscale status` (with the Mac App Store build the CLI is `/Applications/Tailscale.app/Contents/MacOS/Tailscale`). If it isn't installed or signed in, send me to https://tailscale.com/download and wait.
 2. Confirm my phone shows up in `tailscale status` on the same account. If not, tell me to install Tailscale on the phone and sign in with that account.

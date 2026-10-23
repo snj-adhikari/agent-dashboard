@@ -21,7 +21,7 @@ flowchart TD
 
 ## Set it up, step by step
 
-Prefer a guided setup? Paste [`prompts/setup-agent-monitor.md`](prompts/setup-agent-monitor.md) into Claude Code in this repo. Other prompts are in [`prompts/`](prompts/).
+Prefer a guided setup? Paste [`prompts/setup-agent-dashboard.md`](prompts/setup-agent-dashboard.md) into Claude Code in this repo. Other prompts are in [`prompts/`](prompts/).
 
 ### Step 1: Prerequisites
 
@@ -239,12 +239,12 @@ Set `terminal` in Setup (Profile) or the `TERMINAL_BACKEND` env var to `auto`, `
 
 ## Mobile (phone over Tailscale)
 
-`/m/` is a phone page (installable PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to agent-monitor through `tailscale serve`.
+`/m/` is a phone page (installable PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to Agent Dashboard through `tailscale serve`.
 
 ```mermaid
 flowchart TD
   Phone["Phone, Tailscale on"] -->|"HTTPS, tailnet only"| Serve["tailscale serve on the Mac"]
-  Serve -->|"proxies with your Tailscale login"| Server["agent-monitor on 127.0.0.1:5818"]
+  Serve -->|"proxies with your Tailscale login"| Server["Agent Dashboard on 127.0.0.1:5818"]
   Mod["agent-monitor-hook mod in each Claude session"] -->|"turn ended, awaiting you"| Server
   Server -->|"Web Push"| Phone
 ```
@@ -285,7 +285,7 @@ The quickest way is **Setup > Phone access (Tailscale)** in the dashboard: it ch
 | Page doesn't load | Tailscale on for both devices; `tailscale serve status` shows the proxy to `127.0.0.1:5818` |
 | "Site can't be reached" on Android | In the phone's Tailscale app turn on **Use Tailscale DNS**; set Android Private DNS to Off or Automatic |
 | `403` | Signed in to Tailscale on the phone as the Mac owner; using the MagicDNS name, not the IP |
-| "Mac unreachable" on the page | Mac asleep, offline, or agent-monitor not running |
+| "Mac unreachable" on the page | Mac asleep, offline, or Agent Dashboard not running |
 | No notifications | Permission allowed; **Test** works; the session has the `agent-monitor-hook` mod |
 | Stop publishing | `tailscale serve reset` |
 

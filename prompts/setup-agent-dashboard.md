@@ -1,4 +1,4 @@
-Set up agent-monitor on this Mac from this repo, following the README "Set it up, step by step" section.
+Set up Agent Dashboard on this Mac from this repo, following the README "Set it up, step by step" section.
 
 1. Check prerequisites: Node 20+, git, and a terminal backend (cmux preferred, else tmux). Report anything missing with the install command; don't install without asking.
 2. MongoDB: check `mongodb://127.0.0.1:27017` answers. If not, suggest `brew services start mongodb-community` (or the Docker command in the README) and wait for me.

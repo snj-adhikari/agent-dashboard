@@ -1,4 +1,4 @@
-Help me tune the agent-monitor automation hooks (README "Hooks" section).
+Help me tune the Agent Dashboard automation hooks (README "Hooks" section).
 
 1. Read the current state: `curl http://localhost:5818/api/hook-status` and summarise each hook's enabled flag, poll interval, last poll, last error and queue length.
 2. Ask how quickly I want new Jira assignments, Slack PR-review requests and Jira @mentions picked up.

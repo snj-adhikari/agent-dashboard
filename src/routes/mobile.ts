@@ -33,5 +33,5 @@ export async function handlePushUnsubscribe(req: IncomingMessage, res: ServerRes
 }
 
 export async function handlePushTest(res: ServerResponse): Promise<void> {
-  sendJson(res, { ok: true, sent: await notify({ title: 'Agent Monitor', body: 'Notifications are working', tag: 'test' }) })
+  sendJson(res, { ok: true, sent: await notify({ title: 'Agent Dashboard', body: 'Notifications are working', tag: 'test' }) })
 }

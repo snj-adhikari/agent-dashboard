@@ -41,7 +41,7 @@ Offer, one by one, and run the matching skill when they say yes:
 - `guards` mod: blocks force push, commits/pushes on protected branches, rm -rf on home or root. Then run `setup-guards`.
 - `setup-learning`: notes and memory so Claude keeps what it learns.
 - `stop-slop` mod: plain, human writing for tickets and PRs.
-- `agent-monitor-hook` mod: reports session status to the agent-monitor dashboard and phone.
+- `agent-monitor-hook` mod: reports session status to Agent Dashboard and your phone.
 
 ## 6. Finish
 

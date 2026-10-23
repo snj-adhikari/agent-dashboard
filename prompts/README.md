@@ -4,7 +4,7 @@ Copy a prompt into Claude Code (or another coding agent) started in this repo. E
 
 | Prompt | Use it to |
 | --- | --- |
-| [setup-agent-monitor.md](setup-agent-monitor.md) | Install, build and start agent-monitor on a new Mac, then finish onboarding |
+| [setup-agent-dashboard.md](setup-agent-dashboard.md) | Install, build and start Agent Dashboard on a new Mac, then finish onboarding |
 | [setup-phone-access.md](setup-phone-access.md) | Use the dashboard from your phone over Tailscale, with notifications |
 | [troubleshoot-phone-access.md](troubleshoot-phone-access.md) | Find out why the phone page doesn't load or doesn't notify |
 | [tune-hooks.md](tune-hooks.md) | Choose poll intervals and usage gates for the automation hooks |

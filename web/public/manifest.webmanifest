@@ -1,5 +1,5 @@
 {
-  "name": "Agent Monitor",
+  "name": "Agent Dashboard",
   "short_name": "Agents",
   "start_url": "/m/",
   "scope": "/m/",
