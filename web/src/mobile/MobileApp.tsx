@@ -227,10 +227,30 @@ function BrowserPane({ surface }: { surface: string }) {
   )
 }
 
+/** Destructive actions need a second tap within 3 seconds; the viewer has no confirm() dialog. */
+function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false)
+
+  useEffect(() => {
+    if (!armed) return
+    const t = setTimeout(() => setArmed(false), 3000)
+    return () => clearTimeout(t)
+  }, [armed])
+
+  return (
+    <button className={`shrink-0 rounded-lg px-3 py-1.5 text-xs ${armed ? 'bg-danger text-white' : 'bg-slate-800 text-slate-300'}`} onClick={() => (armed ? onConfirm() : setArmed(true))}>
+      {armed ? 'Tap again' : label}
+    </button>
+  )
+}
+
 function SessionView({ session, onBack }: { session: MobileSession; onBack: () => void }) {
   const [surfaces, setSurfaces] = useState<Surface[]>([])
   const [picked, setPicked] = useState('')
   const [status, setStatus] = useState('')
+  const [title, setTitle] = useState(session.title)
+  const [renaming, setRenaming] = useState(false)
+  const [name, setName] = useState('')
 
   usePolling(() => {
     fetch('/api/mobile/surfaces?ref=' + encodeURIComponent(session.ref))
@@ -247,11 +267,43 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
     return r.ok
   }
 
+  async function tabAction(body: Record<string, unknown>) {
+    const r = await post('/api/mobile/tab', { ref: session.ref, ...body })
+    if (!r.ok) setStatus(r.error || 'failed')
+    return r.ok as boolean
+  }
+
+  async function rename() {
+    if (await tabAction({ action: 'rename', title: name })) {
+      setTitle(name.trim())
+      setRenaming(false)
+    }
+  }
+
+  async function closePane(surface: string) {
+    if (await tabAction({ action: 'close', surface })) {
+      setSurfaces((all) => all.filter((s) => s.ref !== surface))
+      setPicked('')
+    }
+  }
+
   return (
     <div className="flex h-dvh flex-col">
       <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
-        <button className="text-sm text-sky-300" onClick={onBack}>Back</button>
-        <span className="truncate text-sm font-medium text-slate-200">{session.title}</span>
+        <button className="shrink-0 text-sm text-sky-300" onClick={onBack}>← Back</button>
+        {renaming ? (
+          <form className="flex min-w-0 flex-1 gap-2" onSubmit={(e) => (e.preventDefault(), rename())}>
+            <input id="tab-name" autoFocus value={name} maxLength={60} onChange={(e) => setName(e.target.value)} aria-label="Tab name" className={input} />
+            <button type="submit" className={chip(true)}>Save</button>
+            <button type="button" className={chip(false)} onClick={() => setRenaming(false)}>Cancel</button>
+          </form>
+        ) : (
+          <>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">{title}</span>
+            <button className={chip(false)} onClick={() => (setName(title), setRenaming(true))}>Rename</button>
+            <ConfirmButton label="Close tab" onConfirm={() => tabAction({ action: 'close' }).then((ok) => ok && onBack())} />
+          </>
+        )}
       </div>
       {surfaces.length > 1 && (
         <div className="flex gap-2 overflow-x-auto border-b border-slate-800 px-3 py-2">
@@ -260,6 +312,7 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
               {s.type === 'browser' ? 'Web' : 'Term'} · {s.title || s.ref}
             </button>
           ))}
+          {current && <ConfirmButton key={current.ref} label="Close pane" onConfirm={() => closePane(current.ref)} />}
         </div>
       )}
       {current?.type === 'browser' ? (

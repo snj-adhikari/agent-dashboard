@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import path from 'path'
 import { readJsonBody, sendJson } from '../http'
 import { terminalBackend, terminalTabs } from '../services/terminal'
-import { browserAction, browserScreenshot, isSurfaceRef, workspaceSurfaces } from '../services/cmuxControl'
+import { browserAction, browserScreenshot, closeSurface, closeWorkspace, isSurfaceRef, isWorkspaceRef, renameWorkspace, workspaceSurfaces } from '../services/cmuxControl'
 import type { BrowserAction } from '../services/cmuxControl'
 import { liveSessions } from '../services/hooks/sessions'
 import { addSubscription, notify, removeSubscription, vapidPublicKey } from '../services/push'
@@ -64,6 +64,31 @@ export async function handleBrowserAction(req: IncomingMessage, res: ServerRespo
   if (!isSurfaceRef(body.surface) || !action) return sendJson(res, { ok: false, error: 'invalid surface or action' })
   try {
     browserAction(body.surface, action)
+    sendJson(res, { ok: true })
+  } catch (e) {
+    sendJson(res, { ok: false, error: (e as Error).message })
+  }
+}
+
+export type TabAction = { action: 'close'; ref: string; surface?: string } | { action: 'rename'; ref: string; title: string }
+
+/** Closing is explicit: a whole tab by its workspace ref, or one pane tab only when its surface ref is given. */
+export function parseTabAction(body: Record<string, unknown>): TabAction | null {
+  const { action, ref, surface, title } = body
+  if (!isWorkspaceRef(ref)) return null
+  if (action === 'close' && surface === undefined) return { action, ref }
+  if (action === 'close' && isSurfaceRef(surface)) return { action, ref, surface }
+  if (action === 'rename' && typeof title === 'string' && /^[^\r\n]{1,60}$/.test(title.trim())) return { action, ref, title: title.trim() }
+  return null
+}
+
+export async function handleTabAction(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const a = parseTabAction(await readJsonBody(req))
+  if (!a || terminalBackend() !== 'cmux') return sendJson(res, { ok: false, error: a ? 'needs cmux' : 'invalid tab action' })
+  try {
+    if (a.action === 'rename') renameWorkspace(a.ref, a.title)
+    else if (a.surface) closeSurface(a.ref, a.surface)
+    else closeWorkspace(a.ref)
     sendJson(res, { ok: true })
   } catch (e) {
     sendJson(res, { ok: false, error: (e as Error).message })

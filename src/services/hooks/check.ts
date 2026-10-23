@@ -12,7 +12,7 @@ import { pickSessionTarget, usagePctFromJsonl } from './sessionTarget'
 import { shellQuote } from '../cmuxControl'
 import { isTrustedRequest } from '../../http'
 import { isPushEndpoint } from '../push'
-import { parseBrowserAction } from '../../routes/mobile'
+import { parseBrowserAction, parseTabAction } from '../../routes/mobile'
 import { isSurfaceRef } from '../cmuxControl'
 import { DeferredError, shouldRequeue } from './execute'
 import { autoDisableDecision, enabledHooks, expired, insertByQueuedAt, nextIdleCount, pollingPaused, queueOrder, runnableOrder, shouldAutoEnable } from './state'
@@ -42,6 +42,10 @@ assert.deepStrictEqual(parseBrowserAction({ action: 'click', fx: 0.5, fy: 1 }), 
 assert.strictEqual(parseBrowserAction({ action: 'click', fx: 2, fy: 0 }), null, 'tap outside 0-1 is rejected')
 assert.strictEqual(parseBrowserAction({ action: 'goto', url: 'javascript:alert(1)' }), null, 'only http(s) URLs')
 assert.strictEqual(parseBrowserAction({ action: 'eval', text: 'x' }), null, 'unknown actions are rejected')
+assert.deepStrictEqual(parseTabAction({ action: 'close', ref: 'workspace:24' }), { action: 'close', ref: 'workspace:24' })
+assert.strictEqual(parseTabAction({ action: 'close', ref: 'workspace:24', surface: 'bad' }), null, 'a bad surface never falls back to closing the focused one')
+assert.strictEqual(parseTabAction({ action: 'close', ref: '--all' }), null)
+assert.strictEqual(parseTabAction({ action: 'rename', ref: 'workspace:1', title: 'a\nb' }), null, 'one-line titles only')
 assert.ok(validInterval(5) && validInterval(1440) && !validInterval(4) && !validInterval(1441) && !validInterval(7.5) && !validInterval('30'))
 assert.ok(!isTrustedRequest(req({ host: 'evil.com:5818' }), 5818))
 assert.ok(!isTrustedRequest(req({ host: 'notlocalhost:5818' }), 5818), 'must not match by suffix alone, only .localhost')

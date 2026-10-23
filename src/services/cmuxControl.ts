@@ -6,6 +6,8 @@ import path from 'path'
 const cmux = (args: string[]): string => execFileSync('cmux', args, { encoding: 'utf8', timeout: 15_000 })
 const surfaceArgs = (surface?: string): string[] => (surface ? ['--surface', surface] : [])
 
+export const isWorkspaceRef = (s: unknown): s is string => typeof s === 'string' && /^(workspace:\d+|[0-9A-Fa-f-]{36})$/.test(s)
+
 export const isSurfaceRef = (s: unknown): s is string => typeof s === 'string' && /^(surface:\d+|[0-9A-Fa-f-]{36})$/.test(s)
 
 export function sendToWorkspace(ref: string, text: string, surface?: string): void {
@@ -36,6 +38,19 @@ export function workspaceSurfaces(ref: string): CmuxSurface[] {
     }
     return surfaces.map((s) => ({ ref: s.ref, type: s.type, title: s.title || '', focused: pane.focused && s.selected }))
   })
+}
+
+export function closeWorkspace(ref: string): void {
+  cmux(['close-workspace', '--workspace', ref])
+}
+
+/** Always names the surface: without --surface, cmux closes whichever one is focused. */
+export function closeSurface(ref: string, surface: string): void {
+  cmux(['close-surface', '--workspace', ref, '--surface', surface])
+}
+
+export function renameWorkspace(ref: string, title: string): void {
+  cmux(['rename-workspace', '--workspace', ref, '--', title])
 }
 
 export function browserScreenshot(surface: string): Buffer {

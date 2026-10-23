@@ -18,7 +18,7 @@ import { handlePluginDownload, handlePluginImport } from './routes/plugin'
 import { handleMongoRestart, handleMongoStatus } from './routes/mongo'
 import { handleGetSettings, handleSaveSettings } from './routes/settings'
 import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus, handleTailscalePublish, handleTailscaleStatus } from './routes/setup'
-import { handleBrowserAction, handleBrowserShot, handleMobileSessions, handleMobileSurfaces, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
+import { handleBrowserAction, handleBrowserShot, handleTabAction, handleMobileSessions, handleMobileSurfaces, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
 import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
@@ -98,6 +98,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/mobile/surfaces') return handleMobileSurfaces(res, url.searchParams.get('ref') || '')
   if (url.pathname === '/api/mobile/browser/shot') return handleBrowserShot(res, url.searchParams.get('surface'))
   if (url.pathname === '/api/mobile/browser' && req.method === 'POST') return handleBrowserAction(req, res)
+  if (url.pathname === '/api/mobile/tab' && req.method === 'POST') return handleTabAction(req, res)
   if (url.pathname === '/api/push/key') return handlePushKey(res)
   if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return handlePushSubscribe(req, res)
   if (url.pathname === '/api/push/unsubscribe' && req.method === 'POST') return handlePushUnsubscribe(req, res)
