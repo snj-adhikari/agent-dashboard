@@ -28,3 +28,20 @@ export function resolveBranchName(repoPath: string, branch: string): string {
   }
   throw new Error(`could not find a free branch name for ${branch}`)
 }
+
+/** Local branch, remote branch or worktree folder already carrying this ticket key, whatever its type prefix. */
+export function findTicketWork(repoPath: string, key: string): string | null {
+  const escaped = key.toLowerCase().replace(/[^a-z0-9]/g, '\\$&')
+  const re = new RegExp(`(^|[/-])${escaped}($|[/-])`)
+  const run = (args: string[]) => execFileSync('git', ['-C', repoPath, ...args], { stdio: 'pipe', encoding: 'utf8' })
+  try {
+    const branches = run(['branch', '-a', '--format=%(refname:short)']).split('\n')
+    const worktrees = run(['worktree', 'list', '--porcelain'])
+      .split('\n')
+      .filter((l) => l.startsWith('worktree '))
+      .map((l) => path.basename(l.slice(9)))
+    return [...branches, ...worktrees].find((name) => name && re.test(name.toLowerCase())) ?? null
+  } catch {
+    return null
+  }
+}

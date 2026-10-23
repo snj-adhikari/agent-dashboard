@@ -14,6 +14,10 @@ import { isTrustedRequest } from '../../http'
 import { isPushEndpoint } from '../push'
 import { DeferredError, shouldRequeue } from './execute'
 import { autoDisableDecision, enabledHooks, expired, insertByQueuedAt, nextIdleCount, pollingPaused, queueOrder, runnableOrder, shouldAutoEnable } from './state'
+import fs from 'fs'
+import os from 'os'
+import path from 'path'
+import { findTicketWork } from './branchName'
 import type { QueuedEvent } from './state'
 import type { MentionComment } from './jiraMentionPrHook'
 
@@ -227,3 +231,15 @@ assert.strictEqual(lsofCwds.get('101'), '/Users/a b/repo', 'one lsof call maps e
 assert.strictEqual(lsofCwds.get('202'), '/tmp')
 
 process.stdout.write('hooks check ok\n')
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ticket-work-'))
+const git = (...args: string[]) => execFileSync('git', ['-C', tmp, ...args], { stdio: 'pipe' })
+git('init', '-q', '-b', 'main')
+git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'init')
+git('branch', 'feat/mc-123')
+git('branch', 'fix/ca-45-i')
+assert.strictEqual(findTicketWork(tmp, 'MC-123'), 'feat/mc-123')
+assert.strictEqual(findTicketWork(tmp, 'CA-45'), 'fix/ca-45-i', 'suffixed branch still counts')
+assert.strictEqual(findTicketWork(tmp, 'MC-12'), null, 'must not match a longer ticket number')
+assert.strictEqual(findTicketWork(tmp, 'MC-1234'), null)
+fs.rmSync(tmp, { recursive: true, force: true })

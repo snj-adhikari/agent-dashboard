@@ -4,7 +4,7 @@ import { slackPrReviewHook } from './slackPrReviewHook'
 import { jiraMentionPrHook } from './jiraMentionPrHook'
 import { checkPollGate, checkStartGate, fiveHourUsage, sessionUsageHalt } from './usageGate'
 import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, shouldAutoEnable } from './state'
-import { DeferredError, executeEvent, shouldRequeue } from './execute'
+import { DeferredError, SkippedError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
 import { loadConfig, pollIntervalMin } from './config'
 import { OpLockedError } from './op'
@@ -102,6 +102,10 @@ async function drainQueue(): Promise<void> {
     try {
       recordStart(next.hook, await executeEvent(next.hook, next.event))
     } catch (e) {
+      if (e instanceof SkippedError) {
+        log(`${next.hook}: skipped ${next.event.id}: ${e.message}`)
+        continue
+      }
       if (shouldRequeue(next.event, e)) requeue(next)
       if (e instanceof DeferredError) {
         log(`${next.hook}: deferred ${next.event.id}: ${e.message}`)
@@ -206,7 +210,7 @@ export async function runQueued(id?: string): Promise<HookStart> {
     recordStart(item.hook, start)
     return start
   } catch (e) {
-    requeue(item)
+    if (!(e instanceof SkippedError)) requeue(item)
     throw e
   }
 }

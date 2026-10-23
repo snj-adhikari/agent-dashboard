@@ -2,7 +2,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { createWorktreeSession } from '../newSession'
 import { openClaudeTab, sendToWorkspace } from '../terminal'
-import { resolveBranchName } from './branchName'
+import { findTicketWork, resolveBranchName } from './branchName'
 import { baseBranchFor } from './repoMatch'
 import { pickSessionTarget, repoSessions } from './sessionTarget'
 import { log } from './logger'
@@ -19,6 +19,9 @@ function sessionEnv(hookName: string, event: TriggerEvent, branch?: string): Rec
 
 /** The event could not run yet and should go back on the queue. */
 export class DeferredError extends Error {}
+
+/** The event needs no session, e.g. work for its ticket already exists. */
+export class SkippedError extends Error {}
 
 /** Session commands go back on the queue on any failure, since a closed tab or git error is usually transient. */
 export function shouldRequeue(event: TriggerEvent, e: unknown): boolean {
@@ -46,6 +49,10 @@ export async function executeEvent(hookName: string, event: TriggerEvent): Promi
   }
 
   await execFileAsync('git', ['-C', event.repoHint, 'fetch', 'origin', '--quiet'], { timeout: 120_000 })
+  if (event.source === 'jira') {
+    const existing = findTicketWork(event.repoHint, event.id)
+    if (existing) throw new SkippedError(`${existing} already exists`)
+  }
   const branch = resolveBranchName(event.repoHint, event.branch || `tech/${event.source}-${event.id}`)
   const ref = createWorktreeSession(event.repoHint, branch, {
     tabName: `[hook:${hookName}] ${branch}`,
