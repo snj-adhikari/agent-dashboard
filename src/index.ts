@@ -41,7 +41,8 @@ const STATIC_TYPES: Record<string, string> = {
 
 function serveFile(res: http.ServerResponse, filePath: string): void {
   const ext = path.extname(filePath)
-  res.writeHead(200, { 'Content-Type': STATIC_TYPES[ext] || 'application/octet-stream' })
+  const revalidate = ext === '.html' || ext === '.webmanifest' || filePath.endsWith('sw.js')
+  res.writeHead(200, { 'Content-Type': STATIC_TYPES[ext] || 'application/octet-stream', ...(revalidate ? { 'Cache-Control': 'no-cache' } : {}) })
   res.end(fs.readFileSync(filePath))
 }
 

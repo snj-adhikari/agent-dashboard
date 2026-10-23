@@ -41,10 +41,15 @@ async function pushSubscription(): Promise<PushSubscription | null> {
 
 function Pulse() {
   const [up, setUp] = useState<boolean | null>(null)
+  const build = useRef('')
   usePolling(() => {
     fetch('/api/mobile/pulse')
       .then((r) => r.json())
-      .then((j) => setUp(!!j.ok))
+      .then((j) => {
+        setUp(!!j.ok)
+        if (j.build && build.current && j.build !== build.current) window.location.reload()
+        build.current ||= j.build
+      })
       .catch(() => setUp(false))
   }, 10_000)
   const dot = up === null ? 'bg-slate-600' : up ? 'bg-ok' : 'bg-danger'
@@ -228,7 +233,7 @@ function BrowserPane({ surface }: { surface: string }) {
 }
 
 /** Destructive actions need a second tap within 3 seconds; the viewer has no confirm() dialog. */
-function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+function ConfirmButton({ label, title, onConfirm }: { label: string; title: string; onConfirm: () => void }) {
   const [armed, setArmed] = useState(false)
 
   useEffect(() => {
@@ -238,7 +243,7 @@ function ConfirmButton({ label, onConfirm }: { label: string; onConfirm: () => v
   }, [armed])
 
   return (
-    <button className={`shrink-0 rounded-lg px-3 py-1.5 text-xs ${armed ? 'bg-danger text-white' : 'bg-slate-800 text-slate-300'}`} onClick={() => (armed ? onConfirm() : setArmed(true))}>
+    <button aria-label={title} title={title} className={`shrink-0 rounded-lg px-3 py-1.5 text-xs ${armed ? 'bg-danger text-white' : 'bg-slate-800 text-slate-300'}`} onClick={() => (armed ? onConfirm() : setArmed(true))}>
       {armed ? 'Tap again' : label}
     </button>
   )
@@ -299,20 +304,24 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
           </form>
         ) : (
           <>
-            <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">{title}</span>
+            <button className="min-w-0 flex-1 truncate text-left text-sm font-medium text-slate-200" title="Tap to rename" onClick={() => (setName(title), setRenaming(true))}>
+              {title} <span className="text-slate-500">✎</span>
+            </button>
             <button className={chip(false)} onClick={() => (setName(title), setRenaming(true))}>Rename</button>
-            <ConfirmButton label="Close tab" onConfirm={() => tabAction({ action: 'close' }).then((ok) => ok && onBack())} />
+            <ConfirmButton label="✕" title="Close tab" onConfirm={() => tabAction({ action: 'close' }).then((ok) => ok && onBack())} />
           </>
         )}
       </div>
       {surfaces.length > 1 && (
         <div className="flex gap-2 overflow-x-auto border-b border-slate-800 px-3 py-2">
           {surfaces.map((s) => (
-            <button key={s.ref} className={chip(s.ref === current?.ref)} onClick={() => setPicked(s.ref)}>
-              {s.type === 'browser' ? 'Web' : 'Term'} · {s.title || s.ref}
-            </button>
+            <span key={s.ref} className="flex shrink-0 items-center gap-1">
+              <button className={chip(s.ref === current?.ref)} onClick={() => setPicked(s.ref)}>
+                {s.type === 'browser' ? 'Web' : 'Term'} · {s.title || s.ref}
+              </button>
+              <ConfirmButton label="✕" title="Close pane" onConfirm={() => closePane(s.ref)} />
+            </span>
           ))}
-          {current && <ConfirmButton key={current.ref} label="Close pane" onConfirm={() => closePane(current.ref)} />}
         </div>
       )}
       {current?.type === 'browser' ? (
@@ -335,6 +344,11 @@ export function MobileApp() {
       .catch(() => {})
   }, 5000)
 
+  async function closeTab(tab: string) {
+    const r = await post('/api/mobile/tab', { action: 'close', ref: tab })
+    if (r.ok) setSessions((all) => all.filter((s) => s.ref !== tab))
+  }
+
   function open(next: string) {
     window.history.replaceState(null, '', next ? `/m/?ref=${encodeURIComponent(next)}` : '/m/')
     setRef(next)
@@ -355,8 +369,8 @@ export function MobileApp() {
       </div>
       <ul className="space-y-2">
         {sessions.map((s) => (
-          <li key={s.ref}>
-            <button onClick={() => open(s.ref)} className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-left">
+          <li key={s.ref} className="flex items-center gap-2">
+            <button onClick={() => open(s.ref)} className="min-w-0 flex-1 rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 text-left">
               <div className="flex items-center gap-2">
                 {s.phase === 'awaiting-you' && <span className="inline-block h-2 w-2 rounded-full bg-warn" />}
                 <span className="truncate text-sm font-medium text-slate-200">{s.title}</span>
@@ -367,6 +381,7 @@ export function MobileApp() {
                 {s.lastActive ? ` · ${s.lastActive}` : ''}
               </div>
             </button>
+            <ConfirmButton label="✕" title="Close tab" onConfirm={() => closeTab(s.ref)} />
           </li>
         ))}
         {!sessions.length && <li className="text-sm text-slate-500">No terminal sessions</li>}

@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from 'http'
+import fs from 'fs'
 import path from 'path'
 import { readJsonBody, sendJson } from '../http'
 import { terminalBackend, terminalTabs } from '../services/terminal'
@@ -7,8 +8,15 @@ import type { BrowserAction } from '../services/cmuxControl'
 import { liveSessions } from '../services/hooks/sessions'
 import { addSubscription, notify, removeSubscription, vapidPublicKey } from '../services/push'
 
+const MOBILE_PAGE = path.join(__dirname, '..', '..', 'web', 'dist', 'm', 'index.html')
+
+/** build changes on every deploy, so an installed phone app (which has no reload button) can reload itself. */
 export function handlePulse(res: ServerResponse): void {
-  sendJson(res, { ok: true, at: new Date().toISOString(), backend: terminalBackend() })
+  let build = ''
+  try {
+    build = String(fs.statSync(MOBILE_PAGE).mtimeMs)
+  } catch {}
+  sendJson(res, { ok: true, at: new Date().toISOString(), backend: terminalBackend(), build })
 }
 
 /** Terminal tabs with the phase their Claude session last reported, waiting ones first. */
