@@ -39,9 +39,9 @@ export const api = {
     fetch('/api/worktrees/inactive').then((r) => r.json()),
   mongoStatus: (): Promise<{ ok: boolean; up: boolean; error?: string }> => fetch('/api/mongo/status').then((r) => r.json()),
   restartMongo: () => postJson('/api/mongo/restart', {}),
-  send: (ref: string, text: string) => postJson('/api/send', { ref, text }),
-  screen: (ref: string): Promise<{ ok: boolean; screen?: string; error?: string }> =>
-    fetch('/api/screen?ref=' + encodeURIComponent(ref)).then((r) => r.json()),
+  send: (ref: string, text: string, surface?: string) => postJson('/api/send', { ref, text, surface }),
+  screen: (ref: string, surface?: string): Promise<{ ok: boolean; screen?: string; error?: string }> =>
+    fetch('/api/screen?ref=' + encodeURIComponent(ref) + (surface ? '&surface=' + encodeURIComponent(surface) : '')).then((r) => r.json()),
   newSession: (repoPath: string, branch: string) => postJson('/api/new-session', { repoPath, branch }),
   history: (range: 'day' | 'week' | 'month'): Promise<HistoryResponse> =>
     fetch('/api/history?range=' + range).then((r) => r.json()),

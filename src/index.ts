@@ -18,7 +18,7 @@ import { handlePluginDownload, handlePluginImport } from './routes/plugin'
 import { handleMongoRestart, handleMongoStatus } from './routes/mongo'
 import { handleGetSettings, handleSaveSettings } from './routes/settings'
 import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus, handleTailscalePublish, handleTailscaleStatus } from './routes/setup'
-import { handleMobileSessions, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
+import { handleBrowserAction, handleBrowserShot, handleMobileSessions, handleMobileSurfaces, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
 import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
@@ -73,7 +73,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/worktrees/inactive') return handleInactiveWorktrees(res)
   if (url.pathname === '/api/send' && req.method === 'POST') return handleSend(req, res)
   if (url.pathname === '/api/new-session' && req.method === 'POST') return handleNewSession(req, res)
-  if (url.pathname === '/api/screen') return handleScreen(res, url.searchParams.get('ref') || '')
+  if (url.pathname === '/api/screen') return handleScreen(res, url.searchParams.get('ref') || '', url.searchParams.get('surface'))
   if (url.pathname === '/api/history') return handleHistory(res, url.searchParams.get('range') || 'day')
   if (url.pathname === '/api/vault/tree') return handleVaultTree(res)
   if (url.pathname === '/api/vault/graph') return handleVaultGraph(res)
@@ -95,6 +95,9 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/setup/tailscale/publish' && req.method === 'POST') return handleTailscalePublish(res, PORT)
   if (url.pathname === '/api/mobile/pulse') return handlePulse(res)
   if (url.pathname === '/api/mobile/sessions') return handleMobileSessions(res)
+  if (url.pathname === '/api/mobile/surfaces') return handleMobileSurfaces(res, url.searchParams.get('ref') || '')
+  if (url.pathname === '/api/mobile/browser/shot') return handleBrowserShot(res, url.searchParams.get('surface'))
+  if (url.pathname === '/api/mobile/browser' && req.method === 'POST') return handleBrowserAction(req, res)
   if (url.pathname === '/api/push/key') return handlePushKey(res)
   if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return handlePushSubscribe(req, res)
   if (url.pathname === '/api/push/unsubscribe' && req.method === 'POST') return handlePushUnsubscribe(req, res)

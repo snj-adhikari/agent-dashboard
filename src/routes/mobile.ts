@@ -2,6 +2,8 @@ import type { IncomingMessage, ServerResponse } from 'http'
 import path from 'path'
 import { readJsonBody, sendJson } from '../http'
 import { terminalBackend, terminalTabs } from '../services/terminal'
+import { browserAction, browserScreenshot, isSurfaceRef, workspaceSurfaces } from '../services/cmuxControl'
+import type { BrowserAction } from '../services/cmuxControl'
 import { liveSessions } from '../services/hooks/sessions'
 import { addSubscription, notify, removeSubscription, vapidPublicKey } from '../services/push'
 
@@ -17,6 +19,55 @@ export function handleMobileSessions(res: ServerResponse): void {
     return { ref: tab.ref, id: tab.id || '', title: s?.ticket || tab.title || path.basename(tab.cwd), cwd: tab.cwd, lastActive: tab.lastActive, phase: s?.phase || '' }
   })
   sendJson(res, { ok: true, sessions: sessions.sort((a, b) => Number(b.phase === 'awaiting-you') - Number(a.phase === 'awaiting-you')) })
+}
+
+/** Panes and tabs inside one terminal tab; empty without cmux, where a session has a single screen. */
+export function handleMobileSurfaces(res: ServerResponse, ref: string): void {
+  if (terminalBackend() !== 'cmux') return sendJson(res, { ok: true, surfaces: [] })
+  try {
+    sendJson(res, { ok: true, surfaces: workspaceSurfaces(ref) })
+  } catch (e) {
+    sendJson(res, { ok: false, error: (e as Error).message })
+  }
+}
+
+export function handleBrowserShot(res: ServerResponse, surface: string | null): void {
+  if (!isSurfaceRef(surface)) {
+    res.writeHead(400)
+    return void res.end()
+  }
+  try {
+    const png = browserScreenshot(surface)
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'no-store' })
+    res.end(png)
+  } catch {
+    res.writeHead(502)
+    res.end()
+  }
+}
+
+const fraction = (n: unknown): n is number => typeof n === 'number' && n >= 0 && n <= 1
+
+/** Phone input is validated here before it reaches cmux: http(s) URLs only, tap positions as 0-1 fractions, bounded text. */
+export function parseBrowserAction(body: Record<string, unknown>): BrowserAction | null {
+  const { action, url, fx, fy, text, enter } = body
+  if (action === 'back' || action === 'reload') return { action }
+  if (action === 'goto' && typeof url === 'string' && /^https?:\/\/\S{1,2000}$/.test(url)) return { action, url }
+  if (action === 'click' && fraction(fx) && fraction(fy)) return { action, fx, fy }
+  if (action === 'type' && typeof text === 'string' && text.length <= 2000) return { action, text, enter: enter === true }
+  return null
+}
+
+export async function handleBrowserAction(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const body = await readJsonBody(req)
+  const action = parseBrowserAction(body)
+  if (!isSurfaceRef(body.surface) || !action) return sendJson(res, { ok: false, error: 'invalid surface or action' })
+  try {
+    browserAction(body.surface, action)
+    sendJson(res, { ok: true })
+  } catch (e) {
+    sendJson(res, { ok: false, error: (e as Error).message })
+  }
 }
 
 export function handlePushKey(res: ServerResponse): void {

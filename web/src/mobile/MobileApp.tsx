@@ -138,33 +138,35 @@ function NotifyToggle() {
   )
 }
 
-function SessionView({ session, onBack }: { session: MobileSession; onBack: () => void }) {
+interface Surface {
+  ref: string
+  type: string
+  title: string
+  focused: boolean
+}
+
+const chip = (active: boolean) => `shrink-0 max-w-[45vw] truncate rounded-lg px-3 py-1.5 text-xs ${active ? 'bg-brand-dark text-white' : 'bg-slate-800 text-slate-300'}`
+const input = 'min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100'
+
+function TerminalPane({ workspace, surface, status, onSend }: { workspace: string; surface?: string; status: string; onSend: (text: string) => Promise<boolean> }) {
   const [screen, setScreen] = useState('')
   const [text, setText] = useState('')
-  const [status, setStatus] = useState('')
   const pre = useRef<HTMLPreElement>(null)
 
   usePolling(() => {
-    api.screen(session.ref).then((r) => setScreen(r.ok ? r.screen || '' : r.error || 'cannot read screen'))
-  }, 3000, session.ref)
+    api.screen(workspace, surface).then((r) => setScreen(r.ok ? r.screen || '' : r.error || 'cannot read screen'))
+  }, 3000, `${workspace}|${surface}`)
 
   useEffect(() => {
     pre.current?.scrollTo(0, pre.current.scrollHeight)
   }, [screen])
 
   async function send(value: string) {
-    if (!value.trim()) return
-    const r = await api.send(session.ref, value)
-    setStatus(r.ok ? 'sent' : r.error || 'failed')
-    if (r.ok) setText('')
+    if (value.trim() && (await onSend(value))) setText('')
   }
 
   return (
-    <div className="flex h-dvh flex-col">
-      <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
-        <button className="text-sm text-sky-300" onClick={onBack}>Back</button>
-        <span className="truncate text-sm font-medium text-slate-200">{session.title}</span>
-      </div>
+    <>
       <pre ref={pre} className="flex-1 overflow-auto whitespace-pre-wrap break-words px-3 py-2 text-[11px] leading-snug text-slate-300">{screen}</pre>
       <div className="space-y-2 border-t border-slate-800 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex gap-2">
@@ -176,16 +178,95 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
           {status && <span className="self-center text-xs text-slate-500">{status}</span>}
         </div>
         <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), send(text))}>
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            rows={2}
-            placeholder="Prompt"
-            className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-          />
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={2} placeholder="Prompt" className={input} />
           <button type="submit" className="rounded-lg bg-brand-dark px-4 text-sm font-medium text-white">Send</button>
         </form>
       </div>
+    </>
+  )
+}
+
+function BrowserPane({ surface }: { surface: string }) {
+  const [tick, setTick] = useState(0)
+  const [url, setUrl] = useState('')
+  const [text, setText] = useState('')
+  const [status, setStatus] = useState('')
+
+  usePolling(() => setTick((t) => t + 1), 2500, surface)
+
+  async function act(body: Record<string, unknown>) {
+    const r = await post('/api/mobile/browser', { surface, ...body })
+    setStatus(r.ok ? '' : r.error || 'failed')
+    setTimeout(() => setTick((t) => t + 1), 600)
+    return r.ok as boolean
+  }
+
+  function tap(e: React.MouseEvent<HTMLImageElement>) {
+    const box = e.currentTarget.getBoundingClientRect()
+    act({ action: 'click', fx: (e.clientX - box.left) / box.width, fy: (e.clientY - box.top) / box.height })
+  }
+
+  return (
+    <>
+      <div className="flex-1 overflow-auto bg-black">
+        <img src={`/api/mobile/browser/shot?surface=${encodeURIComponent(surface)}&t=${tick}`} onClick={tap} alt="Browser tab" className="w-full" />
+      </div>
+      <div className="space-y-2 border-t border-slate-800 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), act({ action: 'goto', url: /^https?:\/\//.test(url) ? url : `https://${url}` }))}>
+          <button type="button" className={chip(false)} onClick={() => act({ action: 'back' })}>Back</button>
+          <button type="button" className={chip(false)} onClick={() => act({ action: 'reload' })}>Reload</button>
+          <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Go to URL" inputMode="url" className={input} />
+        </form>
+        <form className="flex gap-2" onSubmit={(e) => (e.preventDefault(), act({ action: 'type', text, enter: true }).then((ok) => ok && setText('')))}>
+          <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Type into the focused field" className={input} />
+          <button type="submit" className="rounded-lg bg-brand-dark px-4 text-sm font-medium text-white">Enter</button>
+        </form>
+        {status && <p className="text-xs text-red-300">{status}</p>}
+      </div>
+    </>
+  )
+}
+
+function SessionView({ session, onBack }: { session: MobileSession; onBack: () => void }) {
+  const [surfaces, setSurfaces] = useState<Surface[]>([])
+  const [picked, setPicked] = useState('')
+  const [status, setStatus] = useState('')
+
+  usePolling(() => {
+    fetch('/api/mobile/surfaces?ref=' + encodeURIComponent(session.ref))
+      .then((r) => r.json())
+      .then((j) => j.ok && setSurfaces(j.surfaces))
+      .catch(() => {})
+  }, 5000, session.ref)
+
+  const current = surfaces.find((s) => s.ref === picked) || surfaces.find((s) => s.focused) || surfaces[0]
+
+  async function send(value: string) {
+    const r = await api.send(session.ref, value, current?.type === 'terminal' ? current.ref : undefined)
+    setStatus(r.ok ? 'sent' : r.error || 'failed')
+    return r.ok
+  }
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
+        <button className="text-sm text-sky-300" onClick={onBack}>Back</button>
+        <span className="truncate text-sm font-medium text-slate-200">{session.title}</span>
+      </div>
+      {surfaces.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto border-b border-slate-800 px-3 py-2">
+          {surfaces.map((s) => (
+            <button key={s.ref} className={chip(s.ref === current?.ref)} onClick={() => setPicked(s.ref)}>
+              {s.type === 'browser' ? 'Web' : 'Term'} · {s.title || s.ref}
+            </button>
+          ))}
+        </div>
+      )}
+      {current?.type === 'browser' ? (
+        <BrowserPane key={current.ref} surface={current.ref} />
+      ) : (
+        <TerminalPane key={current?.ref || session.ref} workspace={session.ref} surface={current?.ref} status={status} onSend={send} />
+      )}
     </div>
   )
 }

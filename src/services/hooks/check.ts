@@ -12,6 +12,8 @@ import { pickSessionTarget, usagePctFromJsonl } from './sessionTarget'
 import { shellQuote } from '../cmuxControl'
 import { isTrustedRequest } from '../../http'
 import { isPushEndpoint } from '../push'
+import { parseBrowserAction } from '../../routes/mobile'
+import { isSurfaceRef } from '../cmuxControl'
 import { DeferredError, shouldRequeue } from './execute'
 import { autoDisableDecision, enabledHooks, expired, insertByQueuedAt, nextIdleCount, pollingPaused, queueOrder, runnableOrder, shouldAutoEnable } from './state'
 import fs from 'fs'
@@ -35,6 +37,11 @@ assert.ok(isTrustedRequest(req({ host: '127.0.0.1:5818' }), 5818))
 assert.ok(isTrustedRequest(req({ host: 'my.localhost:5818' }), 5818), 'subdomain .localhost alias must be trusted')
 assert.ok(!isTrustedRequest(req({ host: 'evil.example', 'tailscale-user-login': 'me@example.com' }), 5818), 'a login header alone must not trust a foreign host')
 assert.ok(isPushEndpoint('https://fcm.googleapis.com/fcm/send/abc') && !isPushEndpoint('https://169.254.169.254/x') && !isPushEndpoint('https://fcm.googleapis.com:8443/x') && !isPushEndpoint('http://fcm.googleapis.com/x'))
+assert.ok(isSurfaceRef('surface:45') && !isSurfaceRef('surface:4; rm -rf') && !isSurfaceRef(undefined))
+assert.deepStrictEqual(parseBrowserAction({ action: 'click', fx: 0.5, fy: 1 }), { action: 'click', fx: 0.5, fy: 1 })
+assert.strictEqual(parseBrowserAction({ action: 'click', fx: 2, fy: 0 }), null, 'tap outside 0-1 is rejected')
+assert.strictEqual(parseBrowserAction({ action: 'goto', url: 'javascript:alert(1)' }), null, 'only http(s) URLs')
+assert.strictEqual(parseBrowserAction({ action: 'eval', text: 'x' }), null, 'unknown actions are rejected')
 assert.ok(validInterval(5) && validInterval(1440) && !validInterval(4) && !validInterval(1441) && !validInterval(7.5) && !validInterval('30'))
 assert.ok(!isTrustedRequest(req({ host: 'evil.com:5818' }), 5818))
 assert.ok(!isTrustedRequest(req({ host: 'notlocalhost:5818' }), 5818), 'must not match by suffix alone, only .localhost')

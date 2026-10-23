@@ -87,9 +87,9 @@ export function terminalTabs(): CmuxTab[] {
   return backend === 'tmux' ? tmuxTabs() : []
 }
 
-export function sendToWorkspace(ref: string, text: string): void {
+export function sendToWorkspace(ref: string, text: string, surface?: string): void {
   const backend = terminalBackend()
-  if (backend === 'cmux') return cmux.sendToWorkspace(ref, text)
+  if (backend === 'cmux') return cmux.sendToWorkspace(ref, text, surface)
   if (backend !== 'tmux') throw new Error(UNSUPPORTED)
   run('tmux', ['send-keys', '-t', ref, '-l', text])
   run('tmux', ['send-keys', '-t', ref, 'Enter'])
@@ -102,9 +102,9 @@ export function sendKey(ref: string, key: string): void {
   run('tmux', ['send-keys', '-t', ref, tmuxKey(key)])
 }
 
-export function readWorkspaceScreen(ref: string): string {
+export function readWorkspaceScreen(ref: string, surface?: string): string {
   const backend = terminalBackend()
-  if (backend === 'cmux') return cmux.readWorkspaceScreen(ref)
+  if (backend === 'cmux') return cmux.readWorkspaceScreen(ref, surface)
   if (backend !== 'tmux') throw new Error(UNSUPPORTED)
   return run('tmux', ['capture-pane', '-p', '-t', ref, '-S', '-200'])
 }
