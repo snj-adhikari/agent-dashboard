@@ -13,6 +13,19 @@ interface MobileSession {
 
 const QUICK_REPLIES = ['1', '2', '3', 'continue']
 
+interface InstallPrompt extends Event {
+  prompt(): Promise<void>
+}
+
+/** Chrome fires this once, often before React mounts, so it is caught at module load. */
+let installPrompt: InstallPrompt | null = null
+const installListeners = new Set<() => void>()
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault()
+  installPrompt = e as InstallPrompt
+  installListeners.forEach((fn) => fn())
+})
+
 const post = (url: string, body: unknown) =>
   fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then((r) => r.json())
 
@@ -41,6 +54,41 @@ function Pulse() {
       {up === false ? 'Mac unreachable, check Tailscale' : 'connected'}
     </span>
   )
+}
+
+function InstallButton() {
+  const [prompt, setPrompt] = useState(installPrompt)
+  const [installed, setInstalled] = useState(() => window.matchMedia('(display-mode: standalone)').matches)
+
+  useEffect(() => {
+    const onPrompt = () => setPrompt(installPrompt)
+    const onInstalled = () => setInstalled(true)
+    installListeners.add(onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      installListeners.delete(onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  async function install() {
+    await prompt?.prompt()
+    installPrompt = null
+    setPrompt(null)
+  }
+
+  if (installed) return null
+  if (prompt) {
+    return (
+      <button className="rounded-lg bg-brand-dark px-3 py-1.5 text-xs font-medium text-white" onClick={install}>
+        Install app
+      </button>
+    )
+  }
+  const hint = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    ? 'iPhone: tap Share, then Add to Home Screen.'
+    : 'Android: Chrome menu (⋮), then Add to home screen, then Install (or Create shortcut).'
+  return <p className="text-xs text-slate-500">{hint}</p>
 }
 
 function NotifyToggle() {
@@ -167,6 +215,7 @@ export function MobileApp() {
         <h1 className="text-lg font-semibold text-slate-100">Agents</h1>
         <Pulse />
       </div>
+      <InstallButton />
       <NotifyToggle />
       <ul className="space-y-2">
         {sessions.map((s) => (

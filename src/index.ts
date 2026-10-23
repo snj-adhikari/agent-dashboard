@@ -35,7 +35,8 @@ const STATIC_TYPES: Record<string, string> = {
   '.css': 'text/css',
   '.svg': 'image/svg+xml',
   '.json': 'application/json',
-  '.webmanifest': 'application/manifest+json'
+  '.webmanifest': 'application/manifest+json',
+  '.png': 'image/png'
 }
 
 function serveFile(res: http.ServerResponse, filePath: string): void {

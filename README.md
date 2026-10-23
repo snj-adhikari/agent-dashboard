@@ -254,7 +254,9 @@ flowchart TD
 ### Phone setup
 
 1. With Tailscale connected, open `https://<mac>.<tailnet>.ts.net/m/` in Chrome (Android) or Safari (iOS).
-2. Add it to the home screen. On iOS this is required for notifications (iOS 16.4 or later).
+2. Install it:
+   - **Android:** tap **Install app** on the page, or Chrome menu (⋮), then **Add to home screen**, then **Install** (or **Create shortcut**).
+   - **iPhone:** in Safari tap **Share**, then **Add to Home Screen**. Required for notifications (iOS 16.4 or later).
 3. Open it from the home screen, tap **Enable notifications**, allow the prompt, then tap **Test**.
 
 ### How access is checked
