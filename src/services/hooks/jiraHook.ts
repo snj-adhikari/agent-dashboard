@@ -1,6 +1,6 @@
 import { runClaudeJson } from './claudeJson'
 import { repoCatalogue, repoForJira } from './repoMatch'
-import { atlassianSettings, hookSettings, loadConfig, LOOKBACK_MIN, profileSettings } from './config'
+import { atlassianSettings, hookSettings, loadConfig, lookbackMin, profileSettings } from './config'
 import type { Trigger, TriggerEvent } from './types'
 
 export const KEY_RE = /^[A-Z][A-Z0-9]+-\d+$/
@@ -113,10 +113,11 @@ function typeFilter(): string {
 }
 
 function pollJql(): string {
+  const lookback = lookbackMin('jira')
   const projects = loadConfig().jiraProjects
   const scope = projects.length ? `project in (${projects.filter((p) => /^[A-Z][A-Z0-9]+$/.test(p)).join(', ')}) AND ` : ''
   return (
-    `${scope}assignee = currentUser() AND (assignee CHANGED TO currentUser() AFTER -${LOOKBACK_MIN}m OR created >= -${LOOKBACK_MIN}m)` +
+    `${scope}assignee = currentUser() AND (assignee CHANGED TO currentUser() AFTER -${lookback}m OR created >= -${lookback}m)` +
     ` AND statusCategory != Done AND ${typeFilter()}`
   )
 }

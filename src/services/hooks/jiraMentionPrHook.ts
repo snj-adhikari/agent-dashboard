@@ -2,7 +2,7 @@ import { runClaudeJson } from './claudeJson'
 import { repoPathByName } from './repoMatch'
 import { KEY_RE } from './jiraHook'
 import { orgAllowed, PR_URL_RE, reviewInstruction } from './slackPrReviewHook'
-import { loadConfig, LOOKBACK_MIN } from './config'
+import { loadConfig, lookbackMin } from './config'
 import { skipPendingReviews } from './reviewGuard'
 import type { Trigger, TriggerEvent } from './types'
 
@@ -37,11 +37,11 @@ const SCHEMA = {
   required: ['accountId', 'comments']
 }
 
-const PROMPT = [
+const prompt = (lookback = lookbackMin('jira-mention-pr')): string => [
   'Use only the Atlassian MCP atlassianUserInfo, getAccessibleAtlassianResources, searchJiraIssuesUsingJql and getJiraIssue tools.',
   'Get the current user accountId with atlassianUserInfo and the Jira cloudId with getAccessibleAtlassianResources.',
-  `Search with exactly this JQL: comment ~ currentUser() AND updated >= -${LOOKBACK_MIN}m`,
-  `For each result fetch its comments with getJiraIssue (fields: comment) and keep only comments created in the last ${LOOKBACK_MIN} minutes that contain a https://github.com/<org>/<repo>/pull/<n> link.`,
+  `Search with exactly this JQL: comment ~ currentUser() AND updated >= -${lookback}m`,
+  `For each result fetch its comments with getJiraIssue (fields: comment) and keep only comments created in the last ${lookback} minutes that contain a https://github.com/<org>/<repo>/pull/<n> link.`,
   'For each kept comment return: issueKey, commentId (the comment id), created (the comment created timestamp),',
   'mentionedAccountIds (the accountId of every user @mentioned in the comment body), mentionsMe (true if the current user accountId is among them),',
   'prUrls (every GitHub pull request link in the body, as https://github.com/<org>/<repo>/pull/<n> without any trailing path, query or punctuation).',
@@ -92,7 +92,7 @@ export function mentionsToEvents(
   allowedOrgs = loadConfig().allowedGithubOrgs,
   resolveRepo: (name: string) => string | undefined = repoPathByName
 ): TriggerEvent[] {
-  const since = now - LOOKBACK_MIN * 60 * 1000
+  const since = now - lookbackMin('jira-mention-pr') * 60 * 1000
   const events = result.comments.flatMap((c) => commentToEvents(c, result.accountId, since, allowedOrgs, resolveRepo))
   return events.filter((e, i) => events.findIndex((x) => x.id === e.id) === i)
 }
@@ -100,6 +100,6 @@ export function mentionsToEvents(
 export const jiraMentionPrHook: Trigger = {
   name: 'jira-mention-pr',
   async poll(): Promise<TriggerEvent[]> {
-    return skipPendingReviews('jira-mention-pr', mentionsToEvents(await runClaudeJson<MentionResult>(PROMPT, SCHEMA, READ_TOOLS)))
+    return skipPendingReviews('jira-mention-pr', mentionsToEvents(await runClaudeJson<MentionResult>(prompt(), SCHEMA, READ_TOOLS)))
   }
 }

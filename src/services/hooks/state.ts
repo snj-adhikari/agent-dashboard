@@ -24,10 +24,11 @@ interface HookState {
   disabled: string[]
   autoDisabled: Record<string, AutoDisable>
   idleCount: Record<string, number>
+  intervals: Record<string, number>
 }
 
 function empty(): HookState {
-  return { seen: {}, queue: [], halted: [], overrides: [], disabled: [], autoDisabled: {}, idleCount: {} }
+  return { seen: {}, queue: [], halted: [], overrides: [], disabled: [], autoDisabled: {}, idleCount: {}, intervals: {} }
 }
 
 function read(): HookState {
@@ -135,6 +136,15 @@ export function setHookEnabled(hook: string, enabled: boolean): void {
   if (!enabled) return write({ ...state, disabled: [...disabled, hook] })
   const { [hook]: _auto, ...autoDisabled } = state.autoDisabled
   write({ ...state, disabled, autoDisabled, idleCount: { ...state.idleCount, [hook]: 0 } })
+}
+
+export function hookIntervals(): Record<string, number> {
+  return read().intervals
+}
+
+export function setHookInterval(hook: string, minutes: number): void {
+  const state = read()
+  write({ ...state, intervals: { ...state.intervals, [hook]: minutes } })
 }
 
 export function enabledHooks<T extends { name: string }>(hooks: T[], disabled: string[]): T[] {

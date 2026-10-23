@@ -227,6 +227,53 @@ Set `terminal` in Setup (Profile) or the `TERMINAL_BACKEND` env var to `auto`, `
 | tmux | sessions prefixed `ad-` | yes | detached session, plus a Terminal window on macOS when `terminalOpenWindow` is on |
 | terminal (Terminal.app) | no (bare agent processes are still detected) | no | new window |
 
+## Mobile (phone over Tailscale)
+
+`/m/` is a phone page (installable PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to agent-monitor through `tailscale serve`.
+
+```mermaid
+flowchart TD
+  Phone["Phone, Tailscale on"] -->|"HTTPS, tailnet only"| Serve["tailscale serve on the Mac"]
+  Serve -->|"proxies with your Tailscale login"| Server["agent-monitor on 127.0.0.1:5818"]
+  Mod["agent-monitor-hook mod in each Claude session"] -->|"turn ended, awaiting you"| Server
+  Server -->|"Web Push"| Phone
+```
+
+### Tailscale setup (once)
+
+1. Install Tailscale on the Mac ([download](https://tailscale.com/download)) and on the phone (Play Store or App Store). Sign in to both with the **same account**.
+2. In the [admin console](https://login.tailscale.com/admin/dns), keep **MagicDNS** on and turn on **HTTPS certificates**. The first `tailscale serve` run also prints a one-time link to enable Serve if it's off.
+3. On the Mac, publish the dashboard to your tailnet only:
+   ```bash
+   tailscale serve --bg http://127.0.0.1:5818
+   tailscale serve status   # prints https://<mac>.<tailnet>.ts.net
+   ```
+   `--bg` keeps it across restarts. With the Mac App Store build, the CLI is `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
+4. Install the `agent-monitor-hook` mod (see [Mods and extensions](#mods-and-extensions)) so Claude sessions report when they are waiting.
+
+### Phone setup
+
+1. With Tailscale connected, open `https://<mac>.<tailnet>.ts.net/m/` in Chrome (Android) or Safari (iOS).
+2. Add it to the home screen. On iOS this is required for notifications (iOS 16.4 or later).
+3. Open it from the home screen, tap **Enable notifications**, allow the prompt, then tap **Test**.
+
+### How access is checked
+
+- The server still binds to `127.0.0.1`; only `tailscale serve` can reach it from the tailnet.
+- A tailnet request is accepted only when its Host is this Mac's MagicDNS name and `Tailscale-User-Login` (set by Serve, never passed through from the client) is the Mac owner's login. Other users, shared devices and Funnel traffic get `403`.
+- Push keys and subscriptions live in `push-state.json` (gitignored, mode 600). Subscriptions are only sent to browser push services.
+- Every device signed in to your Tailscale account can use the page, including typing into terminals. Remove a lost device from the tailnet.
+
+### Troubleshooting
+
+| Symptom | Check |
+| --- | --- |
+| Page doesn't load | Tailscale on for both devices; `tailscale serve status` shows the proxy to `127.0.0.1:5818` |
+| `403` | Signed in to Tailscale on the phone as the Mac owner; using the MagicDNS name, not the IP |
+| "Mac unreachable" on the page | Mac asleep, offline, or agent-monitor not running |
+| No notifications | Permission allowed; **Test** works; the session has the `agent-monitor-hook` mod |
+| Stop publishing | `tailscale serve reset` |
+
 ## Pages
 
 | Page | Shows |
@@ -269,7 +316,7 @@ Inactive worktrees collapse into one "+N inactive" node per repo on Home; click 
 
 ```mermaid
 flowchart TD
-  P[Poll every 30 min] --> G{"Usage gate: 5h and 7d under 50%"}
+  P["Poll each hook, every 30 min by default (set per hook on the Hooks page)"] --> G{"Usage gate: 5h and 7d under 50%"}
   G -->|no| X[Skip, reason in Hooks page]
   G -->|yes| C["claude -p, read-only MCP tools"]
   C --> V[Validate and dedupe]
@@ -361,6 +408,7 @@ npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --displ
 - Binds to `127.0.0.1` only.
 - Rejects foreign `Host` and `Origin` headers (LAN access, DNS rebinding).
 - POSTs must be JSON (CSRF).
+- Tailnet access only through `tailscale serve`, matched on this Mac's MagicDNS host and its owner's `Tailscale-User-Login`.
 - Secrets are never stored in MongoDB; only env var names.
 - Hook inputs are validated in code before reaching a session.
 

@@ -20,6 +20,7 @@ export interface Repo {
 
 export interface CmuxTab {
   ref: string
+  id?: string
   cwd: string
   title: string
   lastActive: string | null

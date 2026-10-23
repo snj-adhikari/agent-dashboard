@@ -3,10 +3,10 @@ import { jiraHook, jiraEventForKey, workTypes } from './jiraHook'
 import { slackPrReviewHook } from './slackPrReviewHook'
 import { jiraMentionPrHook } from './jiraMentionPrHook'
 import { checkPollGate, checkStartGate, fiveHourUsage, sessionUsageHalt } from './usageGate'
-import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enabledHooks, enqueue, haltedRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, shouldAutoEnable } from './state'
+import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, shouldAutoEnable } from './state'
 import { DeferredError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
-import { loadConfig, POLL_INTERVAL_MIN } from './config'
+import { loadConfig, pollIntervalMin } from './config'
 import { OpLockedError } from './op'
 import { openOpUnlockTab, sendKey, sendToWorkspace, terminalTabs } from '../terminal'
 import { log, logError } from './logger'
@@ -132,17 +132,26 @@ function haltOnSessionUsage(): void {
   if (toHalt.length) setHalted([...haltedRefs(), ...toHalt])
 }
 
-let polling = false
 let draining = false
+let pollChain: Promise<void> = Promise.resolve()
+const pollTimers = new Map<string, NodeJS.Timeout>()
 
-async function pollAll(): Promise<void> {
-  if (polling) return
-  polling = true
-  try {
-    for (const hook of enabledHooks(HOOKS, pausedHooks())) await pollHook(hook)
-  } finally {
-    polling = false
-  }
+/** Each hook polls on its own interval, but one at a time so two `claude -p` polls never overlap. */
+function queuePoll(hook: Trigger): Promise<void> {
+  pollChain = pollChain.then(() => pollHook(hook)).catch((e) => logError(`${hook.name}: ${errorMessage(e)}`))
+  return pollChain
+}
+
+function scheduleHook(name: string): void {
+  const hook = HOOKS.find((h) => h.name === name)
+  if (!hook) return
+  clearInterval(pollTimers.get(name))
+  pollTimers.set(name, setInterval(() => queuePoll(hook), pollIntervalMin(name) * 60_000))
+}
+
+/** Applies a changed interval; a no-op when polling never started (DISABLE_HOOKS). */
+export function rescheduleHook(name: string): void {
+  if (pollTimers.has(name)) scheduleHook(name)
 }
 
 async function drainTick(): Promise<void> {
@@ -227,7 +236,7 @@ export async function startJiraTicket(key: string): Promise<ManualStartResult> {
 
 export function startHookPolling(): void {
   refreshGateStatus()
-  pollAll().then(drainTick)
-  setInterval(pollAll, POLL_INTERVAL_MIN * 60 * 1000)
+  Promise.all(HOOKS.map(queuePoll)).then(drainTick)
+  for (const hook of HOOKS) scheduleHook(hook.name)
   setInterval(drainTick, DRAIN_INTERVAL_MS)
 }

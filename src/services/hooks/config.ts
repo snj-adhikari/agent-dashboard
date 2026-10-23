@@ -1,10 +1,25 @@
 import fs from 'fs'
 import path from 'path'
 import { settings } from '../settings'
+import { hookIntervals } from './state'
 import type { AtlassianSettings, ProfileSettings, Settings } from '../settings'
 
 export const POLL_INTERVAL_MIN = 30
-export const LOOKBACK_MIN = POLL_INTERVAL_MIN + 5
+const MIN_INTERVAL_MIN = 5
+const MAX_INTERVAL_MIN = 24 * 60
+
+export function validInterval(minutes: unknown): minutes is number {
+  return Number.isInteger(minutes) && (minutes as number) >= MIN_INTERVAL_MIN && (minutes as number) <= MAX_INTERVAL_MIN
+}
+
+export function pollIntervalMin(hook: string): number {
+  return hookIntervals()[hook] ?? POLL_INTERVAL_MIN
+}
+
+/** Each poll looks a little past its own interval so nothing falls between two polls. */
+export function lookbackMin(hook: string): number {
+  return pollIntervalMin(hook) + 5
+}
 
 export interface BaseBranchRule {
   repo: string

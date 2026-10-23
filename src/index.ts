@@ -13,11 +13,12 @@ import { handleScreen } from './routes/screen'
 import { handleNewSession } from './routes/newSession'
 import { handleHistory } from './routes/history'
 import { handleVaultTree, handleVaultGraph, handleVaultFile } from './routes/vault'
-import { handleHookEnabled, handleHookSession, handleHookStatus, handleJiraStart, handleRunQueued } from './routes/hookStatus'
+import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookStatus, handleJiraStart, handleRunQueued } from './routes/hookStatus'
 import { handlePluginDownload, handlePluginImport } from './routes/plugin'
 import { handleMongoRestart, handleMongoStatus } from './routes/mongo'
 import { handleGetSettings, handleSaveSettings } from './routes/settings'
 import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus } from './routes/setup'
+import { handleMobileSessions, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
 import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
@@ -33,7 +34,8 @@ const STATIC_TYPES: Record<string, string> = {
   '.js': 'application/javascript',
   '.css': 'text/css',
   '.svg': 'image/svg+xml',
-  '.json': 'application/json'
+  '.json': 'application/json',
+  '.webmanifest': 'application/manifest+json'
 }
 
 function serveFile(res: http.ServerResponse, filePath: string): void {
@@ -48,7 +50,7 @@ function serveWebApp(res: http.ServerResponse, pathname: string): void {
     serveFile(res, candidate)
     return
   }
-  serveFile(res, path.join(WEB_DIST, 'index.html'))
+  serveFile(res, path.join(WEB_DIST, pathname === '/m' || pathname.startsWith('/m/') ? 'm/index.html' : 'index.html'))
 }
 
 const server = http.createServer(async (req, res) => {
@@ -88,8 +90,16 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/setup/check-dir' && req.method === 'POST') return handleCheckDir(req, res)
   if (url.pathname === '/api/setup/service/generate' && req.method === 'POST') return handleServiceGenerate(req, res)
   if (url.pathname === '/api/setup/service/install' && req.method === 'POST') return handleServiceInstall(req, res)
+  if (url.pathname === '/api/mobile/pulse') return handlePulse(res)
+  if (url.pathname === '/api/mobile/sessions') return handleMobileSessions(res)
+  if (url.pathname === '/api/push/key') return handlePushKey(res)
+  if (url.pathname === '/api/push/subscribe' && req.method === 'POST') return handlePushSubscribe(req, res)
+  if (url.pathname === '/api/push/unsubscribe' && req.method === 'POST') return handlePushUnsubscribe(req, res)
+  if (url.pathname === '/api/push/test' && req.method === 'POST') return handlePushTest(res)
   const hookEnabled = url.pathname.match(/^\/api\/hooks\/([^/]+)\/enabled$/)
   if (hookEnabled && req.method === 'POST') return handleHookEnabled(req, res, hookEnabled[1])
+  const hookInterval = url.pathname.match(/^\/api\/hooks\/([^/]+)\/interval$/)
+  if (hookInterval && req.method === 'POST') return handleHookInterval(req, res, hookInterval[1])
 
   serveWebApp(res, url.pathname)
 })

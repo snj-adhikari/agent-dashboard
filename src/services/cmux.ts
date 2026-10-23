@@ -11,6 +11,7 @@ export function cmuxWorkspaces(): CmuxTab[] {
       const cwd = String(w.current_directory || '').replace(/\/$/, '')
       return {
         ref: w.ref,
+        id: String(w.id || ''),
         cwd,
         title: String(w.custom_title || w.latest_submitted_message || w.latest_conversation_message || '')
           .replace(/\n/g, ' ')

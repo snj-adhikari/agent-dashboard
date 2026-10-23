@@ -91,6 +91,7 @@ export interface HookStatus {
   flags: string[]
   enabled: boolean
   autoPaused: { reason: 'idle' | 'queue'; until: number } | null
+  intervalMin: number
   recent: HookStart[]
 }
 

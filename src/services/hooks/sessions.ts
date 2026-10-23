@@ -42,6 +42,11 @@ export function recordSession(body: Record<string, unknown>): LiveSession | null
   return entry
 }
 
+/** Every reported session, newest last. */
+export function liveSessions(): LiveSession[] {
+  return [...sessions.values()]
+}
+
 /** Sessions started by a hook, newest first, for the Hooks panel. */
 export function hookSessions(): LiveSession[] {
   return [...sessions.values()].filter((s) => s.ticket).reverse()

@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process'
 import type { IncomingMessage } from 'http'
 import { toEvent } from './jiraHook'
 import { reviewRequestToEvent } from './slackPrReviewHook'
-import { overrideHookSettings } from './config'
+import { overrideHookSettings, validInterval } from './config'
 import { parseLsofCwds } from '../processes'
 import { recordSession, reportedByPid } from './sessions'
 import { hasPendingReview } from './reviewGuard'
@@ -11,6 +11,7 @@ import { mentionsToEvents } from './jiraMentionPrHook'
 import { pickSessionTarget, usagePctFromJsonl } from './sessionTarget'
 import { shellQuote } from '../cmuxControl'
 import { isTrustedRequest } from '../../http'
+import { isPushEndpoint } from '../push'
 import { DeferredError, shouldRequeue } from './execute'
 import { autoDisableDecision, enabledHooks, expired, insertByQueuedAt, nextIdleCount, pollingPaused, queueOrder, runnableOrder, shouldAutoEnable } from './state'
 import type { QueuedEvent } from './state'
@@ -28,6 +29,9 @@ function req(headers: Record<string, string>, method = 'GET'): IncomingMessage {
 assert.ok(isTrustedRequest(req({ host: 'localhost:5818' }), 5818))
 assert.ok(isTrustedRequest(req({ host: '127.0.0.1:5818' }), 5818))
 assert.ok(isTrustedRequest(req({ host: 'my.localhost:5818' }), 5818), 'subdomain .localhost alias must be trusted')
+assert.ok(!isTrustedRequest(req({ host: 'evil.example', 'tailscale-user-login': 'me@example.com' }), 5818), 'a login header alone must not trust a foreign host')
+assert.ok(isPushEndpoint('https://fcm.googleapis.com/fcm/send/abc') && !isPushEndpoint('https://169.254.169.254/x') && !isPushEndpoint('https://fcm.googleapis.com:8443/x') && !isPushEndpoint('http://fcm.googleapis.com/x'))
+assert.ok(validInterval(5) && validInterval(1440) && !validInterval(4) && !validInterval(1441) && !validInterval(7.5) && !validInterval('30'))
 assert.ok(!isTrustedRequest(req({ host: 'evil.com:5818' }), 5818))
 assert.ok(!isTrustedRequest(req({ host: 'notlocalhost:5818' }), 5818), 'must not match by suffix alone, only .localhost')
 assert.ok(

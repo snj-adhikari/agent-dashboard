@@ -52,6 +52,8 @@ export const api = {
   runQueued: (id?: string) => postJson('/api/hooks/queue/run', { id }),
   setHookEnabled: (name: string, enabled: boolean) =>
     postJson(`/api/hooks/${encodeURIComponent(name)}/enabled`, { enabled }),
+  setHookInterval: (name: string, minutes: number) =>
+    postJson(`/api/hooks/${encodeURIComponent(name)}/interval`, { minutes }),
   settings: (): Promise<Partial<Settings>> =>
     fetch('/api/settings').then((r) => r.json()).then((j) => j.settings ?? {}),
   saveSettings: (patch: Partial<Settings>) => postJson<ApiResult & { settings?: Partial<Settings> }>('/api/settings', patch),

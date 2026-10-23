@@ -7,3 +7,4 @@ web/dist/
 hooks-state.json
 hooks.config.json
 mods/*/tsconfig.json
+push-state.json

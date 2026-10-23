@@ -29,6 +29,58 @@ function TicketLink({ id, title, url }: { id: string; title: string; url?: strin
   )
 }
 
+const INTERVALS = [5, 15, 30, 60, 120, 240, 480, 1440]
+
+const intervalLabel = (m: number): string => (m < 60 ? `${m} min` : `${m / 60} h`)
+
+function IntervalPicker({ hook, onChange }: { hook: HookStatus; onChange: () => void }) {
+  const [custom, setCustom] = useState(!INTERVALS.includes(hook.intervalMin))
+  const [value, setValue] = useState(String(hook.intervalMin))
+  const [error, setError] = useState('')
+
+  async function save(minutes: number) {
+    setError('')
+    const r = await api.setHookInterval(hook.name, minutes)
+    if (r.ok) onChange()
+    else setError(r.error || 'failed')
+  }
+
+  return (
+    <span className="flex flex-wrap items-center gap-1.5 text-xs text-slate-400">
+      polls every
+      <select
+        value={custom ? 'custom' : hook.intervalMin}
+        onChange={(e) => {
+          const next = e.target.value
+          setCustom(next === 'custom')
+          if (next !== 'custom') save(Number(next))
+        }}
+        className="rounded bg-slate-800 px-1.5 py-1 text-slate-200"
+      >
+        {INTERVALS.map((m) => (
+          <option key={m} value={m}>{intervalLabel(m)}</option>
+        ))}
+        <option value="custom">custom</option>
+      </select>
+      {custom && (
+        <>
+          <input
+            type="number"
+            min={5}
+            max={1440}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-16 rounded bg-slate-800 px-1.5 py-1 text-slate-200"
+          />
+          min
+          <Button onClick={() => save(Number(value))}>Save</Button>
+        </>
+      )}
+      {error && <span className="text-red-300">{error}</span>}
+    </span>
+  )
+}
+
 function HookCard({ hook, onChange }: { hook: HookStatus; onChange: () => void }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -56,10 +108,11 @@ function HookCard({ hook, onChange }: { hook: HookStatus; onChange: () => void }
         {!hook.enabled && <span className="rounded bg-slate-800 px-1 text-[10px] font-normal text-slate-400">disabled</span>}
         <span className="ml-auto text-[11px] font-normal text-slate-500">polled {timeAgo(hook.lastPollAt) || 'not yet'}</span>
       </div>
-      <div className="mt-1">
+      <div className="mt-1 flex flex-wrap items-center gap-3">
         <Button primary={!hook.enabled} loading={busy} onClick={toggle}>
           {paused ? 'Enable' : 'Disable'}
         </Button>
+        <IntervalPicker hook={hook} onChange={onChange} />
       </div>
       {!hook.enabled && <CardMeta>not polling or auto-starting; queued items wait, Run now still works</CardMeta>}
       {hook.enabled && hook.autoPaused && (
