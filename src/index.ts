@@ -17,7 +17,7 @@ import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookSta
 import { handlePluginDownload, handlePluginImport } from './routes/plugin'
 import { handleMongoRestart, handleMongoStatus } from './routes/mongo'
 import { handleGetSettings, handleSaveSettings } from './routes/settings'
-import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus } from './routes/setup'
+import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus, handleTailscalePublish, handleTailscaleStatus } from './routes/setup'
 import { handleMobileSessions, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
 import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
@@ -91,6 +91,8 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/setup/check-dir' && req.method === 'POST') return handleCheckDir(req, res)
   if (url.pathname === '/api/setup/service/generate' && req.method === 'POST') return handleServiceGenerate(req, res)
   if (url.pathname === '/api/setup/service/install' && req.method === 'POST') return handleServiceInstall(req, res)
+  if (url.pathname === '/api/setup/tailscale') return handleTailscaleStatus(res, PORT)
+  if (url.pathname === '/api/setup/tailscale/publish' && req.method === 'POST') return handleTailscalePublish(res, PORT)
   if (url.pathname === '/api/mobile/pulse') return handlePulse(res)
   if (url.pathname === '/api/mobile/sessions') return handleMobileSessions(res)
   if (url.pathname === '/api/push/key') return handlePushKey(res)

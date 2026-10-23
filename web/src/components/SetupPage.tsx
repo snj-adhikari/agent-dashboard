@@ -5,6 +5,7 @@ import { Button, Card } from './Card'
 import { Modal } from './Modal'
 import { Pending } from './Spinner'
 import { CmuxSocketGuide, CMUX_SECRET } from './CmuxSocketGuide'
+import { TailscaleSetup } from './TailscaleSetup'
 import { WizardShell, WIZARD_STEPS, type WizardStepId } from './OnboardingWizard'
 import { ChipList, CopyLine, Field, fromRows, RowsEditor, TextInput, toRows } from './SetupFields'
 
@@ -115,6 +116,7 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
   const [service, setService] = useState<{ path: string; plist: string; commands: string[]; note?: string } | null>(null)
   const [confirmInstall, setConfirmInstall] = useState(false)
   const [cmuxToken, setCmuxToken] = useState('')
+  const [tsServing, setTsServing] = useState(false)
   const [stepIdx, setStepIdx] = useState(0)
   const saveRef = useRef<SaveFn | undefined>(undefined)
 
@@ -448,6 +450,18 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
               {service.note && <p className="mt-1 text-[11px] text-slate-500">{service.note}</p>}
             </div>
           )}
+        </Section>
+
+        <Section
+          id="tailscale"
+          title="Phone access (Tailscale)"
+          done={!missing('tailscale')}
+          onSave={() => save('tailscale', {}, tsServing)}
+          saving={busy === 'tailscale'}
+          saved={saved('tailscale')}
+        >
+          <p className="mb-2 text-[11px] text-slate-500">Optional. Use the dashboard from your phone over your private Tailscale network, with a notification when a session is waiting for you. No SSH needed.</p>
+          <TailscaleSetup onStatus={setTsServing} />
         </Section>
 
         <Section

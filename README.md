@@ -21,6 +21,8 @@ flowchart TD
 
 ## Set it up, step by step
 
+Prefer a guided setup? Paste [`prompts/setup-agent-monitor.md`](prompts/setup-agent-monitor.md) into Claude Code in this repo. Other prompts are in [`prompts/`](prompts/).
+
 ### Step 1: Prerequisites
 
 | Need | Required | Notes |
@@ -158,6 +160,10 @@ launchctl list | grep agent-monitor   # service only; use your label
 - The curl prints JSON starting with a mermaid graph and state.
 - Without MongoDB, `/api/history` errors but the rest still works.
 
+### Step 10 (optional): Phone access
+
+Use the dashboard from your phone over Tailscale, with notifications. See [Mobile (phone over Tailscale)](#mobile-phone-over-tailscale) or **Setup > Phone access (Tailscale)**.
+
 ## Project structure
 
 ```
@@ -177,6 +183,7 @@ agent-dashboard/
 │   └── scripts/                  settings:import
 ├── web/src/                      React frontend
 │   ├── App.tsx                   pages and navigation
+│   ├── mobile/                   phone page (/m/)
 │   └── components/               Home graph, Setup, wizard, Plugin, Vault
 ├── mods/                         Claude Code plugins
 │   ├── agent-monitor-hook/       hook status line
@@ -187,6 +194,7 @@ agent-dashboard/
 │   ├── agent-monitor/            session popup
 │   └── njw-analytic-blocker/     GTA - Blocker
 ├── docs/                         screenshots
+├── prompts/                      copy-paste prompts for guided setup
 ├── .claude-plugin/               marketplace manifest
 ├── hooks.config.example.json     hooks config template
 └── .env.example                  env template
@@ -241,6 +249,8 @@ flowchart TD
 
 ### Tailscale setup (once)
 
+The quickest way is **Setup > Phone access (Tailscale)** in the dashboard: it checks each step below, publishes with one click, and shows the phone URL. To be walked through it, paste [`prompts/setup-phone-access.md`](prompts/setup-phone-access.md) into Claude Code.
+
 1. Install Tailscale on the Mac ([download](https://tailscale.com/download)) and on the phone (Play Store or App Store). Sign in to both with the **same account**.
 2. In the [admin console](https://login.tailscale.com/admin/dns), keep **MagicDNS** on and turn on **HTTPS certificates**. The first `tailscale serve` run also prints a one-time link to enable Serve if it's off.
 3. On the Mac, publish the dashboard to your tailnet only:
@@ -271,6 +281,7 @@ flowchart TD
 | Symptom | Check |
 | --- | --- |
 | Page doesn't load | Tailscale on for both devices; `tailscale serve status` shows the proxy to `127.0.0.1:5818` |
+| "Site can't be reached" on Android | In the phone's Tailscale app turn on **Use Tailscale DNS**; set Android Private DNS to Off or Automatic |
 | `403` | Signed in to Tailscale on the phone as the Mac owner; using the MagicDNS name, not the IP |
 | "Mac unreachable" on the page | Mac asleep, offline, or agent-monitor not running |
 | No notifications | Permission allowed; **Test** works; the session has the `agent-monitor-hook` mod |

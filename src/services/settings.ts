@@ -46,7 +46,7 @@ export interface Settings {
   onboardedAt?: string
 }
 
-export const SETUP_STEPS = ['mongo', 'repos', 'profile', 'vault', 'atlassian', 'service', 'blocker'] as const
+export const SETUP_STEPS = ['mongo', 'repos', 'profile', 'vault', 'atlassian', 'service', 'tailscale', 'blocker'] as const
 export type SetupStep = (typeof SETUP_STEPS)[number]
 
 const COLLECTION = 'settings'

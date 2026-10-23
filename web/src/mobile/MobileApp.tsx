@@ -215,8 +215,10 @@ export function MobileApp() {
         <h1 className="text-lg font-semibold text-slate-100">Agents</h1>
         <Pulse />
       </div>
-      <InstallButton />
-      <NotifyToggle />
+      <div className="flex flex-wrap items-center gap-2">
+        <InstallButton />
+        <NotifyToggle />
+      </div>
       <ul className="space-y-2">
         {sessions.map((s) => (
           <li key={s.ref}>

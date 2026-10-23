@@ -179,7 +179,7 @@ export interface BlockerSettings {
   sites: string[]
 }
 
-export type SetupStep = 'mongo' | 'repos' | 'profile' | 'vault' | 'atlassian' | 'service' | 'blocker'
+export type SetupStep = 'mongo' | 'repos' | 'profile' | 'vault' | 'atlassian' | 'service' | 'tailscale' | 'blocker'
 
 export interface Settings {
   terminal: 'auto' | 'cmux' | 'tmux' | 'terminal'

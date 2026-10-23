@@ -9,6 +9,7 @@ export const WIZARD_STEPS = [
   { id: 'vault', title: 'Vault', sectioned: true, optional: true },
   { id: 'atlassian', title: 'Atlassian and hooks', sectioned: true, optional: true },
   { id: 'service', title: 'Background service and cmux', sectioned: true, optional: true },
+  { id: 'tailscale', title: 'Phone access (Tailscale)', sectioned: true, optional: true },
   { id: 'blocker', title: 'Chrome blocker', sectioned: true, optional: true },
   { id: 'tour', title: 'Tour', sectioned: false, optional: false },
   { id: 'finish', title: 'Finish', sectioned: false, optional: false }

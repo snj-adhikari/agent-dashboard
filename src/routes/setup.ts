@@ -6,6 +6,7 @@ import { mongoStatus } from '../services/db'
 import { expandHome } from '../utils'
 import { saveSettings, settings, SETUP_STEPS, type SetupStep } from '../services/settings'
 import { terminalInfo } from '../services/terminal'
+import { publishToTailnet, tailscaleSetup } from '../services/tailnet'
 import { cleanSecrets, generateLaunchAgent, installLaunchAgent, serviceDefaults } from '../services/launchAgent'
 
 const REQUIRED: SetupStep[] = ['mongo', 'repos', 'profile']
@@ -31,6 +32,14 @@ export function missingSteps(mongoUp: boolean): SetupStep[] {
     profile: !!s.profile?.displayName
   }
   return SETUP_STEPS.filter((step) => (REQUIRED.includes(step) ? !requiredOk[step] : !done.has(step)))
+}
+
+export function handleTailscaleStatus(res: ServerResponse, port: number): void {
+  sendJson(res, { ok: true, ...tailscaleSetup(port) })
+}
+
+export function handleTailscalePublish(res: ServerResponse, port: number): void {
+  sendJson(res, publishToTailnet(port))
 }
 
 export async function handleSetupStatus(res: ServerResponse): Promise<void> {

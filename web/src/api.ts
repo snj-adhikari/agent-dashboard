@@ -61,5 +61,8 @@ export const api = {
   checkDir: (path: string) => postJson<ApiResult & { exists: boolean; repoCount: number }>('/api/setup/check-dir', { path }),
   generateService: (service?: ServiceSettings, secrets?: Record<string, string>) =>
     postJson<ApiResult & { path: string; plist: string; commands: string[]; note?: string }>('/api/setup/service/generate', { service, secrets }),
+  tailscaleSetup: (): Promise<{ ok: boolean; installed: boolean; running: boolean; host: string; serving: boolean }> =>
+    fetch('/api/setup/tailscale').then((r) => r.json()),
+  publishToTailnet: () => postJson<ApiResult & { link?: string }>('/api/setup/tailscale/publish', {}),
   installService: (secrets?: Record<string, string>) => postJson<ApiResult & { output?: string }>('/api/setup/service/install', { secrets })
 }
