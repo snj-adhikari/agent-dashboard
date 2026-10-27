@@ -8,6 +8,7 @@
     { "name": "stop-slop", "source": "./mods/stop-slop" },
     { "name": "factory", "source": "./mods/factory" },
     { "name": "guards", "source": "./mods/guards" },
-    { "name": "dev-kit", "source": "./mods/dev-kit" }
+    { "name": "dev-kit", "source": "./mods/dev-kit" },
+    { "name": "agent-kit", "source": "./mods/agent-kit" }
   ]
 }

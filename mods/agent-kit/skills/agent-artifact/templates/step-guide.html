@@ -1,0 +1,261 @@
+<title>GA4 MCP Prompt Kit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* One narrow column: a flow picture, then numbered steps with expandable copyable commands */
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --ink: #1a2230;
+  --muted: #5b6577;
+  --rule: #d6dbe2;
+  --accent: #c2410c;
+  --accent-soft: #fdeee6;
+  --code-bg: #eef1f5;
+  --ok: #15803d;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #11151c; --surface: #181e27; --ink: #e4e8ee; --muted: #98a2b2; --rule: #2e3744;
+    --accent: #fb923c; --accent-soft: #2b1d13; --code-bg: #0e1218; --ok: #4ade80;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #11151c; --surface: #181e27; --ink: #e4e8ee; --muted: #98a2b2; --rule: #2e3744;
+  --accent: #fb923c; --accent-soft: #2b1d13; --code-bg: #0e1218; --ok: #4ade80;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 16px; line-height: 1.6;
+  padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 680px; margin: 0 auto; display: grid; gap: 40px; }
+header { display: grid; gap: 10px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(2rem, 6vw, 2.6rem); line-height: 1.1; margin: 0; }
+h2 { font-family: var(--font-display); font-weight: 600; font-size: 1.35rem; margin: 0; }
+h3 { font-size: 1.05rem; font-weight: 600; line-height: 1.3; margin: 0; }
+p { margin: 0; }
+a { color: var(--accent); text-underline-offset: 2px; }
+code { font-family: var(--font-mono); font-size: 0.86em; }
+.lede { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.board { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; padding: 8px; overflow-x: auto; }
+.board svg { display: block; width: 100%; min-width: 520px; height: auto; color: var(--ink); }
+.box { fill: var(--surface); stroke: var(--rule); stroke-width: 1.5; }
+.box.on { fill: var(--accent); stroke: var(--accent); }
+.bl { font-family: var(--font-mono); font-size: 13px; font-weight: 500; fill: var(--ink); }
+.bl.on { fill: var(--surface); }
+.bs { font-family: var(--font-body); font-size: 11.5px; fill: var(--muted); }
+.arrow { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.head { fill: var(--muted); }
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; }
+ol.steps li { display: grid; grid-template-columns: 36px 1fr; gap: 16px; position: relative; padding-bottom: 28px; }
+ol.steps li:last-child { padding-bottom: 0; }
+ol.steps li::before { content: ""; position: absolute; left: 17px; top: 36px; bottom: 0; width: 2px; background: var(--rule); }
+ol.steps li:last-child::before { display: none; }
+.num { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 500; background: var(--surface); border: 2px solid var(--accent); color: var(--accent); }
+.body { display: grid; gap: 8px; min-width: 0; padding-top: 5px; }
+.who { font-family: var(--font-mono); font-size: 12px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+details { background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+summary { cursor: pointer; padding: 8px 12px; font-size: 14px; font-weight: 500; color: var(--accent); list-style: none; display: flex; align-items: center; gap: 8px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+"; font-family: var(--font-mono); width: 1ch; }
+details[open] summary::before { content: "−"; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+.snip { position: relative; border-top: 1px solid var(--rule); }
+pre { margin: 0; background: var(--code-bg); padding: 12px 12px 12px 12px; padding-right: 76px; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; border-radius: 0 0 8px 8px; }
+button.copy { position: absolute; top: 8px; right: 8px; font: 500 12px var(--font-body); color: var(--accent); background: var(--surface); border: 1px solid var(--accent); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button.copy:hover { background: var(--accent-soft); }
+button.copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.copy.done { color: var(--ok); border-color: var(--ok); }
+.note { background: var(--accent-soft); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 4px; font-size: 15px; }
+.prompts { display: grid; gap: 10px; }
+.os { display: inline-flex; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); padding: 3px; gap: 3px; justify-self: start; }
+.os button { font: 500 14px var(--font-body); color: var(--muted); background: transparent; border: 0; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+.os button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+.os button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>GA4 MCP Prompt Kit</h1>
+    <p class="lede">Connect Claude Code to your GA4 properties with <a href="https://developers.google.com/analytics/devguides/MCP">Google's Analytics MCP server</a>, read-only, then ask questions in plain English.</p>
+    <div class="os" role="group" aria-label="Operating system">
+      <button type="button" id="os-win" data-pick="win" aria-pressed="true">Windows</button>
+      <button type="button" id="os-mac" data-pick="mac" aria-pressed="false">Mac</button>
+    </div>
+  </header>
+
+  <section>
+    <h2>Quickest way: let Claude guide you</h2>
+    <p>Paste this into Claude Code. It walks you through every step below and uses Claude in Chrome to show you where to click in Google Cloud and GA4.</p>
+    <details open><summary>Setup prompt</summary><div class="snip"><button class="copy" type="button" id="c0">Copy</button><pre>Help me set up Google's Analytics MCP server (analytics-mcp) in Claude Code with read-only access. First check whether I'm on macOS or Windows and give every command in the right form for my OS (on Windows use PowerShell, and paths like C:\Users\ME\AppData\Roaming\gcloud\...). Go one step at a time, give me each command to run myself, and wait for me before moving on.
+
+0. Check whether Claude in Chrome is connected (/chrome). If it isn't, help me set it up first: install the Claude in Chrome extension from the Chrome Web Store, sign in with my Claude account, then run /chrome and enable it. Use it to guide me in the browser in later steps (open the right page, point out what to click). Don't change any settings in Google Cloud or GA yourself.
+1. Check gcloud, pipx and Python 3.10+ are installed. If not, install them (Mac: brew install --cask google-cloud-sdk and brew install pipx; Windows: winget install Google.CloudSDK, winget install Python.Python.3.12, then py -m pip install --user pipx and py -m pipx ensurepath, and reopen the terminal).
+2. Use Chrome to open GA4 Admin > Property access management and confirm I have the Viewer role on the properties you need.
+3. Enable the APIs: gcloud services enable analyticsadmin.googleapis.com analyticsdata.googleapis.com --project=YOUR_PROJECT_ID
+4. Log in with read-only GA access (gcloud also requires cloud-platform):
+   gcloud auth application-default login --scopes="https://www.googleapis.com/auth/analytics.readonly,https://www.googleapis.com/auth/cloud-platform"
+   gcloud auth application-default set-quota-project YOUR_PROJECT_ID
+   If sign-in says access is blocked, help me create a Desktop OAuth client in Google Cloud Console and log in again with --client-id-file.
+5. Register the server with the absolute credentials path gcloud printed, then check claude mcp list shows it Connected:
+   claude mcp add analytics-mcp --scope user -e GOOGLE_APPLICATION_CREDENTIALS="ABSOLUTE_PATH" -e GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID" -- pipx run analytics-mcp
+6. After I restart Claude Code, call get_account_summaries and list the GA4 properties it can see.</pre></div></details>
+  </section>
+
+  <section>
+    <h2>The flow</h2>
+    <div class="board" role="img" aria-label="Enable APIs, then log in read-only, then add the server to Claude Code, then ask questions">
+      <svg viewBox="0 0 640 110" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="ah" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path class="head" d="M0 0 L8 4 L0 8 z"/></marker></defs>
+        <rect class="box" x="10" y="25" width="130" height="60" rx="8"/>
+        <text class="bl" x="75" y="52" text-anchor="middle">Enable APIs</text>
+        <text class="bs" x="75" y="70" text-anchor="middle">once per project</text>
+        <line class="arrow" x1="142" y1="55" x2="170" y2="55" marker-end="url(#ah)"/>
+        <rect class="box" x="172" y="25" width="130" height="60" rx="8"/>
+        <text class="bl" x="237" y="52" text-anchor="middle">Log in</text>
+        <text class="bs" x="237" y="70" text-anchor="middle">read-only scope</text>
+        <line class="arrow" x1="304" y1="55" x2="332" y2="55" marker-end="url(#ah)"/>
+        <rect class="box" x="334" y="25" width="130" height="60" rx="8"/>
+        <text class="bl" x="399" y="52" text-anchor="middle">Add to Claude</text>
+        <text class="bs" x="399" y="70" text-anchor="middle">claude mcp add</text>
+        <line class="arrow" x1="466" y1="55" x2="494" y2="55" marker-end="url(#ah)"/>
+        <rect class="box on" x="496" y="25" width="134" height="60" rx="8"/>
+        <text class="bl on" x="563" y="52" text-anchor="middle">Ask questions</text>
+        <text class="bs" x="563" y="70" text-anchor="middle" style="fill: var(--surface)">plain English</text>
+      </svg>
+    </div>
+    <p class="note">Read-only: GA access is <code>analytics.readonly</code>, so Claude can read reports and settings but can't change anything in GA.</p>
+  </section>
+
+  <section>
+    <h2>Step by step</h2>
+    <ol class="steps">
+      <li>
+        <div class="num">1</div>
+        <div class="body">
+          <span class="who">You, once</span>
+          <h3>Check access and tools</h3>
+          <p>GA4 Viewer on the properties you need, plus <code>gcloud</code>, <code>pipx</code> and Python 3.10+ installed. Optional: Claude in Chrome, so Claude can guide you in the browser.</p>
+          <details data-os="mac" hidden><summary>Check (Mac)</summary><div class="snip"><button class="copy" type="button" id="c1m">Copy</button><pre>gcloud --version
+pipx --version
+python3 --version</pre></div></details>
+          <details data-os="mac" hidden><summary>Install if missing (Mac)</summary><div class="snip"><button class="copy" type="button" id="c1mi">Copy</button><pre>brew install --cask google-cloud-sdk
+brew install pipx
+pipx ensurepath</pre></div></details>
+          <details data-os="win"><summary>Check (Windows, PowerShell)</summary><div class="snip"><button class="copy" type="button" id="c1w">Copy</button><pre>gcloud --version
+pipx --version
+py --version</pre></div></details>
+          <details data-os="win"><summary>Install if missing (Windows, PowerShell)</summary><div class="snip"><button class="copy" type="button" id="c1wi">Copy</button><pre>winget install Google.CloudSDK
+winget install Python.Python.3.12
+py -m pip install --user pipx
+py -m pipx ensurepath
+# then close and reopen PowerShell</pre></div></details>
+          <details><summary>Show prompt</summary><div class="snip"><button class="copy" type="button" id="c1p">Copy</button><pre>Check whether gcloud, pipx and Python 3.10+ are installed on my machine (detect macOS or Windows). Give me the install commands for anything missing, for my OS, and let me run them myself.</pre></div></details>
+          <details><summary>Set up Claude in Chrome</summary><div class="snip"><button class="copy" type="button" id="c1b">Copy</button><pre>Check whether Claude in Chrome is connected. If not, walk me through it: install the Claude in Chrome extension from the Chrome Web Store, sign in with my Claude account, then run /chrome in Claude Code and enable it. Confirm by listing my open Chrome tabs.</pre></div></details>
+        </div>
+      </li>
+      <li>
+        <div class="num">2</div>
+        <div class="body">
+          <span class="who">Once per Google Cloud project</span>
+          <h3>Enable the APIs</h3>
+          <p>Skip if someone has already done it on the project.</p>
+          <details><summary>Show command</summary><div class="snip"><button class="copy" type="button" id="c2">Copy</button><pre>gcloud services enable analyticsadmin.googleapis.com analyticsdata.googleapis.com --project=YOUR_PROJECT_ID</pre></div></details>
+          <details><summary>Show prompt</summary><div class="snip"><button class="copy" type="button" id="c2p">Copy</button><pre>Check whether the Google Analytics Admin API and Data API are enabled on Google Cloud project YOUR_PROJECT_ID. If they aren't, give me the gcloud command to enable them and let me run it myself.</pre></div></details>
+        </div>
+      </li>
+      <li>
+        <div class="num">3</div>
+        <div class="body">
+          <span class="who">You · opens a browser</span>
+          <h3>Log in read-only</h3>
+          <p>Sign in with your work Google account and note the credentials path it prints. gcloud insists on the <code>cloud-platform</code> scope too; GA access stays read-only. <a href="https://developers.google.com/analytics/devguides/MCP">Google's auth guide</a></p>
+          <details><summary>Show command</summary><div class="snip"><button class="copy" type="button" id="c3">Copy</button><pre>gcloud auth application-default login --scopes="https://www.googleapis.com/auth/analytics.readonly,https://www.googleapis.com/auth/cloud-platform"
+gcloud auth application-default set-quota-project YOUR_PROJECT_ID</pre></div></details>
+          <details><summary>If Google blocks the sign-in</summary><div class="snip"><button class="copy" type="button" id="c3b">Copy</button><pre># Google is phasing out analytics.readonly on gcloud's built-in client.
+# If sign-in shows "access blocked", create a Desktop OAuth client in
+# Google Cloud Console > APIs &amp; Services > Credentials, download the JSON, then:
+gcloud auth application-default login --client-id-file=PATH_TO_CLIENT_JSON --scopes="https://www.googleapis.com/auth/analytics.readonly,https://www.googleapis.com/auth/cloud-platform"</pre></div></details>
+          <details><summary>Show prompt</summary><div class="snip"><button class="copy" type="button" id="c3p">Copy</button><pre>Help me log in to Google for the Analytics MCP server with read-only GA access. Give me the gcloud application-default login command for my OS with the analytics.readonly and cloud-platform scopes, then set the quota project to YOUR_PROJECT_ID. If sign-in says access is blocked, walk me through creating a Desktop OAuth client in Google Cloud Console (use Claude in Chrome to show me where) and logging in with --client-id-file. Tell me the full path of the credentials file at the end.</pre></div></details>
+        </div>
+      </li>
+      <li>
+        <div class="num">4</div>
+        <div class="body">
+          <span class="who">You · Claude Code</span>
+          <h3>Add the server</h3>
+          <p>Use the full credentials path from step 3, not <code>~</code>. Restart Claude Code afterwards.</p>
+          <details data-os="mac" hidden><summary>Show command (Mac)</summary><div class="snip"><button class="copy" type="button" id="c4m">Copy</button><pre>claude mcp add analytics-mcp --scope user -e GOOGLE_APPLICATION_CREDENTIALS="/Users/YOU/.config/gcloud/application_default_credentials.json" -e GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID" -- pipx run analytics-mcp</pre></div></details>
+          <details data-os="win"><summary>Show command (Windows, PowerShell)</summary><div class="snip"><button class="copy" type="button" id="c4w">Copy</button><pre>claude mcp add analytics-mcp --scope user -e GOOGLE_APPLICATION_CREDENTIALS="$env:APPDATA\gcloud\application_default_credentials.json" -e GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID" -- pipx run analytics-mcp</pre></div></details>
+          <details><summary>Show prompt</summary><div class="snip"><button class="copy" type="button" id="c4p">Copy</button><pre>Add Google's Analytics MCP server to Claude Code at user scope: claude mcp add analytics-mcp --scope user, with GOOGLE_APPLICATION_CREDENTIALS set to the full path of my gcloud application default credentials file and GOOGLE_CLOUD_PROJECT set to YOUR_PROJECT_ID, running pipx run analytics-mcp. Use the right path format for my OS, then run claude mcp list and confirm it shows Connected.</pre></div></details>
+        </div>
+      </li>
+      <li>
+        <div class="num">5</div>
+        <div class="body">
+          <span class="who">Claude Code</span>
+          <h3>Check it works</h3>
+          <p>A 403 <code>ACCESS_NOT_CONFIGURED</code> means the quota project isn't set: rerun the second line of step 3.</p>
+          <details><summary>Show prompt</summary><div class="snip"><button class="copy" type="button" id="c5">Copy</button><pre>Using the GA MCP, list the GA4 accounts and properties I can access.</pre></div></details>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Things to ask</h2>
+    <div class="prompts" id="prompts"></div>
+  </section>
+</div>
+
+<script>
+const prompts = [
+  ["Top content", "Using the GA MCP, show the top 10 pages by sessions over the last 7 days on the content property, grouped into news, reviews and everything else."],
+  ["Sell My Car sources", "Using the GA MCP, where is Sell My Car traffic (/sell-my-car/) coming from this month by session source? Rank sources by conversions."],
+  ["Enquiry funnel", "Using the GA MCP, run a funnel report: cars-for-sale search, then a listing page, then an enquiry event. Show the drop-off at each step."],
+  ["Release-day check", "Using the GA MCP, show active users right now and the top 10 pages in realtime on both properties."],
+  ["Spikes and drops", "Using the GA MCP, look at daily sessions for the last 30 days on both properties. Find the biggest spikes and drops and the pages that caused them."]
+];
+const box = document.getElementById("prompts");
+prompts.forEach(([title, text], i) => {
+  const d = document.createElement("details");
+  d.innerHTML = `<summary></summary><div class="snip"><button class="copy" type="button" id="p${i}">Copy</button><pre></pre></div>`;
+  d.querySelector("summary").textContent = title;
+  d.querySelector("pre").textContent = text;
+  box.appendChild(d);
+});
+function setOS(os) {
+  document.querySelectorAll("[data-os]").forEach((el) => { el.hidden = el.dataset.os !== os; });
+  document.querySelectorAll(".os button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.pick === os)));
+  try { localStorage.setItem("ga-mcp-os-v2", os); } catch (e) {}
+}
+document.querySelectorAll(".os button").forEach((b) => b.addEventListener("click", () => setOS(b.dataset.pick)));
+let startOS = "win";
+try { startOS = localStorage.getItem("ga-mcp-os-v2") || startOS; } catch (e) {}
+setOS(startOS);
+function selectText(el) {
+  const r = document.createRange(); r.selectNodeContents(el);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button.copy");
+  if (!btn) return;
+  const pre = btn.parentElement.querySelector("pre");
+  const done = (label) => {
+    btn.textContent = label; btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("done"); }, 1800);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(pre.textContent).then(() => done("Copied"), () => { selectText(pre); done("Press Cmd+C"); });
+  } else { selectText(pre); done("Press Cmd+C"); }
+});
+</script>

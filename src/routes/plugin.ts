@@ -9,7 +9,7 @@ import { settings } from '../services/settings'
 
 const execFileAsync = promisify(execFile)
 const MODS_DIR = path.join(__dirname, '..', '..', 'mods')
-const MODS = ['agent-monitor-hook', 'agent-sessions', 'stop-slop', 'factory']
+const MODS = ['agent-monitor-hook', 'agent-sessions', 'stop-slop', 'factory', 'agent-kit']
 const EXTENSION = 'njw-analytic-blocker'
 const SKIP = new Set(['.claude-plugin/types', 'tsconfig.json', 'rules.test.js'])
 /** Claude Code auto-loads a plugin folder placed in ~/.claude/skills/<name> in every session. */

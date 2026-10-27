@@ -186,6 +186,7 @@ agent-dashboard/
 │   ├── mobile/                   phone page (/m/)
 │   └── components/               Home graph, Setup, wizard, Plugin, Vault
 ├── mods/                         Claude Code plugins
+│   ├── agent-kit/                orchestrator, worktree, PR, artifact, Jira reply, dashboard skills
 │   ├── agent-monitor-hook/       hook status line
 │   ├── agent-sessions/           /agent-sessions tree
 │   ├── dev-kit/                  setup, learning, guards, dev and QA skills
@@ -321,11 +322,23 @@ Inactive worktrees collapse into one "+N inactive" node per repo on Home; click 
 | `factory` | `/factory <goal>`: grills you one question at a time, then runs lead, researchers, planner, developers and QA unattended | marketplace, or `claude --plugin-dir ./mods/factory --model opus` |
 | `guards` | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
 | `dev-kit` | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
+| `agent-kit` | skills: `agent-orchestrator` (controller for multi-repo, multi-tab agents on cmux, herdr, tmux, zellij or WezTerm), `agent-worktree` (new worktree in its own cmux tab), `agent-pr` (PR body from the repo's template), `agent-artifact` (Artifact page layouts), `agent-jira-reply` (threaded Jira replies), `agent-dashboard` (start this dashboard) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-kit` |
 | `extensions/njw-analytic-blocker` | Chrome extension (GTA - Blocker): blocks analytics and ad requests, strips click ids, hides tracking cookies on the sites you set | Load unpacked |
 | `extensions/agent-monitor` | Chrome toolbar popup listing agent sessions by repo and worktree | Load unpacked |
 
 - Mods read `AGENT_MONITOR_URL` (default `http://localhost:5818`).
 - Factory commands: `/factory-show`, `/factory-report <lead session>`, `/factory-stop`. A Bash hook blocks `git commit` and `git push` unless your latest message asks.
+
+### agent-orchestrator (in agent-kit)
+
+One Claude session acts as controller for several agents, one terminal tab and git worktree per repo. Workers share a notes file; only the controller talks to you.
+
+- **Repos first:** it starts by asking which repos to open, as names, local paths or git URLs (one per line, optional base branch, branch and task each). Names are looked up under the parent folder, `~/code`, `~/src`, `~/projects`, `~/dev` and `~/work`; URLs are cloned only after you confirm where.
+- **Per repo:** creates a worktree from the default branch (or the base you give), opens a tab running `claude` in it, sends the task, then watches for `DONE:`, `BLOCKED:` or a permission prompt and reports back to you.
+- **Backends:** cmux, herdr, tmux, zellij and WezTerm, picked automatically. Without any of them it falls back to plain terminal tabs (macOS Terminal or iTerm, `gnome-terminal` on Linux, Windows Terminal `wt`) and a shared status file. Works on macOS, Linux and Windows (WezTerm natively, or tmux under WSL).
+- **Notes:** `~/.agent-orchestrator/<session>/controller.md` (tab map, so another controller can take over) and `shared-context.md` (tasks, cross-repo contracts, findings log).
+- **Invoke:** install agent-kit, then ask in any session, e.g. "be the controller and open a tab per repo for these: api, web, https://github.com/org/worker", or "take over as controller". Or call `/agent-kit:agent-orchestrator`.
+- **Approvals:** no `git commit`, `git push`, PR or external post in any tab without your explicit go-ahead in that turn; one go-ahead covers one action. Workers' permission prompts are shown to you, never approved by the controller, and your answer is relayed word for word. Never pushes to main, master, develop or staging, never force-pushes.
 
 ## Hooks
 

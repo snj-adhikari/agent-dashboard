@@ -50,6 +50,16 @@ const PLUGINS: Plugin[] = [
       { title: 'Or run the downloaded zip for one session', code: 'unzip factory.zip -d factory && claude --plugin-dir ./factory --model opus' },
       { title: 'Then, in any session', code: '/factory <goal>' }
     ]
+  },
+  {
+    name: 'agent-kit',
+    kind: 'mod',
+    blurb: 'Skills for agent work: a controller that runs agents across several repos, one tab and worktree each (cmux, herdr, tmux, zellij, WezTerm), a new worktree in its own cmux tab, PR descriptions built from the repo template, Artifact page layouts, threaded Jira replies and starting this dashboard.',
+    steps: [
+      { title: 'Install from the marketplace', code: '/plugin install agent-kit --marketplace snj-adhikari/agent-dashboard' },
+      { title: 'Or run the downloaded zip for one session', code: 'unzip agent-kit.zip -d agent-kit && claude --plugin-dir ./agent-kit' },
+      { title: 'Then, in any session', code: 'work on ABC-123 in a new worktree' }
+    ]
   }
 ]
 

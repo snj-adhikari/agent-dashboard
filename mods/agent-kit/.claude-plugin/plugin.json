@@ -1,0 +1,6 @@
+{
+  "name": "agent-kit",
+  "version": "0.1.0",
+  "author": { "name": "S.N.J" },
+  "description": "Skills for agent work: a controller that runs agents across several repos in their own tabs (cmux, herdr, tmux, zellij, WezTerm), a new worktree in its own cmux tab, template-first PR descriptions, Artifact page layouts, threaded Jira replies and starting the Agent Dashboard."
+}
