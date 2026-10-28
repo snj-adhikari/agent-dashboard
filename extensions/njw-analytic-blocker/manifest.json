@@ -1,11 +1,28 @@
 {
   "manifest_version": 3,
   "name": "GTA - Blocker",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": "S.N.J",
   "description": "While Claude in Chrome automates tabs on the sites you choose: blocks GA, GTM, ad, Insider and third-party send requests, strips ad click ids, purges tracking cookies and hides cookies from page scripts.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Blocked requests",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
   "permissions": [
     "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
     "cookies",
     "tabs",
     "tabGroups",

@@ -1,7 +1,20 @@
-importScripts('cookies.js', 'scope.js')
+importScripts('cookies.js', 'scope.js', 'blocked.js')
 
 let claudeIds = new Set()
 let sites = []
+let writing = Promise.resolve()
+
+/** Writes are chained so a burst of matches doesn't drop entries. */
+function record({ request, rule }) {
+  const entry = { ...describe(request.url, { type: request.type, redirect: rule.ruleId === 100 }), time: Date.now(), tabId: request.tabId, url: request.url }
+  writing = writing.then(async () => {
+    const { log = [] } = await chrome.storage.session.get('log')
+    const next = [entry, ...log].slice(0, LOG_MAX)
+    await chrome.storage.session.set({ log: next })
+    const count = next.filter((e) => e.tabId === request.tabId).length
+    if (request.tabId >= 0) chrome.action.setBadgeText({ tabId: request.tabId, text: String(count) }).catch(() => {})
+  }).catch(() => {})
+}
 
 async function seed() {
   if ((await chrome.storage.sync.get('sites')).sites) return
@@ -52,3 +65,5 @@ chrome.runtime.onInstalled.addListener(({ reason }) => {
   if (reason === 'install') chrome.runtime.openOptionsPage()
 })
 chrome.runtime.onStartup.addListener(() => seed().then(sync).then(purgeAll))
+chrome.declarativeNetRequest.onRuleMatchedDebug?.addListener(record)
+chrome.action.setBadgeBackgroundColor({ color: '#7c3aed' })

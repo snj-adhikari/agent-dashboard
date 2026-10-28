@@ -22,6 +22,14 @@ Chrome extension that stops browser automation from polluting analytics, tag man
 - Deletes tracking cookies on those sites as they are set (`_ga*`, `_gid`, `_gcl_*`, `_fbp`, `_fbc`, `__gads`, `gclid`, Insider prefixes) and once on install/startup.
 - Page scripts see an empty `document.cookie` and `cookieStore`; writes are dropped. HttpOnly and server-side cookies still go out with requests, and login cookies are untouched. Site JS that reads cookies (consent, some auth flows) sees none.
 
+## See what was blocked
+
+- Click the toolbar icon: a popup lists every blocked request, newest first, for this tab or all tabs, with counts per kind.
+- Kinds: **Analytics event** (GA4 event name such as `page_view`, or the Universal Analytics category / action), **Tag manager** (container id), **Ad request**, **Insider**, **Third-party request**, and **Click ids stripped** (which params were removed).
+- GA4 batches several events into one POST body; those show as "events in request body" because Chrome doesn't expose request bodies to the extension.
+- The icon badge shows the count for the current tab. **Clear** empties the log; it also resets when Chrome restarts (kept in session storage, last 300).
+- Uses `declarativeNetRequest.onRuleMatchedDebug`, which Chrome only fires for unpacked extensions. That's how this one is installed, so nothing extra is needed.
+
 ## Install
 
 1. `chrome://extensions` -> Developer mode -> Load unpacked -> this folder (or use "Add to this device" on the Agent Dashboard plugin page).
@@ -29,7 +37,7 @@ Chrome extension that stops browser automation from polluting analytics, tag man
 
 ## Check
 
-- `node rules.test.js` validates the rule set, site scoping and cookie matching.
+- `node rules.test.js` validates the rule set, site scoping, cookie matching and how blocked requests are labelled.
 - In DevTools Network, blocked requests show as `net::ERR_BLOCKED_BY_CLIENT`.
 
 ## Not covered

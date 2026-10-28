@@ -1,0 +1,42 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Blocked</title>
+  <style>
+    :root { --bg: #fff; --fg: #111827; --muted: #6b7280; --line: #e5e7eb; --accent: #7c3aed; --chip: #f3f4f6; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #0f172a; --fg: #e5e7eb; --muted: #94a3b8; --line: #1e293b; --accent: #a78bfa; --chip: #1e293b; } }
+    body { font: 13px system-ui, sans-serif; width: 420px; margin: 0; background: var(--bg); color: var(--fg); }
+    header { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+    header img { width: 24px; height: 24px; border-radius: 6px; }
+    header h1 { font-size: 14px; margin: 0; flex: 1; }
+    button, select { font: inherit; color: inherit; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+    #summary { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+    .chip { background: var(--chip); border-radius: 999px; padding: 2px 8px; }
+    .chip b { color: var(--accent); }
+    ul { list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto; }
+    li { padding: 6px 12px; border-top: 1px solid var(--line); }
+    .row { display: flex; gap: 8px; align-items: baseline; }
+    .kind { font-weight: 600; }
+    .detail { color: var(--accent); overflow-wrap: anywhere; }
+    .time { margin-left: auto; color: var(--muted); white-space: nowrap; }
+    .url { color: var(--muted); font-family: ui-monospace, monospace; font-size: 11px; overflow-wrap: anywhere; }
+    .empty { padding: 16px 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="icons/icon-48.png" alt="">
+    <h1 id="title"></h1>
+    <select id="scope">
+      <option value="tab">This tab</option>
+      <option value="all">All tabs</option>
+    </select>
+    <button id="clear">Clear</button>
+    <button id="sites">Sites</button>
+  </header>
+  <div id="summary"></div>
+  <ul id="log"></ul>
+  <script src="popup.js"></script>
+</body>
+</html>
