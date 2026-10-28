@@ -186,6 +186,7 @@ agent-dashboard/
 │   ├── mobile/                   phone page (/m/)
 │   └── components/               Home graph, Setup, wizard, Plugin, Vault
 ├── mods/                         Claude Code plugins
+│   ├── agent-hooks/              commit/push gate, comment style, attribution, AWS and prod browser guards
 │   ├── agent-kit/                orchestrator, worktree, PR, artifact, Jira reply, dashboard skills
 │   ├── agent-monitor-hook/       hook status line
 │   ├── agent-sessions/           /agent-sessions tree
@@ -323,6 +324,7 @@ Inactive worktrees collapse into one "+N inactive" node per repo on Home; click 
 | `guards` | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
 | `dev-kit` | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
 | `agent-kit` | skills: `agent-orchestrator` (controller for multi-repo, multi-tab agents on cmux, herdr, tmux, zellij or WezTerm), `agent-worktree` (new worktree in its own cmux tab), `agent-pr` (PR body from the repo's template), `agent-artifact` (Artifact page layouts), `agent-jira-reply` (threaded Jira replies), `agent-dashboard` (start this dashboard) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-kit` |
+| `agent-hooks` | hooks: commit/push go-ahead gate, signature trailer, no Claude attribution, `agent-pr` gate on `gh pr create`, comment style, Jira estimates on Dev subtasks, read-only AWS, prod browser guard, branch names ([README](mods/agent-hooks/README.md)) | marketplace, or `claude --plugin-dir ./mods/agent-hooks` |
 | `extensions/njw-analytic-blocker` | Chrome extension (GTA - Blocker): blocks analytics and ad requests, strips click ids, hides tracking cookies on the sites you set | Load unpacked |
 | `extensions/agent-monitor` | Chrome toolbar popup listing agent sessions by repo and worktree | Load unpacked |
 
