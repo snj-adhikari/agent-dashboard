@@ -1,0 +1,6 @@
+{
+  "name": "agent-device-qa",
+  "version": "0.1.0",
+  "author": { "name": "Snj - nightwalker" },
+  "description": "Test a web page across a real Android phone, iOS simulator Safari, Mac Safari, Mac Chrome widths and a real iPhone: guided setup, a non-throwing dataLayer logger, scripted clicks, screenshots and a device x scenario report."
+}

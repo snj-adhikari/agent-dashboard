@@ -10,6 +10,7 @@
     { "name": "guards", "source": "./mods/guards" },
     { "name": "dev-kit", "source": "./mods/dev-kit" },
     { "name": "agent-kit", "source": "./mods/agent-kit" },
-    { "name": "agent-hooks", "source": "./mods/agent-hooks" }
+    { "name": "agent-hooks", "source": "./mods/agent-hooks" },
+    { "name": "agent-device-qa", "source": "./mods/agent-device-qa" }
   ]
 }

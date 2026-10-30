@@ -1,0 +1,309 @@
+<title>{{TITLE}}</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo:wght@600;700&display=swap">
+<style>
+:root { --bg:#f5f7fa; --surface:#fff; --fg:#15202c; --muted:#5b6676; --line:#dbe1e8; --accent:#1d4ed8; --accent-bg:#e6edff; --code-bg:#eef1f5; --ok:#157347; --ok-bg:#e3f3ea; --no:#a1261b; --no-bg:#fbe7e4; --na:#6b7280; --na-bg:#eceef1; --warn:#8a5a00; --warn-bg:#fdf1d8;
+  --display:"Archivo","Helvetica Neue",Arial,sans-serif; --body:"IBM Plex Sans",system-ui,-apple-system,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#10151c; --surface:#18202a; --fg:#e6ebf1; --muted:#9aa6b4; --line:#2a3542; --accent:#82a8ff; --accent-bg:#1b2747; --code-bg:#0d1218; --ok:#6fd39b; --ok-bg:#173327; --no:#ff8f82; --no-bg:#3a1d1a; --na:#a3acb8; --na-bg:#232c37; --warn:#f2c26b; --warn-bg:#3a2e14; color-scheme: dark } }
+:root[data-theme="dark"] { --bg:#10151c; --surface:#18202a; --fg:#e6ebf1; --muted:#9aa6b4; --line:#2a3542; --accent:#82a8ff; --accent-bg:#1b2747; --code-bg:#0d1218; --ok:#6fd39b; --ok-bg:#173327; --no:#ff8f82; --no-bg:#3a1d1a; --na:#a3acb8; --na-bg:#232c37; --warn:#f2c26b; --warn-bg:#3a2e14; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-block: 28px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 24px; }
+.wrap > *, .tabpanel > *, .cols > * { min-width: 0; }
+.tabpanel { display: grid; gap: 44px; min-width: 0; }
+header { display: grid; gap: 8px; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 700 clamp(26px, 3.6vw, 40px)/1.1 var(--display); margin: 0; text-wrap: balance; }
+h2 { font: 600 22px/1.2 var(--display); margin: 0 0 14px; text-wrap: balance; } h3 { font: 600 16px/1.3 var(--body); margin: 0; }
+p { margin: 0; max-width: 72ch; } li { max-width: 72ch; } .meta { color: var(--muted); font-size: 14px; } section > .meta { margin-bottom: 14px; }
+ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+code, pre { font-family: var(--mono); font-size: 12.5px; } code { background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: 0; line-height: 1.5; } pre code { background: none; padding: 0; overflow-wrap: normal; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; min-width: 0; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.chip { display: inline-block; font: 600 13px/1 var(--mono); padding: 5px 9px; border-radius: 999px; white-space: nowrap; }
+.ok { color: var(--ok); background: var(--ok-bg); } .no { color: var(--no); background: var(--no-bg); } .na { color: var(--na); background: var(--na-bg); } .warn { color: var(--warn); background: var(--warn-bg); }
+.tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); position: sticky; top: env(safe-area-inset-top, 0px); background: var(--bg); z-index: 5; padding-top: 6px; }
+.tab { font: 600 15px/1 var(--body); padding: 12px 18px; border: 0; background: none; color: var(--muted); border-bottom: 3px solid transparent; cursor: pointer; margin-bottom: -1px; }
+.tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); } .tab small { font: 500 11px/1 var(--mono); margin-left: 6px; color: var(--muted); }
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 880px; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; } tr:last-child td { border-bottom: 0; } td.c { text-align: center; }
+th { font: 500 12px/1.2 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); background: var(--bg); }
+tr.group td { background: var(--bg); font-weight: 600; font-size: 12.5px; color: var(--muted); }
+.event h3 code { font-size: 14px; } .findings { display: grid; }
+.finding { display: grid; grid-template-columns: 130px 1fr; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); } .finding:first-child { border-top: 0; padding-top: 0; } .finding > div { min-width: 0; display: grid; gap: 6px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; } .shots.wide { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
+figure { margin: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; } figure a { display: block; }
+figure img { width: 100%; display: block; border-bottom: 1px solid var(--line); } .shots:not(.wide) figure img { height: 420px; object-fit: cover; object-position: top; }
+figcaption { padding: 10px 12px; font-size: 13px; color: var(--muted); display: grid; gap: 2px; } figcaption b { color: var(--fg); font-weight: 600; }
+.subhead { margin: 22px 0 10px; }
+.guide { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 24px; align-items: start; }
+.flow { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 64px); max-height: calc(100vh - 80px); overflow: auto; } .flow pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12.5px; color: var(--muted); } .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; } .sw.s { background: #dbe6ff; border: 1.5px solid #1d4ed8; } .sw.p { background: #dff3e7; border: 1.5px solid #157347; } .sw.n { background: #fdf1d8; border: 1.5px solid #8a5a00; }
+.steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 44px 1fr; gap: 14px; } .step > div { min-width: 0; display: grid; gap: 8px; }
+.step.key { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+.num { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font: 700 15px/1 var(--display); }
+.label { font: 600 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.expect { padding: 9px 12px; border-radius: 8px; background: var(--ok-bg); font-size: 14px; } .expect b { color: var(--ok); }
+.note { padding: 9px 12px; border-radius: 8px; background: var(--warn-bg); font-size: 14px; } .note b { color: var(--warn); }
+.prompt { display: grid; gap: 8px; } .prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.copy { font: 600 13px/1 var(--body); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+#prompt { white-space: pre-wrap; max-height: 130px; overflow: auto; font-size: 11.5px; }
+a { color: var(--accent); } a:focus-visible, .tab:focus-visible, .copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 900px) { .guide { grid-template-columns: 1fr; } .flow { position: static; max-height: none; } }
+@media (max-width: 520px) { .step, .finding { grid-template-columns: 1fr; } .shots.wide { grid-template-columns: 1fr; } }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 4px; }
+.kpi b { font: 700 30px/1 var(--display); } .kpi span { font-size: 13px; color: var(--muted); }
+.kpi.good b { color: var(--ok); } .kpi.gap b { color: var(--warn); } .kpi.pend b { color: var(--na); }
+.devices { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.dev { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; }
+.dev h3 { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .dev .kind { font: 600 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--accent); }
+.dev p { font-size: 13px; color: var(--muted); }
+.bar { height: 10px; border-radius: 99px; background: var(--na-bg); overflow: hidden; display: flex; } .bar i { display: block; height: 100%; background: var(--ok); } .bar i.w { background: var(--warn); }
+.dev .score { font: 600 13px/1 var(--mono); }
+.tick { color: var(--ok); font-weight: 700; } .cross { color: var(--no); font-weight: 700; } .dash { color: var(--na); } .pend { color: var(--warn); font: 600 12px/1 var(--mono); }
+.matrix td.c { font-size: 16px; } .matrix td:nth-child(2) { color: var(--muted); font-size: 13px; }
+.src { font: 600 11px/1 var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 4px 7px; border-radius: 6px; justify-self: start; }
+.src.real { color: var(--ok); background: var(--ok-bg); } .src.emu { color: var(--warn); background: var(--warn-bg); } .src.desk { color: var(--accent); background: var(--accent-bg); }
+.gaps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.gapc { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.gapc.info { border-left-color: var(--accent); } .gapc p { font-size: 13.5px; }
+.shots.phone { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); } .shots.phone figure img { height: 380px; }
+</style>
+<!--
+  Fill every {{PLACEHOLDER}}. Blocks marked "repeat" are one example each: copy per item, delete unused ones.
+  Matrix cells: <td class="c tick">✓</td> as expected, <td class="c cross">✗</td> not as expected,
+  <td class="c tick">✓ <span class="pend">⚠</span></td> see Anomalies, <td class="c dash">–</td> not run or not applicable.
+  Source badges: <span class="src real">Real device</span>, <span class="src emu">Simulator</span> or <span class="src emu">Emulated</span>, <span class="src desk">Desktop</span>.
+  Screenshots live in shots/ beside this page, published as supporting files.
+-->
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">{{PROJECT}} · {{FEATURE}} · {{DATES}}</span>
+    <h1>{{TITLE}}</h1>
+    <p class="meta">{{ONE_LINE_SCOPE: what was tested, on which devices, against which environment.}}</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Report sections">
+    <button class="tab" role="tab" id="tab-testing" aria-controls="testing" aria-selected="true" type="button">Testing</button>
+    <button class="tab" role="tab" id="tab-guide" aria-controls="guide" aria-selected="false" type="button">Guide <small>how it was tested, replicate</small></button>
+  </nav>
+
+  <div class="tabpanel" id="testing" role="tabpanel" aria-labelledby="tab-testing">
+  <section>
+    <h2>Summary</h2>
+    <div class="kpis">
+      <div class="kpi good"><b>{{PASSED}} / {{TOTAL}}</b><span>checks passed</span></div>
+      <div class="kpi good"><b>{{FAILED}}</b><span>failed checks</span></div>
+      <div class="kpi gap"><b>{{GAP_COUNT}}</b><span>gaps (not tested)</span></div>
+      <div class="kpi gap"><b>{{ANOMALY_COUNT}}</b><span>anomalies to watch</span></div>
+    </div>
+    <ul style="margin-top:14px">
+      <li><b>{{HEADLINE_FINDING}}</b>: {{DETAIL}}</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Gaps <span class="chip warn" style="vertical-align:middle">not tested</span></h2>
+    <p class="meta">What couldn't be tested, and why.</p>
+    <div class="gaps">
+      <!-- repeat per gap -->
+      <div class="gapc"><h3>1 · {{GAP_TITLE}}</h3><p>{{WHY_NOT_TESTED}}</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Anomalies</h2>
+    <p class="meta">Tested, and something unexpected happened.</p>
+    <div class="gaps">
+      <!-- repeat per anomaly -->
+      <div class="gapc info"><h3>{{DEVICE}} · {{ANOMALY_TITLE}}</h3><p>Seen in <b>{{N}} of {{M}}</b> runs. {{WHAT_HAPPENED_AND_LIKELY_CAUSE}}</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Devices and browsers</h2>
+    <div class="devices">
+      <!-- repeat per device; bar width = pass percentage -->
+      <div class="dev"><span class="src real">Real device</span><h3>{{DEVICE_NAME}} <span class="score">{{PASS}}/{{RUN}}</span></h3><div class="bar"><i style="width:100%"></i></div><p><b>{{MODEL}}</b>, {{OS_VERSION}}, <b>{{BROWSER_VERSION}}</b>. {{HOW_CONTROLLED}}.</p></div>
+      <div class="dev"><span class="src emu">Simulator</span><h3>iPhone simulator, Safari <span class="score">{{PASS}}/{{RUN}}</span></h3><div class="bar"><i style="width:100%"></i></div><p><b>{{SIM_MODEL}}</b>, {{IOS_VERSION}}, {{WIDTH}} wide.</p></div>
+      <div class="dev"><span class="src emu">Emulated</span><h3>Chrome {{WIDTH}} <span class="score">{{PASS}}/{{RUN}}</span></h3><div class="bar"><i style="width:100%"></i></div><p>Chromium (agent-browser), {{WIDTH}}×{{HEIGHT}}.</p></div>
+      <div class="dev"><span class="src desk">Desktop</span><h3>Safari macOS <span class="score">{{PASS}}/{{RUN}}</span></h3><div class="bar"><i style="width:100%"></i></div><p><b>Safari {{VERSION}}</b>, {{WIDTH}} wide.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Test matrix</h2>
+    <p class="meta">✓ as expected · ✗ not as expected · ⚠ see Anomalies · – not run or not applicable.</p>
+    <div class="table-scroll"><table class="matrix">
+      <thead><tr><th>Scenario</th><th>Expected</th><th>{{DEVICE_1}}</th><th>{{DEVICE_2}}</th><th>{{DEVICE_3}}</th><th>{{DEVICE_4}}</th></tr></thead>
+      <tbody>
+        <tr class="group"><td colspan="6">{{SCENARIO_GROUP}}</td></tr>
+        <!-- repeat per scenario -->
+        <tr><td>1 · {{SCENARIO}}</td><td>{{EXPECTED}}</td><td class="c tick">✓</td><td class="c cross">✗</td><td class="c tick">✓ <span class="pend">⚠</span></td><td class="c dash">–</td></tr>
+      </tbody>
+    </table></div>
+    <p class="meta" style="margin-top:10px">{{WHY_EACH_DASH: one line per – cell that needs explaining.}}</p>
+  </section>
+
+  <section>
+    <h2>Where it appears</h2>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Page</th><th>Where</th><th>Present</th><th>Tested on</th></tr></thead>
+      <tbody>
+        <!-- repeat per page -->
+        <tr><td>{{PAGE}} <code>{{PATH}}</code></td><td>{{LOCATION_ON_PAGE}}</td><td class="c tick">✓</td><td>{{DEVICES}}</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>Events captured</h2>
+    <p class="meta">From one run of {{SCENARIO}} on {{DEVICE}}. Payloads shortened; DOM nodes shown as [node].</p>
+    <div class="cols">
+      <!-- repeat per event -->
+      <div class="panel event"><h3>1 · <code>{{EVENT_NAME}}</code></h3>
+<pre><code>{{EVENT_PAYLOAD}}</code></pre></div>
+      <div class="panel"><h3>Code that pushes them</h3>
+        <p class="meta"><code>{{SOURCE_FILE}}</code></p>
+<pre><code>{{CODE_SNIPPET}}</code></pre></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Screenshots</h2>
+    <p class="meta">Each has the dataLayer logger panel at the top. The badge says where the shot came from.</p>
+
+    <!-- repeat per device group; phone shots use class "shots phone", desktop "shots wide" -->
+    <h3 class="subhead">{{DEVICE}} · {{OS}} · {{BROWSER}} · {{ENVIRONMENT}}</h3>
+    <div class="shots phone">
+      <figure><a href="shots/{{FILE}}"><img src="shots/{{FILE}}" alt="{{ALT}}" loading="lazy"></a><figcaption><span class="src real">Real device</span><b>{{N}} · {{SCENARIO}}</b>{{RESULT}}</figcaption></figure>
+    </div>
+  </section>
+  </div>
+
+  <div class="tabpanel" id="guide" role="tabpanel" aria-labelledby="tab-guide" hidden>
+  <section>
+    <h2>How it was tested</h2>
+    <p class="meta">{{ENVIRONMENT}} for every device. No real calls or payments were made.</p>
+    <div class="cols">
+      <div class="panel"><span class="src real">Real Android phone</span><h3>USB + Chrome remote debugging</h3><ol>
+        <li>Phone: Settings ▸ About ▸ tap Build number 7 times. Developer options ▸ USB debugging on.</li>
+        <li>Plug in, tap Allow on the phone. Check: <code>adb devices</code> shows <code>device</code>.</li>
+        <li><code>adb reverse tcp:{{APP_PORT}} tcp:{{APP_PORT}}</code>, then open <code>http://localhost:{{APP_PORT}}/…</code> in phone Chrome.</li>
+        <li>Laptop Chrome ▸ <code>chrome://inspect</code> ▸ Inspect the phone tab ▸ Console ▸ paste the logger.</li>
+        <li>Screenshot: <code>adb exec-out screencap -p &gt; shot.png</code>.</li>
+        <li>Automated: <code>adb forward tcp:9333 localabstract:chrome_devtools_remote</code> + agent-browser <code>--cdp 9333</code>, taps via <code>adb shell input tap</code>.</li></ol></div>
+      <div class="panel"><span class="src emu">iPhone simulator</span><h3>Xcode Simulator + Safari</h3><ol>
+        <li>Xcode ▸ Settings ▸ Components ▸ install an iOS runtime (~8.5 GB). Open Simulator, pick an iPhone.</li>
+        <li>Open <code>http://localhost:{{APP_PORT}}/…</code> in simulator Safari (it shares the Mac's network).</li>
+        <li>Mac Safari ▸ Develop ▸ Simulator ▸ the page ▸ Console ▸ paste the logger.</li>
+        <li>Screenshot: <code>xcrun simctl io booted screenshot shot.png</code>.</li>
+        <li>Automated: a local proxy added the logger and a click runner to each page; results posted back.</li></ol></div>
+      <div class="panel"><span class="src desk">Safari on Mac</span><h3>Safari Web Inspector</h3><ol>
+        <li>Safari ▸ Settings ▸ Advanced ▸ "Show features for web developers".</li>
+        <li>Open the page, Develop ▸ Show Web Inspector ▸ Console ▸ paste the logger.</li>
+        <li>Scripted runs: the same local proxy, or <code>sudo safaridriver --enable</code> for WebDriver.</li></ol></div>
+      <div class="panel"><span class="src real">Real iPhone</span><h3>USB + Web Inspector</h3><ol>
+        <li>iPhone: Settings ▸ Apps ▸ Safari ▸ Advanced ▸ Web Inspector on.</li>
+        <li>Plug in, trust the Mac. Mac Safari ▸ Develop ▸ your iPhone ▸ the page ▸ Console.</li>
+        <li>Phone reaches the laptop on the same Wi-Fi: <code>http://&lt;laptop-ip&gt;:{{APP_PORT}}</code>.</li></ol></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Flow</h2>
+    <div class="guide">
+      <aside class="panel flow" aria-label="Flow diagram">
+<pre class="mermaid">
+flowchart TD
+  A["Open page"]:::s --> B["Start dataLayer logger"]:::s
+  B --> C["{{ACTION}}"]:::s
+  C --> D{"{{CONDITION}}"}
+  D -- Yes --> E["{{EVENTS_PUSHED}}"]:::p
+  D -- No --> F["No push"]:::n
+  classDef s fill:#dbe6ff,stroke:#1d4ed8,color:#0b1b3f,stroke-width:1.5px
+  classDef p fill:#dff3e7,stroke:#157347,color:#0b2a1a,stroke-width:1.5px
+  classDef n fill:#fdf1d8,stroke:#8a5a00,color:#3a2700,stroke-width:1.5px
+</pre>
+        <div class="legend"><span><i class="sw s"></i>Your step</span><span><i class="sw p"></i>Events pushed</span><span><i class="sw n"></i>Nothing pushed</span></div>
+      </aside>
+      <div class="panel" style="align-self:start">
+        <h3>Test data</h3>
+        <ul>
+          <li>{{PAGE_OR_RECORD}}: <code>{{PATH_OR_ID}}</code> {{WHY_CHOSEN}}</li>
+        </ul>
+        <div class="prompt">
+          <div class="prompt-head"><h3>Prompt to rerun</h3><button class="copy" id="copyBtn" type="button">Copy prompt</button></div>
+<pre id="prompt">Test {{FEATURE}} on {{DEVICES}} with the agent-device-qa skill. Environment: {{ENVIRONMENT}}. Never open production in a browser. Never place a real call or payment.
+
+Scenarios: {{SCENARIO_LIST}}
+Expected: {{EXPECTED_SUMMARY}}
+Output: device x scenario matrix with an Expected column, gaps and anomalies, labelled screenshots.</pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Steps to replicate</h2>
+    <p class="meta">Follow in order. Each step says what to do and what you should see.</p>
+    <ol class="steps">
+      <li class="step"><span class="num">1</span><div><span class="label">Setup</span><h3>Pick a device</h3>
+        <ul><li><b>Android:</b> Developer options ▸ USB debugging; laptop <code>chrome://inspect</code>.</li><li><b>iPhone:</b> Web Inspector on; Mac Safari ▸ Develop. Or the Xcode simulator.</li><li><b>Desktop:</b> Chrome or Safari DevTools.</li></ul></div></li>
+      <li class="step"><span class="num">2</span><div><span class="label">Setup</span><h3>Open {{PAGE}}</h3>
+        <ul><li><code>{{URL}}</code></li></ul>
+        <p class="expect"><b>Expect:</b> {{WHAT_YOU_SEE}}</p></div></li>
+      <li class="step key"><span class="num">3</span><div><span class="label">Logger</span><h3>Start the dataLayer logger</h3>
+        <ul><li>In the inspector console for that page, paste and Enter.</li></ul>
+<pre><code>(() => {
+  const dl = window.dataLayer = window.dataLayer || [];
+  const orig = dl.push.bind(dl);
+  dl.push = (...args) => {
+    args.forEach(a => console.log('[DL]', new Date().toISOString(), a?.event, a));
+    return orig(...args);
+  };
+})()</code></pre></div></li>
+      <!-- repeat per scenario -->
+      <li class="step key"><span class="num">4</span><div><span class="label">Test</span><h3>{{ACTION}}</h3>
+        <p class="expect"><b>Expect:</b> {{EXPECTED_EVENTS}}</p></div></li>
+    </ol>
+  </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const tabs = [...document.querySelectorAll('.tab')];
+  const show = (id) => tabs.forEach(t => {
+    const on = t.getAttribute('aria-controls') === id;
+    t.setAttribute('aria-selected', String(on));
+    document.getElementById(t.getAttribute('aria-controls')).hidden = !on;
+  });
+  tabs.forEach(t => t.addEventListener('click', () => {
+    const id = t.getAttribute('aria-controls');
+    show(id);
+    if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+  }));
+  const fromHash = () => show(location.hash === '#guide' ? 'guide' : 'testing');
+  window.addEventListener('hashchange', fromHash);
+  fromHash();
+  document.getElementById('copyBtn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      await navigator.clipboard.writeText(document.getElementById('prompt').innerText);
+      btn.textContent = 'Copied';
+    } catch (err) {
+      const r = document.createRange(); r.selectNodeContents(document.getElementById('prompt'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      btn.textContent = 'Selected, press Cmd+C';
+    }
+    setTimeout(() => { btn.textContent = 'Copy prompt'; }, 2000);
+  });
+})();
+</script>
