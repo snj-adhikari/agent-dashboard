@@ -435,6 +435,7 @@ npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --displ
 | `npm run dev` | build, then start |
 | `npm run check` | build server, run `dist/check.js` |
 | `npm run check:hooks` | hook validation, prompt hygiene, shell quoting |
+| `.github/scripts/licence-check.sh .` | third-party text ships with its `LICENSE` and `NOTICE` (CI on every PR) |
 
 ## Security
 
@@ -444,6 +445,11 @@ npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --displ
 - Tailnet access only through `tailscale serve`, matched on this Mac's MagicDNS host and its owner's `Tailscale-User-Login`.
 - Secrets are never stored in MongoDB; only env var names.
 - Hook inputs are validated in code before reaching a session.
+
+## Third-party notices
+
+- `mods/stop-slop` adapts [blader/humanizer](https://github.com/blader/humanizer) (MIT licence, Siqi Chen). Licence and attribution live in that mod's `LICENSE` and `NOTICE`.
+- A file copied or reworked from another project goes in a mod with that project's `LICENSE` and a `NOTICE`. The licence check fails the PR otherwise, and the public sync leaves that mod out.
 
 ## Limitations
 
