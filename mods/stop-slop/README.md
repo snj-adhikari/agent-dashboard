@@ -25,4 +25,4 @@ The rules apply to replies and to text for other people (tickets, comments, Slac
 
 - "run stop-slop over this PR description" before posting.
 
-Patterns are adapted from Wikipedia's "Signs of AI writing" and blader/humanizer (MIT); see `NOTICE`.
+Patterns are adapted from Wikipedia's "Signs of AI writing" and blader/humanizer (MIT). Licence text in `LICENSE`, attribution in `NOTICE`; keep both with any copy of the skill files.

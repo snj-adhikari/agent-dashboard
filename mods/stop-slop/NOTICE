@@ -1,2 +1,9 @@
-The skills/stop-slop patterns come from Wikipedia's "Signs of AI writing" (WikiProject AI Cleanup)
-and are adapted from blader/humanizer 3.0.0, copyright (c) 2025 Siqi Chen, under the MIT licence.
+The skills/stop-slop patterns are adapted from blader/humanizer 3.0.0
+(https://github.com/blader/humanizer), copyright (c) 2025 Siqi Chen,
+under the MIT licence. The full licence text is in LICENSE in this directory
+and must be kept with any copy or substantial portion of these files.
+
+The pattern categories draw on Wikipedia's "Signs of AI writing"
+(https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing), maintained by
+WikiProject AI Cleanup. No Wikipedia text is reproduced: the before/after
+examples here are original.

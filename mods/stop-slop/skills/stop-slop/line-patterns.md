@@ -176,22 +176,22 @@ The fact underneath is usually sound. Keep it and remove the dressing.
 **Watch for:** Actually, additionally, align with, bolstered, crucial, deep dive, delve, emphasizing, enduring, enhance, fostering, garner, gate/gated/gating (figurative; keep technical uses), highlight (verb), interplay, intricate/intricacies, key (adjective), landscape (abstract noun), meticulous/meticulously, pivotal, quietly, robust (figurative; keep technical uses), showcase, tapestry (abstract noun), testament, underscore (verb), valuable, vibrant
 **Problem:** Models use these words far more often than people do, especially in groups. This is the only vocabulary list in the skill. A formal word outside it is not a tell by itself.
 **Before:**
-> Additionally, a distinctive feature of Somali cuisine is the incorporation of camel meat. An enduring testament to Italian colonial influence is the widespread adoption of pasta in the local culinary landscape, showcasing how these dishes have integrated into the traditional diet.
+> Additionally, the new release delivers a robust caching layer. This pivotal change is a testament to the team's meticulous focus on performance, showcasing how the platform continues to evolve in a rapidly changing landscape.
 **After:**
-> Somali cuisine also includes camel meat, which is considered a delicacy. Pasta dishes, introduced during Italian colonization, remain common, especially in the south.
+> The new release adds a caching layer. Median page load drops from 1.8 s to 0.9 s.
 
 ### 13. Inflated significance
 
 **Watch for:** stands as a testament, a pivotal or crucial moment, plays a key role, marking or shaping the, underscores its importance, reflects a broader, enduring or lasting legacy, setting the stage for, evolving landscape, indelible mark; Despite these challenges... continues to thrive, Challenges and Legacy, Future Outlook, Awards and recognition; the future looks bright, exciting times ahead, a step in the right direction
 **Problem:** An ordinary detail is said to mark a change, prove a legacy, or promise a future. The move appears at three scales: a phrase, a stock "challenges and outlook" section, and a send-off paragraph. Keep the fact and drop the significance. End on the last concrete fact; if the source states real plans, use those.
 **Before:**
-> The Statistical Institute of Catalonia was officially established in 1989, marking a pivotal moment in the evolution of regional statistics in Spain. This initiative was part of a broader movement across Spain to decentralize administrative functions and enhance regional governance.
+> The billing service moved to the new queue in March, marking a pivotal moment for the platform. The migration reflects a broader shift towards event-driven design across the engineering organisation.
 **After:**
-> The Statistical Institute of Catalonia was established in 1989, part of a wider decentralization of administrative functions in Spain.
+> The billing service moved to the new queue in March, one of four services migrated this year.
 **Before (stock section):**
-> Despite its industrial prosperity, Korattur faces challenges typical of urban areas, including traffic congestion and water scarcity. Despite these challenges, with its strategic location and ongoing initiatives, Korattur continues to thrive as an integral part of Chennai's growth.
+> Despite its steady growth, the mobile app faces challenges common to large codebases, including slow builds and flaky tests. Despite these challenges, with its strong team and ongoing initiatives, the app continues to thrive as a core part of the product.
 **After:**
-> Korattur has recurring traffic congestion and water shortages.
+> The mobile app has slow builds and flaky tests.
 **Before (send-off):**
 > The future looks bright for the company. Exciting times lie ahead as they continue their journey toward excellence.
 **After:**
@@ -202,49 +202,49 @@ The fact underneath is usually sound. Keep it and remove the dressing.
 **Watch for:** associated with, in association with, connected to, in connection with, linked to, tied to
 **Problem:** The text says two things are connected without saying how. "He was associated with the leadership of ExampleCorp" hides whether he was the CEO, a board member, or a consultant. Name the relationship the source gives. If the source does not say, keep the vague wording rather than inventing a role.
 **Before:**
-> He is associated with the Rajhans Orchestra, which he founded and conducts. The concerts were organised in connection with the celebrations of Pakistan's 50th anniversary.
+> She is associated with the Riverside Community Choir, which she founded and directs. The concerts were organised in connection with the town's 150th anniversary.
 **After:**
-> He founded and conducts the Rajhans Orchestra. The concerts were part of the celebrations of Pakistan's 50th anniversary.
+> She founded and directs the Riverside Community Choir. The concerts were part of the town's 150th anniversary.
 
 ### 15. Shallow -ing riders
 
-**Watch for:** highlighting, underscoring, emphasizing, ensuring, reflecting, symbolizing, contributing to, cultivating, fostering, encompassing, showcasing
+**Watch for:** contributing to, cultivating, emphasizing, encompassing, ensuring, fostering, highlighting, reflecting, showcasing, symbolizing, underscoring
 **Problem:** An -ing phrase is bolted onto a simple fact to make it sound deeper. Attaching it to a named source ("Roger Ebert highlighted the lasting influence") does not make it true. Keep the fact; keep the rider only when the source supports what it claims.
 **Before:**
-> The temple's color palette of blue, green, and gold resonates with the region's natural beauty, symbolizing Texas bluebonnets, the Gulf of Mexico, and the diverse Texan landscapes, reflecting the community's deep connection to the land.
+> The dashboard uses green, amber, and red, reflecting the team's commitment to clarity, symbolizing the health of each service, and underscoring the importance of fast incident response.
 **After:**
-> The temple is painted blue, green, and gold, colors meant to evoke Texas bluebonnets and the Gulf of Mexico.
+> The dashboard shows each service as green, amber, or red by health.
 
 ### 16. Sales language
 
-**Watch for:** boasts, vibrant, rich (figurative), profound, enhancing, exemplifies, commitment to, natural beauty, nestled, in the heart of, groundbreaking (figurative), renowned, featuring, diverse array, breathtaking, must-visit, stunning
+**Watch for:** boasts, breathtaking, commitment to, diverse array, enhancing, exemplifies, featuring, groundbreaking (figurative), in the heart of, must-visit, natural beauty, nestled, profound, renowned, rich (figurative), stunning, vibrant
 **Problem:** The text reads like an advertisement, especially for places, culture, products, or organizations. State what the thing is.
 **Before:**
-> Nestled within the breathtaking region of Gonder in Ethiopia, Alamata Raya Kobo stands as a vibrant town with a rich cultural heritage and stunning natural beauty.
+> Nestled in the heart of the valley, Millbrook stands as a vibrant village with a rich history and breathtaking views.
 **After:**
-> Alamata Raya Kobo is a town in the Gonder region of Ethiopia.
+> Millbrook is a village in the valley, about 20 km north of the regional centre.
 
 ### 17. Borrowed authority
 
 **Watch for:** experts argue, observers have cited, industry reports, some critics, several publications; cited, featured, or profiled in [a list of outlets], trade publications, independent coverage; active social media presence, over N followers
 **Problem:** A name or an unnamed authority stands in for what was said. Unnamed experts prop up a claim; a list of prestige outlets props up a person. When the source text names the real source and what it said, use that. Otherwise cut the unsupported claim or the list. Never invent a source. A missing citation alone is not a tell; most writing is unsourced.
 **Before (unnamed authority):**
-> Due to its unique characteristics, the Haolai River is of interest to researchers and conservationists. Experts believe it plays a crucial role in the regional ecosystem.
+> Due to its unusual design, the new scheduler has drawn interest from other teams. Experts believe it plays a crucial role in the platform's reliability.
 **After:**
-> Researchers and conservationists study the Haolai River for its unusual characteristics.
+> Two other teams are evaluating the new scheduler.
 **Before (prestige list):**
-> Her views have been cited in The New York Times, BBC, Financial Times, and The Hindu. She maintains an active social media presence with over 500,000 followers.
+> His work has been featured in several leading tech publications and podcasts. He maintains an active social media presence with over 200,000 followers.
 **After:**
-> Her views have been cited in The New York Times and the BBC.
+> (Name the outlets and what they said, if the source gives them. Otherwise cut both sentences.)
 
 ### 18. Avoiding is, are, and has
 
 **Watch for:** serves as, stands as, functions as, operates as, marks, represents [a]; boasts, features, offers, maintains [a]; refers to
 **Problem:** Simple verbs are replaced with longer phrases. Use *is*, *are*, and *has*.
 **Before:**
-> Gallery 825 serves as LAAA's exhibition space for contemporary art. The gallery features four separate spaces and boasts over 3,000 square feet.
+> The staging cluster serves as the team's test environment for release candidates. It features three separate node pools and boasts over 200 GB of memory.
 **After:**
-> Gallery 825 is LAAA's exhibition space for contemporary art. The gallery has four rooms totaling 3,000 square feet.
+> The staging cluster is the team's test environment for release candidates. It has three node pools with 200 GB of memory in total.
 
 ## D. Formatting by rule
 
@@ -291,7 +291,7 @@ Remove these outright. Nothing here needs rewriting.
 
 ### 22. Chatbot residue
 
-**Watch for:** I hope this helps, Of course!, Certainly!, Great question!, You're absolutely right, Would you like..., Want me to...?, Should I continue?, let me know, here is a...
+**Watch for:** Certainly!, Great question!, here is a..., I hope this helps, let me know, Of course!, Should I continue?, Want me to...?, Would you like..., You're absolutely right
 **Problem:** A chatbot's greeting, praise, offer, or closing remains in text that should stand on its own. It is the most certain tell in this list and the easiest to miss when it wraps real content. Remove the wrapper and keep the content.
 **Before:**
 > Great question! Here is an overview of the French Revolution. It began in 1789 when a financial crisis and food shortages led to widespread unrest. I hope this helps! Let me know if you'd like me to expand on any section.
@@ -300,12 +300,12 @@ Remove these outright. Nothing here needs rewriting.
 
 ### 23. Knowledge-limit disclaimers and guesses
 
-**Watch for:** as of [date], up to my last training update, while specific details are limited, based on available information, not publicly available, not widely documented or disclosed, in the provided or available sources, maintains a low profile, keeps personal details private, likely [grew up, studied, began], it is believed that
+**Watch for:** as of [date], based on available information, in the provided or available sources, it is believed that, keeps personal details private, likely [grew up, studied, began], maintains a low profile, not publicly available, not widely documented or disclosed, up to my last training update, while specific details are limited
 **Problem:** The text mentions where the model's knowledge ends, or admits it found no source and then fills the gap with a plausible guess. State what the source does not show, or remove the sentence. Never present a guess as a fact.
 **Before (cutoff disclaimer):**
-> While specific details about the company's founding are not extensively documented in readily available sources, it appears to have been established sometime in the 1990s.
+> While specific details about when the API was first released are not widely documented in available sources, it appears to date from around 2015.
 **After:**
-> The company's founding date is not documented in the available sources. (Or cut the sentence.)
+> The API's release date is not documented in the available sources. (Or cut the sentence.)
 **Before (guess):**
 > Information about her early life is not publicly available, suggesting she maintains a low profile. She likely grew up in a middle-class household, which shaped her later interest in education reform.
 **After:**
@@ -341,4 +341,4 @@ Keep the details that carry the writer's voice unless they hurt the meaning:
 
 The patterns come from Wikipedia's ["Signs of AI writing"](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing), maintained by WikiProject AI Cleanup, and from reviews of AI-generated text on Wikipedia and elsewhere.
 
-Adapted from [blader/humanizer](https://github.com/blader/humanizer) 3.0.0, copyright (c) 2025 Siqi Chen, under the MIT licence in `LICENSE`.
+Adapted from [blader/humanizer](https://github.com/blader/humanizer) 3.0.0, copyright (c) 2025 Siqi Chen, under the MIT licence; full text in the mod's `LICENSE` (`mods/stop-slop/LICENSE`).
