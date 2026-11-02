@@ -11,6 +11,7 @@
     { "name": "dev-kit", "source": "./mods/dev-kit" },
     { "name": "agent-kit", "source": "./mods/agent-kit" },
     { "name": "agent-hooks", "source": "./mods/agent-hooks" },
-    { "name": "agent-device-qa", "source": "./mods/agent-device-qa" }
+    { "name": "agent-device-qa", "source": "./mods/agent-device-qa" },
+    { "name": "agent-orchestration", "source": "./mods/agent-orchestration" }
   ]
 }

@@ -60,6 +60,16 @@ const PLUGINS: Plugin[] = [
       { title: 'Or run the downloaded zip for one session', code: 'unzip agent-kit.zip -d agent-kit && claude --plugin-dir ./agent-kit' },
       { title: 'Then, in any session', code: 'work on ABC-123 in a new worktree' }
     ]
+  },
+  {
+    name: 'agent-orchestration',
+    kind: 'mod',
+    blurb: 'Runs each skill you type in its own cmux sub-tab of the same pane. The sub-tab\'s questions and done-summary are relayed to the main tab, which answers them or tells the sub-tab to finish and close.',
+    steps: [
+      { title: 'Install from the marketplace', code: '/plugin install agent-orchestration --marketplace snj-adhikari/agent-dashboard' },
+      { title: 'Or run the downloaded zip for one session', code: 'unzip agent-orchestration.zip -d agent-orchestration && claude --plugin-dir ./agent-orchestration' },
+      { title: 'Then, in a cmux tab', code: '/<any skill> ...' }
+    ]
   }
 ]
 

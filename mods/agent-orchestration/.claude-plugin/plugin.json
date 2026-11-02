@@ -1,0 +1,6 @@
+{
+  "name": "agent-orchestration",
+  "version": "0.1.0",
+  "author": { "name": "Snj - nightwalker" },
+  "description": "Runs typed skills in a cmux sub-tab of the same pane, relays the sub-tab's questions and done-summary into the main tab, and lets the main agent answer or finish it."
+}
