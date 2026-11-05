@@ -434,9 +434,11 @@ npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --displ
 ## Releases
 
 - Every merge to `main` publishes a release on the public mirror.
-- Tags are `vYYYY.MM.DD.N`, where `N` counts that day's releases.
-- Notes list the change under New, Fixes or Other, a Mods table of version bumps, and a compare link.
-- Dry run: `.github/scripts/release-notes.sh . "HEAD~1" HEAD "feat: example" https://github.com/OWNER/REPO v2026.01.01.1`
+- Tags start at `v1.0.0` and go up by one per merge. Each digit rolls over after 9: `v1.0.9` -> `v1.1.0`, `v1.9.9` -> `v2.0.0`.
+- Run Sync public repo by hand with `major` ticked to force a major bump.
+- Titles read `Release - 5 Nov 2026 - 1.0.0` (Sydney date).
+- Notes list the change under New, Fixes or Other, a Mods table of version bumps, and a compare link to the previous release.
+- Dry run: `.github/scripts/next-version.sh v1.0.9`, `.github/scripts/release-title.sh 1.1.0`, `.github/scripts/release-notes.sh . "HEAD~1" HEAD "feat: example" https://github.com/OWNER/REPO v1.1.0`
 
 ```mermaid
 flowchart LR
@@ -456,6 +458,7 @@ flowchart LR
 | `npm run check` | build server, run `dist/check.js` |
 | `npm run check:hooks` | hook validation, prompt hygiene, shell quoting |
 | `.github/scripts/release-notes.sh . PREV HEAD TITLE URL TAG` | dry run of the release notes |
+| `.github/scripts/release-version.test.sh` | version bump and release title tests |
 | `.github/scripts/licence-check.sh .` | third-party text ships with its `LICENSE` and `NOTICE` (CI on every PR) |
 
 ## Security
