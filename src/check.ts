@@ -6,6 +6,7 @@ import { activeCwds, isActiveWorktree, isUnder } from './utils'
 import { downsample, summarise, type Snapshot } from './services/history'
 import { tmuxKey, tmuxName } from './services/terminal'
 import { keepReason, recentlyModified, type WorktreeFacts } from './services/repos'
+import './learningCheck'
 
 assert.strictEqual(tmuxName('[hook:jira] Fix: a/b.c'), 'ad-hook-jira-Fix-a-b-c')
 assert.strictEqual(tmuxName('x', ['ad-x', 'ad-x-2']), 'ad-x-3', 'collision gets a suffix')

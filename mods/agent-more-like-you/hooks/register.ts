@@ -21,7 +21,7 @@ type Identity = { slackId?: string; ghLogin?: string; accountId?: string }
 
 async function fetchVaultPath($: Engine, url: string): Promise<string | null> {
   const res = await Promise.race([$.http.fetch(url), $.clock.sleep(FETCH_TIMEOUT_MS).then(() => null)])
-  if (!res?.ok) return null
+  if (!res?.ok) throw new Error('settings lookup failed')
   const path = (JSON.parse(res.text) as { settings?: { vaultPath?: unknown } }).settings?.vaultPath
   return typeof path === 'string' && path ? path : null
 }
@@ -74,7 +74,24 @@ function where($: Engine, s: State): Promise<Place> {
       MORE_LIKE_YOU_CHILD: await $.env.get('MORE_LIKE_YOU_CHILD'),
     }
     const home = env.HOME ?? ''
-    return { ...(await resolveFolder((k) => env[k], home, (url) => fetchVaultPath($, url))), home, env }
+    const file = `${home}/.claude/more-like-you/location.json`
+    const cache = {
+      read: async () => {
+        try {
+          const folder = (await readJson($, file))?.folder
+          return typeof folder === 'string' && folder ? folder : null
+        } catch {
+          return null
+        }
+      },
+      write: async (folder: string) => {
+        try {
+          if ((await cache.read()) === folder) return
+          await $.fs.write(file, JSON.stringify({ folder, resolvedAt: new Date(await $.clock.now()).toISOString() }))
+        } catch {}
+      },
+    }
+    return { ...(await resolveFolder((k) => env[k], home, (url) => fetchVaultPath($, url), cache)), home, env }
   })())
 }
 

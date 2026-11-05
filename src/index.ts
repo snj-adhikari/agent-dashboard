@@ -12,6 +12,7 @@ import { handleSend } from './routes/send'
 import { handleScreen } from './routes/screen'
 import { handleNewSession } from './routes/newSession'
 import { handleHistory } from './routes/history'
+import { handleLearning, handleLearningRefresh } from './routes/learning'
 import { handleVaultTree, handleVaultGraph, handleVaultFile } from './routes/vault'
 import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookStatus, handleJiraStart, handleRunQueued } from './routes/hookStatus'
 import { handlePluginDownload, handlePluginImport } from './routes/plugin'
@@ -22,6 +23,7 @@ import { handleBrowserAction, handleBrowserShot, handleTabAction, handleMobileSe
 import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
+import { startLearningSnapshots } from './services/learning'
 import { loadSettings } from './services/settings'
 import { MONGO_URL } from './services/db'
 import { missingSteps } from './routes/setup'
@@ -76,6 +78,8 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/new-session' && req.method === 'POST') return handleNewSession(req, res)
   if (url.pathname === '/api/screen') return handleScreen(res, url.searchParams.get('ref') || '', url.searchParams.get('surface'))
   if (url.pathname === '/api/history') return handleHistory(res, url.searchParams.get('range') || 'day')
+  if (url.pathname === '/api/learning') return handleLearning(res, url.searchParams.get('gran') || 'day')
+  if (url.pathname === '/api/learning/refresh' && req.method === 'POST') return handleLearningRefresh(res)
   if (url.pathname === '/api/vault/tree') return handleVaultTree(res)
   if (url.pathname === '/api/vault/graph') return handleVaultGraph(res)
   if (url.pathname === '/api/vault/file') return handleVaultFile(res, url.searchParams.get('path') || '')
@@ -138,5 +142,6 @@ server.listen(PORT, '127.0.0.1', async () => {
   console.log(`agent-monitor listening on http://localhost:${PORT}`)
   startHistoryLogging()
   await initSettings()
+  startLearningSnapshots()
   if (!process.env.DISABLE_HOOKS) startHookPolling()
 })

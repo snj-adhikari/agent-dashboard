@@ -18,12 +18,13 @@ import { HookStatusPanel } from './components/HookStatusPanel'
 import { DeleteInactiveWorktrees } from './components/DeleteInactiveWorktrees'
 
 const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({ default: m.HistoryPage })))
+const LearningPage = lazy(() => import('./components/LearningPage').then((m) => ({ default: m.LearningPage })))
 const SetupPage = lazy(() => import('./components/SetupPage').then((m) => ({ default: m.SetupPage })))
 const VaultPage = lazy(() => import('./components/VaultPage').then((m) => ({ default: m.VaultPage })))
 
-type View = 'home' | 'history' | 'vault' | 'hooks' | 'plugin' | 'setup'
+type View = 'home' | 'history' | 'learning' | 'vault' | 'hooks' | 'plugin' | 'setup'
 
-const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', vault: '/vault', hooks: '/hooks', plugin: '/plugin', setup: '/setup' }
+const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', learning: '/learning', vault: '/vault', hooks: '/hooks', plugin: '/plugin', setup: '/setup' }
 
 function viewFromPath(pathname: string): View {
   const entry = Object.entries(VIEW_PATHS).find(([, p]) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)))
@@ -128,6 +129,9 @@ export default function App() {
                 <NavButton active={view === 'history'} onClick={() => setView('history')}>
                   History
                 </NavButton>
+                <NavButton active={view === 'learning'} onClick={() => setView('learning')}>
+                  Learning
+                </NavButton>
                 <NavButton active={view === 'vault'} onClick={() => setView('vault')}>
                   Vault
                 </NavButton>
@@ -151,6 +155,8 @@ export default function App() {
           <Suspense fallback={<Pending />}>
           {view === 'history' ? (
             <HistoryPage />
+          ) : view === 'learning' ? (
+            <LearningPage />
           ) : view === 'vault' ? (
             <VaultPage />
           ) : view === 'setup' ? (

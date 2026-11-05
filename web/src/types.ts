@@ -203,3 +203,66 @@ export interface SetupStatus {
   serviceDefaults: ServiceSettings
   terminal: { backend: 'cmux' | 'tmux' | 'terminal'; canSend: boolean; canRead: boolean }
 }
+
+export type LearningGran = 'day' | 'week' | 'month'
+export type LearningAudience = 'slack-dm' | 'slack-channel' | 'jira' | 'confluence' | 'github-pr'
+export type LearningSource = 'slack' | 'jira' | 'confluence' | 'github' | 'prompts' | 'notes' | 'observed' | 'edits-feedback'
+export type LearntKind = 'feature' | 'structure' | 'token' | 'nepali' | 'perspective' | 'feedback-rule' | 'edit-rule'
+export type LearningRunKind = 'learn' | 'refresh' | 'other'
+export type ProfileStatus = 'active' | 'insufficient' | 'no profile'
+export type FolderVia = 'env' | 'vaultPath' | 'cached' | 'default'
+
+export interface LabelCounts { human: number; ai: number; unsure: number }
+export interface CaptureCounts { pull: number; observed: number; prompts: number; feedback: number; edits: number }
+
+export interface LearningBucket {
+  key: string            // '2026-11-05' | '2026-W45' | '2026-11'
+  start: string          // ISO date of bucket start, for sorting/axis
+  learnt: LabelCounts
+  captures: CaptureCounts
+  cumulativeHuman: number
+}
+
+export interface LearningRun { date: string; kind: LearningRunKind }
+
+export interface AudienceInsight {
+  audience: LearningAudience
+  humanSamples: number
+  lastUpdated: string | null
+  profile: ProfileStatus
+  frontmatterSamples: number | null
+  topMarkers: string[]   // max 3, feature/structure names only
+}
+
+export interface LearningHealth {
+  lastRun: string | null
+  stale: boolean
+  staleDays: number
+  lock: 'learn' | 'refresh' | null
+  coverageFrom: string | null
+  eval: { precision: number | null; recall: number | null }
+}
+
+export interface LearningCurrent {
+  empty: boolean
+  hint: string | null    // '/more-like-you learn' when empty
+  totals: LabelCounts & { captures: CaptureCounts }
+  learnt: Record<LearntKind, number>
+  structureByAudience: Record<LearningAudience, number>
+  sources: Record<LearningSource, number>
+  audiences: AudienceInsight[]
+  health: LearningHealth
+  runs: LearningRun[]
+}
+
+export type LearningResponse =
+  | {
+      ok: true
+      gran: LearningGran
+      current: LearningCurrent
+      history: LearningBucket[]
+      source: 'mongo' | 'vault'
+      mongoDown: boolean
+      folder: { via: FolderVia; display: string }
+    }
+  | { ok: false; error: string }

@@ -18,8 +18,10 @@ Resolved once, first hit wins:
 
 1. `MORE_LIKE_YOU_VAULT`: the folder itself.
 2. `VAULT_PATH`: `<root>/more-like-you`.
-3. Dashboard `settings.vaultPath` from `${AGENT_MONITOR_URL}/api/settings` (default `http://127.0.0.1:5818`): `<root>/more-like-you`. Best effort; errors fall through.
+3. Dashboard `settings.vaultPath` from `${AGENT_MONITOR_URL}/api/settings` (default `http://127.0.0.1:5818`): `<root>/more-like-you`. Best effort.
 4. `~/.claude/more-like-you`.
+
+Every successful hit is cached in `~/.claude/more-like-you/location.json`. If the dashboard lookup fails (down, timeout, non-OK) and no env var is set, the cached folder is reused. A lookup that succeeds without `vaultPath` ignores the cache.
 
 It holds `config.json`, `style-profile.md`, `phrasebook.md`, `rules.md`, `perspective.md`, `changelog.md`, `cursor.json`, `languages.json`, `languages/` and `raw/`.
 

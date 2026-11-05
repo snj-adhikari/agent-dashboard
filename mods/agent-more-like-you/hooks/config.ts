@@ -44,19 +44,38 @@ export function readConfig(text: string | null): Config {
   }
 }
 
+export interface LocationCache {
+  read: () => Promise<string | null>
+  write: (folder: string) => Promise<void>
+}
+
+const noCache: LocationCache = { read: async () => null, write: async () => {} }
+
 export async function resolveFolder(
   env: (k: string) => string | undefined,
   home: string,
   fetchVaultPath: (url: string) => Promise<string | null>,
+  cache: LocationCache = noCache,
 ): Promise<{ folder: string; vaultRoot: string | null }> {
   const expand = (p: string) => (p === '~' || p.startsWith('~/') ? home + p.slice(1) : p)
+  const remember = async (folder: string, vaultRoot: string | null) => {
+    await cache.write(folder).catch(() => {})
+    return { folder, vaultRoot }
+  }
   const custom = env('MORE_LIKE_YOU_VAULT')
-  if (custom) return { folder: expand(custom), vaultRoot: null }
-  const root =
-    env('VAULT_PATH') || (await fetchVaultPath(`${env('AGENT_MONITOR_URL') ?? 'http://127.0.0.1:5818'}/api/settings`).catch(() => null))
+  if (custom) return remember(expand(custom), null)
+  let root = env('VAULT_PATH') || null
+  if (!root) {
+    try {
+      root = await fetchVaultPath(`${env('AGENT_MONITOR_URL') ?? 'http://127.0.0.1:5818'}/api/settings`)
+    } catch {
+      const cached = await cache.read().catch(() => null)
+      if (cached) return { folder: cached, vaultRoot: null }
+    }
+  }
   if (root) {
     const vaultRoot = expand(root).replace(/\/$/, '')
-    return { folder: `${vaultRoot}/more-like-you`, vaultRoot }
+    return remember(`${vaultRoot}/more-like-you`, vaultRoot)
   }
   return { folder: `${home}/.claude/more-like-you`, vaultRoot: null }
 }

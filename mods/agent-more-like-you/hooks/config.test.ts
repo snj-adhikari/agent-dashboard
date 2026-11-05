@@ -55,3 +55,37 @@ test('empty, null or throwing dashboard falls through to ~/.claude/more-like-you
   expect(await resolveFolder(env({}), '/h', async () => '')).toEqual(want)
   expect(await resolveFolder(env({}), '/h', async () => { throw new Error('down') })).toEqual(want)
 })
+
+const memCache = (initial: string | null = null) => {
+  const c = { saved: initial, writes: [] as string[], read: async () => c.saved, write: async (f: string) => void (c.saved = f, c.writes.push(f)) }
+  return c
+}
+const down = async (): Promise<string | null> => { throw new Error('down') }
+
+test('successful resolution is cached for env, VAULT_PATH and dashboard', async () => {
+  const a = memCache()
+  await resolveFolder(env({ MORE_LIKE_YOU_VAULT: '/c' }), '/h', none, a)
+  const b = memCache()
+  await resolveFolder(env({ VAULT_PATH: '/v' }), '/h', none, b)
+  const c = memCache()
+  await resolveFolder(env({}), '/h', async () => '/d', c)
+  expect([a.writes, b.writes, c.writes]).toEqual([['/c'], ['/v/more-like-you'], ['/d/more-like-you']])
+})
+
+test('failed lookup reuses the cached folder', async () => {
+  expect(await resolveFolder(env({}), '/h', down, memCache('/d/more-like-you'))).toEqual({ folder: '/d/more-like-you', vaultRoot: null })
+})
+
+test('lookup that succeeds without vaultPath ignores the cache', async () => {
+  const want = { folder: '/h/.claude/more-like-you', vaultRoot: null }
+  expect(await resolveFolder(env({}), '/h', async () => null, memCache('/d/more-like-you'))).toEqual(want)
+})
+
+test('failed lookup with no cache falls back to the default', async () => {
+  expect(await resolveFolder(env({}), '/h', down, memCache())).toEqual({ folder: '/h/.claude/more-like-you', vaultRoot: null })
+})
+
+test('env wins over the cache and a failed lookup is never consulted', async () => {
+  const c = memCache('/old')
+  expect(await resolveFolder(env({ VAULT_PATH: '/v' }), '/h', down, c)).toEqual({ folder: '/v/more-like-you', vaultRoot: '/v' })
+})

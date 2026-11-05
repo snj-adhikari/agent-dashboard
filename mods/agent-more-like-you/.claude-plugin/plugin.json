@@ -1,6 +1,6 @@
 {
   "name": "agent-more-like-you",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": { "name": "S.N.J" },
   "description": "Learns your writing voice from your own Slack, Jira, Confluence and GitHub comments and applies it to what the agent drafts for those audiences."
 }

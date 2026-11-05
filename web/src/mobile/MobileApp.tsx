@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePolling } from '../usePolling'
 import { api } from '../api'
+import type { LearningResponse } from '../types'
 
 interface MobileSession {
   ref: string
@@ -333,6 +334,27 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
   )
 }
 
+function LearningRow() {
+  const [data, setData] = useState<Extract<LearningResponse, { ok: true }> | null>(null)
+  usePolling(() => {
+    fetch('/api/learning?gran=day')
+      .then((r) => r.json())
+      .then((j: LearningResponse) => setData(j.ok && !j.current.empty ? j : null))
+      .catch(() => {})
+  }, 60_000)
+  if (!data) return null
+  const { health, totals } = data.current
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-400">
+      <span>Learning: last run {health.lastRun ?? 'never'}</span>
+      <span className="flex items-center gap-2">
+        {health.stale && <span className="rounded-full bg-amber-950 px-1.5 py-0.5 text-[10px] text-warn">stale</span>}
+        <span>{totals.human} human samples</span>
+      </span>
+    </div>
+  )
+}
+
 export function MobileApp() {
   const [sessions, setSessions] = useState<MobileSession[]>([])
   const [ref, setRef] = useState(() => new URLSearchParams(window.location.search).get('ref') || '')
@@ -367,6 +389,7 @@ export function MobileApp() {
         <InstallButton />
         <NotifyToggle />
       </div>
+      <LearningRow />
       <ul className="space-y-2">
         {sessions.map((s) => (
           <li key={s.ref} className="flex items-center gap-2">

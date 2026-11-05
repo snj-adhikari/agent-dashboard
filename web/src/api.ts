@@ -1,5 +1,5 @@
 import { trackedFetch as fetch } from './progress'
-import type { GraphResponse, HistoryResponse, HookStatusResponse, ServiceSettings, Settings, SetupStatus } from './types'
+import type { GraphResponse, HistoryResponse, HookStatusResponse, LearningGran, LearningResponse, ServiceSettings, Settings, SetupStatus } from './types'
 
 interface ApiResult {
   ok: boolean
@@ -45,6 +45,8 @@ export const api = {
   newSession: (repoPath: string, branch: string) => postJson('/api/new-session', { repoPath, branch }),
   history: (range: 'day' | 'week' | 'month'): Promise<HistoryResponse> =>
     fetch('/api/history?range=' + range).then((r) => r.json()),
+  learning: (gran: LearningGran): Promise<LearningResponse> => fetch('/api/learning?gran=' + gran).then((r) => r.json()),
+  learningRefresh: () => postJson('/api/learning/refresh', {}),
   hookStatus: (): Promise<HookStatusResponse> => fetch('/api/hook-status').then((r) => r.json()),
   startJiraTicket: (key: string) =>
     postJson<ApiResult & { queued?: boolean; reason?: string }>('/api/hooks/jira/start', { key }),

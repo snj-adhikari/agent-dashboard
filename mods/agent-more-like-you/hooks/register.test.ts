@@ -26,6 +26,7 @@ const RULES = `## Jira
 const SLACK_BLOCK = (user: string, text: string, ts = '1762246800.000100') => `From: Person (ID: ${user})\nChannel: general (ID: C1)\nMessage_ts: ${ts}\nText: ${text}`
 let n = 0
 const UNREADABLE = '<unreadable>'
+const UNWRITABLE = '<unwritable>'
 const bottom = { result: 'ok' }
 
 interface World {
@@ -49,7 +50,10 @@ function world(on: On, files: Record<string, string>, env: Record<string, string
     if (w.files.get(e.path) === UNREADABLE) throw new Error('EIO')
     return { value: w.files.get(e.path) ?? '' }
   })
-  on('fs.write', (_$, e) => (w.files.set(e.path, e.text), { value: undefined }))
+  on('fs.write', (_$, e) => {
+    if (w.files.get(e.path) === UNWRITABLE) throw new Error('EACCES')
+    return (w.files.set(e.path, e.text), { value: undefined })
+  })
   on('fs.list', (_$, e) => ({
     value: [...w.files.keys()].filter((k) => k.startsWith(`${e.path}/`)).map((k) => ({ name: k.slice(e.path.length + 1), kind: 'file' as const })),
   }) as never)
@@ -126,6 +130,22 @@ test('dashboard vaultPath is used', async ($, on) => {
   const ok = world(on, { '/v/more-like-you/style-profile.md': PROFILE }, {}, () => ({ value: settings('/v') }))
   expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D1'))).deny).toContain('Lowercase')
   expect(ok.fetched).toEqual(['http://127.0.0.1:5818/api/settings'])
+})
+
+test('dashboard vaultPath is cached to location.json', async ($, on) => {
+  const up = world(on, { '/v/more-like-you/style-profile.md': PROFILE }, {}, () => ({ value: settings('/v') }))
+  await call($, 'mcp__slack__slack_send_message_draft', draft('D1'))
+  expect(JSON.parse(up.files.get(`${H}/.claude/more-like-you/location.json`) ?? '{}').folder).toBe('/v/more-like-you')
+})
+
+test('a failing location.json write never breaks folder resolution', async ($, on) => {
+  world(on, { '/v/more-like-you/style-profile.md': PROFILE, [`${H}/.claude/more-like-you/location.json`]: UNWRITABLE }, {}, () => ({ value: settings('/v') }))
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D1'))).deny).toContain('Lowercase')
+})
+
+test('cached folder is used when the dashboard is down', async ($, on) => {
+  world(on, { '/v/more-like-you/style-profile.md': PROFILE, [`${H}/.claude/more-like-you/location.json`]: JSON.stringify({ folder: '/v/more-like-you' }) })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D1'))).deny).toContain('Lowercase')
 })
 
 test('a hung dashboard times out to ~/.claude/more-like-you', async ($, on) => {
