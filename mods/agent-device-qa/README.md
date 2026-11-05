@@ -14,6 +14,7 @@ Skill that tests one web page or flow across a real Android phone, the iOS simul
 | Device | Needs |
 | --- | --- |
 | Android phone, Chrome | `adb` (`brew install --cask android-platform-tools`), USB debugging on, `agent-browser` |
+| Android phone, Artemis (optional) | `adb` (USB or Wireless debugging), the [Artemis](https://github.com/snj-adhikari/artemis) MCP server, and a Claude Code login (fork's `claude-code` provider) or a model key; setup in `skills/agent-device-qa/artemis.md` |
 | iOS simulator, Safari | Xcode with an iOS runtime (about 8.5 GB), Node 18+ for the inject proxy |
 | Mac Safari | Safari, Node 18+ for the inject proxy |
 | Mac Chrome widths | `agent-browser` (`npm i -g agent-browser && agent-browser install`) |
@@ -23,7 +24,7 @@ Skill that tests one web page or flow across a real Android phone, the iOS simul
 
 | Skill | What it does |
 | --- | --- |
-| `agent-device-qa` | Asks what to test and the expected outcome per scenario, picks devices, runs the setup doctor, opens pages, injects a non-throwing dataLayer logger, clicks, captures events and screenshots, then builds an Artifact report (device x scenario matrix, gaps, anomalies, setup guide) from `report-template.html`. |
+| `agent-device-qa` | Asks what to test and the expected outcome per scenario, picks devices, runs the setup doctor, opens pages, injects a non-throwing dataLayer logger, clicks, captures events and screenshots, then builds an Artifact report (device x scenario matrix, gaps, anomalies, setup guide) from `report-template.html`. Can drive a real Android phone through Artemis MCP tools when configured (`artemis.md`). |
 
 ## Scripts
 
