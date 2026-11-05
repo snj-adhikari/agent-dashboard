@@ -431,6 +431,21 @@ Settings live in the MongoDB `settings` collection; env vars override them.
 npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --display-name "Your Name" --github your-handle
 ```
 
+## Releases
+
+- Every merge to `main` publishes a release on the public mirror.
+- Tags are `vYYYY.MM.DD.N`, where `N` counts that day's releases.
+- Notes list the change under New, Fixes or Other, a Mods table of version bumps, and a compare link.
+- Dry run: `.github/scripts/release-notes.sh . "HEAD~1" HEAD "feat: example" https://github.com/OWNER/REPO v2026.01.01.1`
+
+```mermaid
+flowchart LR
+  A[Merge to main] --> B[Public sync]
+  B --> C[Tag pushed]
+  C --> D[Release workflow]
+  D --> E[Public release]
+```
+
 ## Checks
 
 | Script | Does |
@@ -440,6 +455,7 @@ npm run settings:import -- --repo-dirs ~/code,~/projects --vault ~/notes --displ
 | `npm run dev` | build, then start |
 | `npm run check` | build server, run `dist/check.js` |
 | `npm run check:hooks` | hook validation, prompt hygiene, shell quoting |
+| `.github/scripts/release-notes.sh . PREV HEAD TITLE URL TAG` | dry run of the release notes |
 | `.github/scripts/licence-check.sh .` | third-party text ships with its `LICENSE` and `NOTICE` (CI on every PR) |
 
 ## Security
