@@ -1,8 +1,8 @@
 # Dev Kit - Set up once, ship faster
 
-Plugin id: `dev-kit`.
-
 Skills that set up a Claude Code instance (working rules, learning notes, guards) and run a dev or QA task end to end with approval gates.
+
+Plugin id: `dev-kit`.
 
 ## Install
 
@@ -19,6 +19,20 @@ Skills that set up a Claude Code instance (working rules, learning notes, guards
 | `setup-guards` | Installs the `guards` mod, sets `GUARDS_PROTECTED_BRANCHES` if wanted, then builds and tests any extra hook rules you ask for. |
 | `dev-task` | Ticket to ready-to-review PR in an isolated worktree: understand, plan (gate 1), implement and test, review, commit (gate 2), PR (gate 3). Offers `/factory` for large tasks. |
 | `qa-task` | Builds a test plan from the acceptance criteria, runs the repo's checks and browser checks on non-production URLs, and reports pass or fail per criterion with evidence. Never edits source. |
+
+## Flow
+
+`dev-task`:
+
+```mermaid
+flowchart LR
+  T[Ticket] --> U[Understand]
+  U --> P[Plan]
+  P -->|gate 1: approve plan| I[Implement and test]
+  I --> RV[Review]
+  RV -->|gate 2: approve commit| CM[Commit]
+  CM -->|gate 3: approve PR| PR[PR]
+```
 
 ## Usage
 

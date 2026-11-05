@@ -1,8 +1,8 @@
 # Agent Kit - The orchestrator's toolbox
 
-Plugin id: `agent-kit`.
-
 Skills for agent work: a multi-repo controller, worktree tabs, template-first PR bodies, Artifact layouts, threaded Jira replies and starting Agent Dashboard.
+
+Plugin id: `agent-kit`.
 
 ## Install
 
@@ -21,6 +21,18 @@ Skills for agent work: a multi-repo controller, worktree tabs, template-first PR
 | `agent-artifact` | Picks a layout for an Artifact page (step guide or visual report) and reuses `templates/step-guide.html`. |
 | `agent-jira-reply` | Posts a threaded reply under a Jira comment by filling a blank reply you started (the MCP can't create threaded replies). Never falls back to a top-level comment unless told. |
 | `agent-dashboard` | Starts or reuses Agent Dashboard on `http://localhost:5818` and describes its pages and API. |
+
+## Flow
+
+```mermaid
+flowchart LR
+  C[Controller session] --> W[agent-worktree: worktree and tab per repo]
+  W --> A[Agent runs task]
+  A --> S{Agent output}
+  S -->|DONE| D[Controller reports back]
+  S -->|BLOCKED or permission prompt| R[Relay approval word for word]
+  R --> A
+```
 
 ## Settings
 

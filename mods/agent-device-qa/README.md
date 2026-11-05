@@ -1,8 +1,8 @@
 # Device Lab - Real phones, real taps
 
-Plugin id: `agent-device-qa`.
-
 Skill that tests one web page or flow across a real Android phone, the iOS simulator, Mac Safari, Mac Chrome widths and a real iPhone, captures dataLayer events and screenshots, and reports per device and scenario.
+
+Plugin id: `agent-device-qa`.
 
 ## Install
 
@@ -25,6 +25,15 @@ Skill that tests one web page or flow across a real Android phone, the iOS simul
 | Skill | What it does |
 | --- | --- |
 | `agent-device-qa` | Asks what to test and the expected outcome per scenario, picks devices, runs the setup doctor, opens pages, injects a non-throwing dataLayer logger, clicks, captures events and screenshots, then builds an Artifact report (device x scenario matrix, gaps, anomalies, setup guide) from `report-template.html`. Can drive any app on a real Android phone with adb helpers and a Haiku subagent, no API key (`android-apps.md`). |
+
+## Flow
+
+```mermaid
+flowchart LR
+  Q[Ask: scenarios and expected outcomes] --> DR[doctor.sh: READY or NOT READY]
+  DR --> RUN[Open pages, inject logger, click, capture events and screenshots]
+  RUN --> R[Artifact report: device x scenario matrix]
+```
 
 ## Scripts
 

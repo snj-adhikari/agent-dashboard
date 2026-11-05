@@ -1,8 +1,8 @@
 # Guards - No force pushes, no surprises
 
-Plugin id: `guards`.
-
 Blocks risky shell commands before they run: force pushes, commits or pushes on protected branches, and `rm -rf` on the root, home or parent folder.
+
+Plugin id: `guards`.
 
 ## Install
 
@@ -19,7 +19,19 @@ Registered in `hooks/register.ts`; rules in `hooks/rules.ts`, tested by `hooks/r
 | `tool.call` Bash | `git push` with `--force`, `--force-with-lease`, `-f` or a `+ref` |
 | `tool.call` Bash | `git push` to a protected branch, named (`origin main`, `HEAD:main`) or the current branch when none is named |
 | `tool.call` Bash | `git commit` on a protected branch (a leading `cd <dir> &&` sets the folder checked) |
-| `tool.call` Bash | `rm -rf` (any flag order) on `/`, `/*`, `~`, `~/*`, `$HOME`, `.` or `..` |
+| `tool.call` Bash | `rm -rf` (flag forms `-rf`, `-fr`, `-r -f`, `-f -r`, `--recursive --force`) on `/`, `/*`, `~`, `~/*`, `$HOME`, `.` or `..` |
+
+## Flow
+
+```mermaid
+flowchart LR
+  B[Bash tool call] --> G{Guard check}
+  G -->|force push| D[Deny]
+  G -->|push or commit on protected branch| D
+  G -->|rm -rf on root, home or parent| D
+  G -->|no match| A[Allow]
+  G -->|guard errors| A
+```
 
 ## Settings
 

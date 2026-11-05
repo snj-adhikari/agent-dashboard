@@ -1,8 +1,8 @@
 # Roll Call - Every Claude session, one list
 
-Plugin id: `agent-sessions`.
+Adds `/agent-sessions`: a terminal tree of every Claude session, grouped by repo and worktree.
 
-Adds `/agent-sessions`: a terminal tree of every Claude session, grouped by repo and worktree, read from Agent Dashboard.
+Plugin id: `agent-sessions`.
 
 ## Install
 
@@ -15,6 +15,20 @@ Adds `/agent-sessions`: a terminal tree of every Claude session, grouped by repo
 | Command | What it does |
 | --- | --- |
 | `/agent-sessions` | Fetches `<AGENT_MONITOR_URL>/api/graph` and prints repos with active worktrees (branch, main checkout flag, changed file count) and the cmux tabs or bare agent processes in each. Sessions outside known worktrees are listed under "Not in a known worktree". |
+
+## Hooks
+
+| Event | What it does |
+| --- | --- |
+| `session.start` | Registers the `agent-sessions` command. No other events. |
+
+## Skills
+
+None.
+
+## Agents
+
+None.
 
 ## Settings
 

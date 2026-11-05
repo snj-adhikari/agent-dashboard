@@ -1,8 +1,8 @@
 # Live Wire - Your agent's pulse in the status line
 
-Plugin id: `agent-monitor-hook`.
+Reports each interactive Claude session's phase to Agent Dashboard and shows the hook ticket in the status line.
 
-Reports each interactive Claude session's phase to Agent Dashboard and shows the hook ticket in the status line. Needed for phone push notifications when a session is waiting.
+Plugin id: `agent-monitor-hook`.
 
 ## Install
 
@@ -20,6 +20,25 @@ Registered in `hooks/register.ts`. Each report is a `POST` to `<AGENT_MONITOR_UR
 | `session.start` | Reads the env below, reports phase `working`, and shows `<ticket> · <branch> · <phase>` in the status line when a ticket is set. |
 | `tool.call` Bash | After a successful `gh pr create`, sets phase `pr-opened` and reports. |
 | `turn.complete` | Sets phase `awaiting-you` and reports, unless a PR was opened. |
+
+```mermaid
+stateDiagram-v2
+  [*] --> working: session.start (interactive)
+  working --> awaiting_you: turn.complete
+  working --> pr_opened: PR created
+  awaiting_you --> pr_opened: PR created
+  pr_opened --> [*]
+  state "awaiting-you" as awaiting_you
+  state "pr-opened" as pr_opened
+```
+
+## Skills
+
+None.
+
+## Agents
+
+None.
 
 ## Settings
 

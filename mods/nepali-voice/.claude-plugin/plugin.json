@@ -1,6 +1,6 @@
 {
   "name": "nepali-voice",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": { "name": "S.N.J" },
   "description": "Speak or type Nepali or Roman Nepali: /ne records and transcribes locally, and Claude acts on the English meaning. Learns phrases into a glossary."
 }

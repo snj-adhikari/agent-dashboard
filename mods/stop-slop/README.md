@@ -1,8 +1,8 @@
 # Stop Slop - Writes like a human
 
-Plugin id: `stop-slop`.
-
 Writing rules added to every session (short bullets, plain words, no AI tells), plus a `stop-slop` skill for an editing pass on text about to ship.
+
+Plugin id: `stop-slop`.
 
 ## Install
 
@@ -14,6 +14,16 @@ Writing rules added to every session (short bullets, plain words, no AI tells), 
 | Event | What it does |
 | --- | --- |
 | `prompt.submit` | On the first prompt of each session, attaches the rules in `hooks/rules.ts` as context. If the hook errors, the prompt goes through unchanged. |
+
+## Flow
+
+```mermaid
+flowchart LR
+  P[prompt.submit] --> F{First prompt of session?}
+  F -->|yes| C[Attach rules as context]
+  F -->|no| N[Pass prompt through]
+  C --> N
+```
 
 The rules apply to replies and to text for other people (tickets, comments, Slack and PR text, commit messages, reports), not to specs, plans or design docs. They cover: lead with the answer, short bullets, first person, Australian/British spelling, no emojis or em dashes, no stock AI phrasing or sales words, each claim once, hedge only real doubt.
 

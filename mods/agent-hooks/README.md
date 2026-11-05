@@ -17,12 +17,12 @@ Claude Code hooks for safer git, cleaner PRs and read-only cloud access. Each ho
 | `agent-push-gate.py` | PreToolUse Bash | Denies `git commit` / `git push` unless your latest message asks for it (commit, push, create PR, same PR), you just said yes to a commit or push question, or the branch already has an open PR. Subagents can only commit or push on a branch with an open PR. |
 | `agent-signature.sh` | PreToolUse Bash | Blocks skipping commit signing or hooks (`--no-verify`, `--no-gpg-sign`, `-n`). With `AGENT_SIGNATURE` set, adds it as a commit trailer and to PR bodies in place of `Signed-off-by`. |
 | `agent-no-claude-pr-attribution.sh` | PreToolUse Bash | Denies "Generated with Claude Code", Claude `Co-Authored-By` and similar lines in commits and PR/issue titles, bodies and comments. |
-| `agent-create-pr-gate.sh` + `agent-create-pr-mark.sh` | PreToolUse Bash, PostToolUse Skill | `gh pr create` is denied until the `agent-pr` skill (agent-kit) has run in the session, so PR bodies follow the repo's template. |
+| `agent-create-pr-gate.sh` + `agent-create-pr-mark.sh` | PreToolUse Bash, PostToolUse Skill | `gh pr create` is denied until the `agent-pr` skill has run in the session, so PR bodies follow the repo's template. Active only when agent-kit's `agent-pr` skill is installed; otherwise it allows. |
 | `agent-comment-style-guard.sh` | PreToolUse Write, Edit, Bash | Denies added comment blocks longer than one `//` line (JS, TS, PHP, Java, Go, C) or three `#` lines (Python, Ruby, shell, YAML), and any comment in CSS, SCSS, Sass or Less. |
-| `agent-jira-timetracking-guard.sh` | PreToolUse and PostToolUse Atlassian MCP | Estimates and worklogs only go on issues it has seen as a `Dev subtask`, never on the parent Story, Task, Bug or Epic. |
+| `agent-jira-timetracking-guard.sh` | PreToolUse and PostToolUse Atlassian MCP | Estimates and worklogs only go on issues it has seen as the configured subtask type, never on the parent Story, Task, Bug or Epic. Off unless `AGENT_JIRA_DEV_SUBTASK_TYPE` is set. |
 | `agent-aws-guard.py` | PreToolUse Bash, file tools, aws-mcp | Denies the read/write AWS profile (`AGENT_AWS_RW_PROFILE`, default `prod-rw`) and `~/.aws/credentials`; asks before any `aws` CLI call so lookups go through read-only MCP profiles. |
-| `agent-prod-browse-guard.py` | PreToolUse Chrome MCP, WebFetch, Bash | For domains in `AGENT_PROD_HOSTS` (comma-separated), asks before a real browser loads them, and checks that the GTA - Blocker extension is active. Reply "allow all" to stop asking for the session. Off when unset. |
-| `agent-branch-convention.sh` | SessionStart | Warns when the branch doesn't match `feat|fix/<ticket>-...` or `tech|docs|chore|.../<kebab-case>`. |
+| `agent-prod-browse-guard.py` | PreToolUse Chrome MCP, WebFetch, Bash | For domains in `AGENT_PROD_HOSTS` (comma-separated), asks before a real browser loads them, and checks that the blocker extension (`AGENT_PROD_BLOCKER_NAME`) is active. Reply "allow all" to stop asking for the session. Off when unset. |
+| `agent-branch-convention.sh` | SessionStart | Warns when the branch doesn't match `feat|fix/<ticket>-...` or `tech|docs|chore|.../<kebab-case>`. Off unless `AGENT_BRANCH_CONVENTION=1`. |
 
 ## Settings
 
@@ -31,3 +31,6 @@ Claude Code hooks for safer git, cleaner PRs and read-only cloud access. Each ho
 | `AGENT_SIGNATURE` | unset (no trailer) | `agent-signature.sh` |
 | `AGENT_AWS_RW_PROFILE` | `prod-rw` | `agent-aws-guard.py` |
 | `AGENT_PROD_HOSTS` | unset (guard off) | `agent-prod-browse-guard.py` |
+| `AGENT_BRANCH_CONVENTION` | unset (check off) | `agent-branch-convention.sh`; set `1` to enable |
+| `AGENT_JIRA_DEV_SUBTASK_TYPE` | unset (guard off) | `agent-jira-timetracking-guard.sh`; subtask type name, e.g. `Dev subtask` |
+| `AGENT_PROD_BLOCKER_NAME` | `GTA - Blocker` | `agent-prod-browse-guard.py`; blocker extension name to check for |

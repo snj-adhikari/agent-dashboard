@@ -1,6 +1,6 @@
 # Agent Dashboard - The one place to Visualise AI
 
-Live dashboard of git worktrees, terminal tabs (cmux or tmux) and bare agent CLI processes (Claude Code, Copilot, Codex, etc.) across the repo folders you configure.
+Live dashboard of git worktrees, terminal tabs (cmux or tmux) and bare agent CLI processes (Claude Code, Copilot, Codex, etc.) across your repo folders.
 
 ![home](docs/home.png)
 
@@ -19,9 +19,10 @@ flowchart TD
   O[Mods in sessions] -->|report back| S
 ```
 
-## Set it up, step by step
+- Guided setup: paste [`prompts/setup-agent-dashboard.md`](prompts/setup-agent-dashboard.md) into Claude Code in this repo.
+- More prompts: [`prompts/`](prompts/).
 
-Prefer a guided setup? Paste [`prompts/setup-agent-dashboard.md`](prompts/setup-agent-dashboard.md) into Claude Code in this repo. Other prompts are in [`prompts/`](prompts/).
+## Set it up, step by step
 
 ### Step 1: Prerequisites
 
@@ -38,7 +39,7 @@ Prefer a guided setup? Paste [`prompts/setup-agent-dashboard.md`](prompts/setup-
 node -v && git --version
 ```
 
-Expect Node 20 or newer.
+- Expect Node 20 or newer.
 
 ### Step 2: Install MongoDB and run it as a service
 
@@ -48,7 +49,8 @@ Expect Node 20 or newer.
 | Linux (generic) | install `mongodb-org` per the MongoDB docs, then `sudo systemctl enable --now mongod` |
 | Docker (generic) | `docker run -d --name mongo -p 27017:27017 --restart unless-stopped mongo:7` |
 
-You should see MongoDB listening on `127.0.0.1:27017`. The Setup page can also start the Homebrew service for you.
+- MongoDB should listen on `127.0.0.1:27017`.
+- The Setup page can also start the Homebrew service for you.
 
 ### Step 3: Clone and build
 
@@ -59,7 +61,7 @@ npm install
 npm run build   # web (Vite/React/Tailwind), then server (tsc)
 ```
 
-You should see `dist/` and `web/dist/` created.
+- Expect `dist/` and `web/dist/` to be created.
 
 ### Step 4: Configure
 
@@ -68,7 +70,8 @@ echo 'MONGO_URL=mongodb://127.0.0.1:27017' > .env
 echo 'MONITOR_PORT=5818' >> .env
 ```
 
-Both are the defaults, so this step is optional unless MongoDB or the port differs.
+- Both values are the defaults, so this step is optional unless MongoDB or the port differs.
+- All variables: [Settings and env](#settings-and-env).
 
 ### Step 5: Start
 
@@ -76,11 +79,11 @@ Both are the defaults, so this step is optional unless MongoDB or the port diffe
 npm start
 ```
 
-While setup is incomplete or MongoDB is unreachable the console prints `Setup incomplete: open http://localhost:5818/setup`.
+- While setup is incomplete or MongoDB is unreachable, the console prints `Setup incomplete: open http://localhost:5818/setup`.
 
 ### Step 6: Run the onboarding wizard
 
-Open http://localhost:5818. First run opens the wizard; re-run it any time from the Setup page.
+Open http://localhost:5818. The first run opens the wizard; re-run it any time from the Setup page.
 
 ![setup](docs/setup.png)
 
@@ -94,14 +97,14 @@ Open http://localhost:5818. First run opens the wizard; re-run it any time from 
 | LaunchAgent | generates and installs the service plist | no |
 | Blocker sites | domains the Chrome blocker applies to | no |
 
-Each step saves on its own.
+- Each step saves on its own.
 
 ### Step 7 (optional): Run as a macOS service
 
 - In the wizard's LaunchAgent step: generate, then install (`launchctl bootstrap`); it can also remove it.
-- Label defaults to `agent-monitor`; only env var names are stored in MongoDB, never values.
-- Enable cmux socket access in the same step: it generates a token, shows the cmux settings snippet and writes the token to the plist as `CMUX_SOCKET_PASSWORD`.
-- Without it a standalone service sees 0 cmux tabs (cmux only accepts its own child processes by default).
+- Label defaults to `agent-monitor`. Only env var names are stored in MongoDB, never values.
+- Enable cmux socket access in the same step. It generates a token, shows the cmux settings snippet and writes the token to the plist as `CMUX_SOCKET_PASSWORD`.
+- Without it, a standalone service sees 0 cmux tabs (cmux only accepts its own child processes by default).
 
 <details>
 <summary>Manual cmux socket steps</summary>
@@ -115,7 +118,7 @@ Each step saves on its own.
      }
    }
    ```
-2. In `~/Library/LaunchAgents/<label>.plist` add `cmux`, `git` and `gh` to `PATH` plus the same token:
+2. In `~/Library/LaunchAgents/<label>.plist`, add `cmux`, `git` and `gh` to `PATH` plus the same token:
    ```xml
    <key>EnvironmentVariables</key>
    <dict>
@@ -125,27 +128,24 @@ Each step saves on its own.
        <string>same token as above</string>
    </dict>
    ```
-3. Reload (`launchctl kickstart` does not pick up plist env changes):
+3. Reload. `launchctl kickstart` does not pick up plist env changes.
    ```bash
    launchctl bootout gui/$(id -u)/<label>
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<label>.plist
    ```
 
-`password` mode is the least-privileged option that still lets an external process connect; avoid `allowAll`, `openAccess` and `full`.
+- `password` mode is the least-privileged option that still lets an external process connect. Avoid `allowAll`, `openAccess` and `full`.
 
 </details>
 
 ### Step 8 (optional): Install mods and Chrome extensions
 
-Mods, either way:
-
-```bash
-/plugin install <name> --marketplace snj-adhikari/agent-dashboard
-```
-
-- Or open the Plugin page and click **Add to this device** (copies the mod to `~/.claude/skills/<name>`) or **Download** (zip).
-- Chrome extensions: open `chrome://extensions`, enable Developer mode, **Load unpacked**, pick the extension folder.
-- On the blocker card, **Add to this device** copies the extension, opens `chrome://extensions` and puts the folder path on the clipboard.
+| Item | How |
+| --- | --- |
+| Mod, marketplace | `/plugin install <name> --marketplace snj-adhikari/agent-dashboard` |
+| Mod, Plugin page | **Add to this device** copies the mod to `~/.claude/skills/<name>`; **Download** gets a zip |
+| Chrome extension | open `chrome://extensions`, enable Developer mode, **Load unpacked**, pick the extension folder |
+| Blocker card | **Add to this device** copies the extension, opens `chrome://extensions` and puts the folder path on the clipboard |
 
 ![plugin](docs/plugin.png)
 
@@ -185,14 +185,18 @@ agent-dashboard/
 │   ├── App.tsx                   pages and navigation
 │   ├── mobile/                   phone page (/m/)
 │   └── components/               Home graph, Setup, wizard, Plugin, Vault
-├── mods/                         Claude Code plugins
+├── mods/                         Claude Code plugins (see Mods and extensions)
+│   ├── agent-device-qa/          real-device and browser width checks
 │   ├── agent-hooks/              commit/push gate, comment style, attribution, AWS and prod browser guards
 │   ├── agent-kit/                orchestrator, worktree, PR, artifact, Jira reply, dashboard skills
 │   ├── agent-monitor-hook/       hook status line
+│   ├── agent-more-like-you/      learnt writing voice per audience
+│   ├── agent-orchestration/      one cmux sub-tab per skill
 │   ├── agent-sessions/           /agent-sessions tree
 │   ├── dev-kit/                  setup, learning, guards, dev and QA skills
 │   ├── factory/                  /factory agent team
 │   ├── guards/                   blocks risky git and rm commands
+│   ├── nepali-voice/             /ne voice input and glossary
 │   └── stop-slop/                writing rules
 ├── extensions/                   Chrome extensions
 │   ├── agent-monitor/            session popup
@@ -204,34 +208,10 @@ agent-dashboard/
 └── .env.example                  env template
 ```
 
-```mermaid
-flowchart TD
-  ROOT[agent-dashboard]
-  ROOT --> SRV[Server: src]
-  ROOT --> WEB[Web UI: web/src]
-  ROOT --> MODS[Mods]
-  ROOT --> EXT[Extensions]
-  ROOT --> DOCS[Docs]
-  SRV --> S1[index.ts]
-  SRV --> S2[routes]
-  SRV --> S3[services]
-  SRV --> S4[scripts]
-  S3 --> S5[hooks]
-  WEB --> W1[App.tsx]
-  WEB --> W2[components]
-  MODS --> M1[agent-monitor-hook]
-  MODS --> M2[agent-sessions]
-  MODS --> M3[factory]
-  MODS --> M4[stop-slop]
-  EXT --> E1[agent-monitor]
-  EXT --> E2[njw-analytic-blocker]
-  DOCS --> D1[docs screenshots]
-  DOCS --> D2[.claude-plugin]
-```
-
 ## Terminal backends
 
-Set `terminal` in Setup (Profile) or the `TERMINAL_BACKEND` env var to `auto`, `cmux`, `tmux` or `terminal`. Auto picks cmux if its CLI answers, else tmux if installed, else Terminal.app.
+- Set `terminal` in Setup (Profile), or the `TERMINAL_BACKEND` env var, to `auto`, `cmux`, `tmux` or `terminal`.
+- `auto` picks cmux if its CLI answers, else tmux if installed, else Terminal.app.
 
 | Backend | List tabs | Send / read output | Open session |
 | --- | --- | --- | --- |
@@ -241,7 +221,7 @@ Set `terminal` in Setup (Profile) or the `TERMINAL_BACKEND` env var to `auto`, `
 
 ## Mobile (phone over Tailscale)
 
-`/m/` is a phone page (installable PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to Agent Dashboard through `tailscale serve`.
+`/m/` is an installable phone page (PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to Agent Dashboard through `tailscale serve`.
 
 ```mermaid
 flowchart TD
@@ -262,14 +242,15 @@ The quickest way is **Setup > Phone access (Tailscale)** in the dashboard: it ch
    tailscale serve --bg http://127.0.0.1:5818
    tailscale serve status   # prints https://<mac>.<tailnet>.ts.net
    ```
-   `--bg` keeps it across restarts. With the Mac App Store build, the CLI is `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
+   - `--bg` keeps it across restarts.
+   - With the Mac App Store build, the CLI is `/Applications/Tailscale.app/Contents/MacOS/Tailscale`.
 4. Install the `agent-monitor-hook` mod (see [Mods and extensions](#mods-and-extensions)) so Claude sessions report when they are waiting.
 
 ### Phone setup
 
 1. With Tailscale connected, open `https://<mac>.<tailnet>.ts.net/m/` in Chrome (Android) or Safari (iOS).
 2. Install it:
-   - **Android:** tap **Install app** on the page, or Chrome menu (⋮), then **Add to home screen**, then **Install** (or **Create shortcut**).
+   - **Android:** tap **Install app** on the page, or open the Chrome menu (three dots), then **Add to home screen**, then **Install** (or **Create shortcut**).
    - **iPhone:** in Safari tap **Share**, then **Add to Home Screen**. Required for notifications (iOS 16.4 or later).
 3. Open it from the home screen, tap **Enable notifications**, allow the prompt, then tap **Test**.
 
@@ -302,7 +283,10 @@ The quickest way is **Setup > Phone access (Tailscale)** in the dashboard: it ch
 | Plugin | mods and extensions: download or add to this device |
 | Setup | settings and the onboarding wizard |
 
-Inactive worktrees collapse into one "+N inactive" node per repo on Home; click to expand. Bulk delete only removes worktrees that pass these rules:
+### Worktree bulk delete
+
+- Inactive worktrees collapse into one "+N inactive" node per repo on Home; click to expand.
+- Bulk delete only removes worktrees that pass these rules:
 
 | Rule | Outcome |
 | --- | --- |
@@ -315,36 +299,48 @@ Inactive worktrees collapse into one "+N inactive" node per repo on Home; click 
 
 ## Mods and extensions
 
-| Name | What | Install |
+Mods are Claude Code plugins listed in [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json).
+
+| Mod | What | Install |
 | --- | --- | --- |
-| Roll Call - Every Claude session, one list (`agent-sessions`) | `/agent-sessions` prints every Claude session by repo and worktree | marketplace, or `claude --plugin-dir ./agent-sessions` from the Plugin zip |
-| Live Wire - Your agent's pulse in the status line (`agent-monitor-hook`) | shows hook ticket and phase in the status line, reports to `/api/hook-session` | marketplace, or `claude plugin validate mods/agent-monitor-hook` |
-| Stop Slop - Writes like a human (`stop-slop`) | writing rules for replies and drafts (short bullets, no AI tells) plus an editing skill | marketplace, or `claude --plugin-dir ./mods/stop-slop` |
-| Factory - The AI delivery team (`factory`) | `/factory <goal>`: grills you one question at a time, then runs a product team when requirements are unclear, a tech lead, researchers, planner, developers and QA unattended | marketplace, or `claude --plugin-dir ./mods/factory --model opus` |
-| Guards - No force pushes, no surprises (`guards`) | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
-| Dev Kit - Set up once, ship faster (`dev-kit`) | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
-| Agent Kit - The orchestrator's toolbox (`agent-kit`) | skills: `agent-orchestrator` (controller for multi-repo, multi-tab agents on cmux, herdr, tmux, zellij or WezTerm), `agent-worktree` (new worktree in its own cmux tab), `agent-pr` (PR body from the repo's template), `agent-artifact` (Artifact page layouts), `agent-jira-reply` (threaded Jira replies), `agent-dashboard` (start this dashboard) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-kit` |
-| Gatekeeper - Nothing ships without your yes (`agent-hooks`) | hooks: commit/push go-ahead gate, signature trailer, no Claude attribution, `agent-pr` gate on `gh pr create`, comment style, Jira estimates on Dev subtasks, read-only AWS, prod browser guard, branch names ([README](mods/agent-hooks/README.md)) | marketplace, or `claude --plugin-dir ./mods/agent-hooks` |
-| Device Lab - Real phones, real taps (`agent-device-qa`) | skill: test a page on a real Android phone, iOS simulator Safari, Mac Safari, Mac Chrome widths and a real iPhone; setup doctor, non-throwing dataLayer logger, scripted clicks, screenshots, device × scenario report | marketplace, or `claude --plugin-dir ./mods/agent-device-qa` |
-| Agent Magic - Every skill gets its own tab (`agent-orchestration`) | runs each typed skill in a cmux sub-tab of the same pane; relays its questions and done-summary to the main tab, which answers with `subtab_reply` or finishes it ([README](mods/agent-orchestration/README.md)) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-orchestration` |
-| Agent - That feels like you (`agent-more-like-you`) | learns your writing voice per audience (Slack DM and channel, Jira, Confluence, GitHub PR) from your prompts, sends, edits and notes, read-only, kept in a local folder; a gate makes agents redraft external comments in that voice ([README](mods/agent-more-like-you/README.md)) | marketplace, or `claude --plugin-dir ./mods/agent-more-like-you` |
-| Agent - Nepali voice (`nepali-voice`) | `/ne` records and transcribes Nepali locally (sox + whisper.cpp); Nepali and Roman Nepali prompts get an English-meaning context so the agent acts on the English; learns phrases into a glossary ([README](mods/nepali-voice/README.md)) | marketplace, or `claude --plugin-dir ./mods/nepali-voice` |
+| [Roll Call - Every Claude session, one list (`agent-sessions`)](mods/agent-sessions/README.md) | `/agent-sessions` prints every Claude session by repo and worktree | marketplace, or `claude --plugin-dir ./agent-sessions` from the Plugin zip |
+| [Live Wire - Your agent's pulse in the status line (`agent-monitor-hook`)](mods/agent-monitor-hook/README.md) | shows hook ticket and phase in the status line, reports to `/api/hook-session` | marketplace, or `claude plugin validate mods/agent-monitor-hook` |
+| [Stop Slop - Writes like a human (`stop-slop`)](mods/stop-slop/README.md) | writing rules for replies and drafts (short bullets, no AI tells) plus an editing skill | marketplace, or `claude --plugin-dir ./mods/stop-slop` |
+| [Factory - The AI delivery team (`factory`)](mods/factory/README.md) | `/factory <goal>`: grills you one question at a time, then runs a product team when requirements are unclear, a tech lead, researchers, planner, developers and QA unattended | marketplace, or `claude --plugin-dir ./mods/factory --model opus` |
+| [Guards - No force pushes, no surprises (`guards`)](mods/guards/README.md) | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
+| [Dev Kit - Set up once, ship faster (`dev-kit`)](mods/dev-kit/README.md) | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
+| [Agent Kit - The orchestrator's toolbox (`agent-kit`)](mods/agent-kit/README.md) | skills: `agent-orchestrator` (controller for multi-repo, multi-tab agents on cmux, herdr, tmux, zellij or WezTerm), `agent-worktree` (new worktree in its own cmux tab), `agent-pr` (PR body from the repo's template), `agent-artifact` (Artifact page layouts), `agent-jira-reply` (threaded Jira replies), `agent-dashboard` (start this dashboard) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-kit` |
+| [Gatekeeper - Nothing ships without your yes (`agent-hooks`)](mods/agent-hooks/README.md) | hooks: commit/push go-ahead gate, signature trailer, no Claude attribution, `agent-pr` gate on `gh pr create`, comment style, Jira estimates on Dev subtasks, read-only AWS, prod browser guard, branch names | marketplace, or `claude --plugin-dir ./mods/agent-hooks` |
+| [Device Lab - Real phones, real taps (`agent-device-qa`)](mods/agent-device-qa/README.md) | skill: test a page on a real Android phone, iOS simulator Safari, Mac Safari, Mac Chrome widths and a real iPhone; setup doctor, non-throwing dataLayer logger, scripted clicks, screenshots, device x scenario report | marketplace, or `claude --plugin-dir ./mods/agent-device-qa` |
+| [Agent Magic - Every skill gets its own tab (`agent-orchestration`)](mods/agent-orchestration/README.md) | runs each typed skill in a cmux sub-tab of the same pane; relays its questions and done-summary to the main tab, which answers with `subtab_reply` or finishes it | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-orchestration` |
+| [Agent - That feels like you (`agent-more-like-you`)](mods/agent-more-like-you/README.md) | learns your writing voice per audience (Slack DM and channel, Jira, Confluence, GitHub PR) from your prompts, sends, edits and notes, read-only, kept in a local folder; a gate makes agents redraft external comments in that voice | marketplace, or `claude --plugin-dir ./mods/agent-more-like-you` |
+| [Agent - Nepali voice (`nepali-voice`)](mods/nepali-voice/README.md) | `/ne` records and transcribes Nepali locally (sox + whisper.cpp); Nepali and Roman Nepali prompts get an English-meaning context so the agent acts on the English; learns phrases into a glossary | marketplace, or `claude --plugin-dir ./mods/nepali-voice` |
 | `extensions/njw-analytic-blocker` | Chrome extension (GTA - Blocker): blocks analytics and ad requests, strips click ids, hides tracking cookies on the sites you set | Load unpacked |
 | `extensions/agent-monitor` | Chrome toolbar popup listing agent sessions by repo and worktree | Load unpacked |
 
 - Mods read `AGENT_MONITOR_URL` (default `http://localhost:5818`).
-- Factory commands: `/factory-show`, `/factory-report <lead session>`, `/factory-stop`. A Bash hook blocks `git commit` and `git push` unless your latest message asks.
+- Factory commands: `/factory-show`, `/factory-report <lead session>`, `/factory-stop`.
+- A Bash hook blocks `git commit` and `git push` unless your latest message asks.
 
 ### agent-orchestrator (in agent-kit)
 
 One Claude session acts as controller for several agents, one terminal tab and git worktree per repo. Workers share a notes file; only the controller talks to you.
 
-- **Repos first:** it starts by asking which repos to open, as names, local paths or git URLs (one per line, optional base branch, branch and task each). Names are looked up under the parent folder, `~/code`, `~/src`, `~/projects`, `~/dev` and `~/work`; URLs are cloned only after you confirm where.
+- **Repos first:** it asks which repos to open, as names, local paths or git URLs (one per line, optional base branch, branch and task each).
+  - Names are looked up under the parent folder, `~/code`, `~/src`, `~/projects`, `~/dev` and `~/work`.
+  - URLs are cloned only after you confirm where.
 - **Per repo:** creates a worktree from the default branch (or the base you give), opens a tab running `claude` in it, sends the task, then watches for `DONE:`, `BLOCKED:` or a permission prompt and reports back to you.
-- **Backends:** cmux, herdr, tmux, zellij and WezTerm, picked automatically. Without any of them it falls back to plain terminal tabs (macOS Terminal or iTerm, `gnome-terminal` on Linux, Windows Terminal `wt`) and a shared status file. Works on macOS, Linux and Windows (WezTerm natively, or tmux under WSL).
-- **Notes:** `~/.agent-orchestrator/<session>/controller.md` (tab map, so another controller can take over) and `shared-context.md` (tasks, cross-repo contracts, findings log).
+- **Backends:** cmux, herdr, tmux, zellij and WezTerm, picked automatically.
+  - Without any of them it falls back to plain terminal tabs (macOS Terminal or iTerm, `gnome-terminal` on Linux, Windows Terminal `wt`) and a shared status file.
+  - Works on macOS, Linux and Windows (WezTerm natively, or tmux under WSL).
+- **Notes:**
+  - `~/.agent-orchestrator/<session>/controller.md`: tab map, so another controller can take over.
+  - `shared-context.md`: tasks, cross-repo contracts, findings log.
 - **Invoke:** install agent-kit, then ask in any session, e.g. "be the controller and open a tab per repo for these: api, web, https://github.com/org/worker", or "take over as controller". Or call `/agent-kit:agent-orchestrator`.
-- **Approvals:** no `git commit`, `git push`, PR or external post in any tab without your explicit go-ahead in that turn; one go-ahead covers one action. Workers' permission prompts are shown to you, never approved by the controller, and your answer is relayed word for word. Never pushes to main, master, develop or staging, never force-pushes.
+- **Approvals:**
+  - No `git commit`, `git push`, PR or external post in any tab without your explicit go-ahead in that turn; one go-ahead covers one action.
+  - Workers' permission prompts are shown to you, never approved by the controller, and your answer is relayed word for word.
+  - Never pushes to main, master, develop or staging, never force-pushes.
 
 ## Hooks
 
@@ -369,13 +365,15 @@ flowchart TD
 | `jira-mention-pr` | a Jira comment mentioning you with a GitHub PR link (allowed orgs, repo known from config), last 35 min | tab runs the same PR review command as `slack-pr-review`; skipped while a review is pending |
 | `slack-pr-review` | "pr review please" plus a GitHub PR link, mentioning you or in a DM, last 35 min | tab runs your PR-review skill from the profile (or a plain review prompt), drafts a pending review only |
 
-- Manual start: enter a ticket key in the Hooks page; skips the window, queue and gate, still deduped.
-- Branch collisions get `-i`, `-ii` suffixes; base is `origin/HEAD` unless a `baseBranches` rule matches.
-- Hook tabs are titled `[hook:<name>] <branch>`; closing one frees its slot.
+- Manual start: enter a ticket key in the Hooks page. It skips the window, queue and gate, but is still deduped.
+- Branch collisions get `-i`, `-ii` suffixes. Base is `origin/HEAD` unless a `baseBranches` rule matches.
+- Hook tabs are titled `[hook:<name>] <branch>`. Closing one frees its slot.
 - Ticket and Slack text never reaches the work session, only the validated key or PR URL.
-- Polls use `claude -p --tools ""` with only read-only MCP tools allowed; MCP writes are refused.
+- Polls use `claude -p --tools ""` with only read-only MCP tools allowed. MCP writes are refused.
 
-Config: copy `hooks.config.example.json` to `hooks.config.json` (gitignored, re-read each cycle).
+### Hook config
+
+Copy `hooks.config.example.json` to `hooks.config.json` (gitignored, re-read each cycle).
 
 | Key | Purpose |
 | --- | --- |
@@ -387,8 +385,9 @@ Config: copy `hooks.config.example.json` to `hooks.config.json` (gitignored, re-
 | `allowedGithubOrgs` | optional PR URL allow-list |
 
 - State (seen ids, queue, halted tabs) lives in `hooks-state.json`.
-- Each poll is a real `claude -p` run, about $0.3 to $1 on Sonnet 5 (measured), up to 48 polls a day per hook while the gate is open. Lower `pollModel` or remove a hook from `HOOKS` to cut it.
-- Add a hook: write one `Trigger` file and add it to `HOOKS`.
+- Each poll is a real `claude -p` run, about $0.3 to $1 on Sonnet 5 (measured), up to 48 polls a day per hook while the gate is open.
+- To cut cost, lower `pollModel` or remove a hook from `HOOKS`.
+- To add a hook, write one `Trigger` file and add it to `HOOKS`.
 
 ## Settings and env
 
@@ -408,7 +407,10 @@ Settings live in the MongoDB `settings` collection; env vars override them.
 
 ## Migrating an existing install
 
-`npm run settings:import -- <flags>` builds the server, then imports a `hooks.config.json` and LaunchAgent plist (names only) into settings. All flags are optional; set `MONGO_DB=<db>` to seed a copy first.
+`npm run settings:import -- <flags>` builds the server, then imports a `hooks.config.json` and LaunchAgent plist (names only) into settings.
+
+- All flags are optional.
+- Set `MONGO_DB=<db>` to seed a copy first.
 
 | Flag | Value |
 | --- | --- |

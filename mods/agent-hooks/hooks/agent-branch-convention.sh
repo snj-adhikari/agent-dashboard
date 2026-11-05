@@ -1,4 +1,5 @@
 #!/bin/sh
+[ "${AGENT_BRANCH_CONVENTION:-}" = 1 ] || exit 0
 git rev-parse --git-dir > /dev/null 2>&1 || exit 0
 
 branch=$(git branch --show-current 2>/dev/null)

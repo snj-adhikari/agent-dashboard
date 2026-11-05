@@ -1,8 +1,12 @@
 # Factory - The AI delivery team
 
+`/factory <goal>` runs a lead agent that grills you, then drives product, tech lead, research, plan, dev and QA agents until every acceptance criterion has evidence.
+
 Plugin id: `factory`.
 
-`/factory <goal>`: a lead agent grills you one question at a time, then drives a product team (only when the requirements are unclear or need analysis), a tech lead, researcher, planner, developer and QA agents unattended until every acceptance criterion has evidence. With clear requirements, the tech lead and dev team deliver without the product team. The product team can shape a throwaway prototype with a developer, or analyse the product. The product team and tech lead consult each other through the lead (product asks the tech lead for dev analysis, the tech lead relies on product for product decisions). Researchers serve both product and dev.
+- With clear requirements, the tech lead and dev team deliver without the product team.
+- The product team (only when requirements are unclear) can shape a throwaway prototype with a developer, or analyse the product.
+- Product and tech lead consult each other through the lead. Researchers serve both.
 
 ## Install
 
@@ -109,7 +113,7 @@ sequenceDiagram
   Sub-->>Main: done summary
 ```
 
-- Only `ASK` and `DONE` turns reach the main tab; `CONTINUE` and `WAIT` rounds stay in the sub-tab.
+- Turns ending `FACTORY: CONTINUE` or `FACTORY: WAIT` stay in the sub-tab; `ASK` and `DONE` turns reach the main tab.
 - Judgement calls the mission does not settle, and every commit, push, merge or publish approval, go to you.
 
 ## Hooks
@@ -121,6 +125,14 @@ Registered in `hooks/register.ts`.
 | `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. |
 | `prompt.submit` | Records your latest message for the git gate. |
 | `tool.call` Bash | During a run, denies `git commit` and `git push` unless your latest message says commit or push. |
+
+## Skills
+
+None.
+
+## Settings
+
+None. The round cap is fixed at 30 (`MAX_ROUNDS` in `hooks/register.ts`).
 
 ## Usage
 

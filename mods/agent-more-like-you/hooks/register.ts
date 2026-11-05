@@ -4,7 +4,7 @@ import { readConfig, resolveFolder } from './config'
 import { observe } from './extractors'
 import { feedbackEntry, rulesSection } from './feedback'
 import { label, queue, runEval, samples } from './ingest'
-import { decide, draftText, englishOnlyWrite, hasNepali, participantsOf, readLanguages } from './language'
+import { MAX_DETECTOR_FILES, decide, detects, draftText, englishOnlyWrite, parseDetector, participantsOf, readLanguages, type Detected, type Languages } from './language'
 import { localLearn, modeOf, shouldSpawn, spawnRefresh } from './learn'
 import { cleanPrompt, pastedSpans, redact, writeText } from './transcripts'
 
@@ -108,7 +108,23 @@ async function maybeRefresh($: Engine, s: State, mode: string): Promise<void> {
   else s.usageUnknown = verdict.reason === 'usage-missing' || verdict.reason === 'usage-stale'
 }
 
-const ROMAN_NOTE = "Roman Nepali OK in the user's spelling style; technical detail in English."
+const noteFor = (name: string) => `${name} OK in the user's spelling style; technical detail in English.`
+
+async function loadDetectors($: Engine, folder: string, langs?: Languages): Promise<Detected[]> {
+  const found = new Map<string, Detected>()
+  try {
+    const dir = `${folder}/languages`
+    if (await $.fs.exists(dir)) {
+      const names = (await $.fs.list(dir)).map((f) => f.name).filter((n) => n.endsWith('.json')).sort().slice(0, MAX_DETECTOR_FILES)
+      for (const name of names) {
+        const d = await readText($, `${dir}/${name}`).then((t) => (t ? parseDetector(name, t) : null), () => null)
+        if (d) found.set(d.id, d)
+      }
+    }
+  } catch {}
+  for (const [id, l] of Object.entries(langs?.languages ?? {})) if (l.detect) found.set(id, { id, label: l.label, detect: l.detect })
+  return [...found.values()]
+}
 
 async function captured($: Engine, folder: string, channel: string): Promise<Row[]> {
   const names = (await $.fs.list(`${folder}/raw`)).map((f) => f.name).filter((n) => /-(observed|pull)\.jsonl$/.test(n))
@@ -135,6 +151,7 @@ async function withBodyFile($: Engine, e: any): Promise<string> {
 
 async function language($: Engine, s: State, e: any, folder: string, audience: Audience): Promise<{ deny?: string; note?: string }> {
   const langs = readLanguages(await readText($, `${folder}/languages.json`))
+  const detectors = await loadDetectors($, folder, langs)
   const channel = /slack_(send_message(_draft)?|schedule_message)$/.test(e.tool) ? String(e.channel_id ?? '') : ''
   try {
     let participants: string[] | null = null
@@ -143,14 +160,18 @@ async function language($: Engine, s: State, e: any, folder: string, audience: A
       const known = langs.chats.some((c) => c.channel === channel) || /^U/.test(channel)
       participants = participantsOf(channel, s.identity?.slackId, langs, known ? [] : ((await captured($, folder, channel)) as never))
     }
-    if (decide(audience, channel, participants, langs) === 'roman-nepali') return { note: ROMAN_NOTE }
+    const chosen = decide(audience, channel, participants, langs)
+    if (chosen !== 'english') {
+      const own = langs.languages[chosen].label
+      return { note: noteFor(own !== chosen ? own : (detectors.find((d) => d.id === chosen)?.label ?? chosen)) }
+    }
   } catch {}
-  return hasNepali(await withBodyFile($, e)) ? { deny: denial(audience) } : {}
+  return detects(await withBodyFile($, e), detectors) ? { deny: denial(audience) } : {}
 }
 
-function failClosed(e: any, audience: Audience): { deny?: string } {
+async function failClosed($: Engine, e: any, folder: string, audience: Audience): Promise<{ deny?: string }> {
   try {
-    return hasNepali(draftText(e)) ? { deny: denial(audience) } : {}
+    return detects(draftText(e), await loadDetectors($, folder)) ? { deny: denial(audience) } : {}
   } catch {
     return {}
   }
@@ -287,7 +308,7 @@ export const register: Register = (on) => {
     const audience = audienceOf(e.tool, e as unknown as Row)
     const { folder, env } = await where($, s)
     const target = audience ?? englishOnlyWrite(e.tool, e as unknown as Row)
-    const lang = target ? await language($, s, e, folder, target).catch(() => failClosed(e, target)) : {}
+    const lang = target ? await language($, s, e, folder, target).catch(() => failClosed($, e, folder, target)) : {}
     if (lang.deny) return { deny: lang.deny }
     if (audience) return gate($, s, e, next, audience, folder, env.MORE_LIKE_YOU_CHILD === '1', lang.note)
     const r = await next(e)

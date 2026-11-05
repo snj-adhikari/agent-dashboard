@@ -9,6 +9,11 @@ case "$command" in
   *) exit 0 ;;
 esac
 
+# ponytail: a cached but disabled agent-kit still counts as installed
+r="${CLAUDE_PLUGIN_ROOT:-/nonexistent}"
+found=0; for f in "$r"/../agent-kit/skills/agent-pr/SKILL.md "$r"/../../agent-kit/*/skills/agent-pr/SKILL.md "$HOME"/.claude/skills/agent-pr/SKILL.md; do [[ -f "$f" ]] && found=1 && break; done
+[[ $found = 1 ]] || exit 0
+
 session_id="$(printf '%s' "$input" | jq -r '.session_id // ""' 2>/dev/null || true)"
 [[ -z "$session_id" || -f "/tmp/claude-agent-pr/${session_id}" ]] && exit 0
 

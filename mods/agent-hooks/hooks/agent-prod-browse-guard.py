@@ -22,7 +22,7 @@ if not DOMAINS:
     sys.exit(0)
 HOST = re.compile(r"(?<![@\w.-])(?:https?://)?(?:[a-z0-9-]+\.)*(?:" + "|".join(DOMAINS) + r")(?![\w-])", re.I)
 BROWSER_TOOLS = re.compile(r"\b(agent-browser|playwright|puppeteer|lighthouse|chromium|google-chrome|selenium|cypress)\b", re.I)
-BLOCKER_NAME = "GTA - Blocker"
+BLOCKER_NAME = os.environ.get("AGENT_PROD_BLOCKER_NAME", "GTA - Blocker")
 CHROME_DIR = os.path.expanduser("~/Library/Application Support/Google/Chrome")
 UNLOCK_DIR = os.path.expanduser("~/.claude/state/prod-browse-unlocked")
 ALLOW_ALL = re.compile(r"\b(allow|run|do|check|test)\s+(it\s+)?(for\s+)?(them\s+)?all\b|\bdon'?t\s+ask\b|\bno\s+need\s+to\s+ask\b", re.I)
@@ -102,13 +102,13 @@ if tool == "Bash":
     cmd = inp.get("command", "")
     if BROWSER_TOOLS.search(cmd) and HOST.search(cmd):
         if command_loads_blocker(cmd):
-            decide("ask", "Prod site in a browser with GTA - Blocker loaded via --extension. Approve only if the user asked for this prod load.")
+            decide("ask", f"Prod site in a browser with {BLOCKER_NAME} loaded via --extension. Approve only if the user asked for this prod load.")
         else:
-            decide("ask", "Prod site in a browser WITHOUT GTA - Blocker fires GTM/ad impressions. Approve only this route, only if the user explicitly asked for it.")
+            decide("ask", f"Prod site in a browser WITHOUT {BLOCKER_NAME} fires GTM/ad impressions. Approve only this route, only if the user explicitly asked for it.")
 elif tool.startswith("mcp__claude-in-chrome__") and HOST.search(json.dumps(inp)):
     if not chrome_blocker_active():
-        decide("ask", "GTA - Blocker is NOT active in Chrome, so this prod site load fires GTM/ad impressions. Approve only this route, only if the user explicitly asked for it.")
+        decide("ask", f"{BLOCKER_NAME} is NOT active in Chrome, so this prod site load fires GTM/ad impressions. Approve only this route, only if the user explicitly asked for it.")
     elif session_unlocked(data.get("session_id", ""), data.get("transcript_path", "")):
-        decide("allow", "Prod site in Claude in Chrome: GTA - Blocker active and the user allowed all prod loads this session.")
+        decide("allow", f"Prod site in Claude in Chrome: {BLOCKER_NAME} active and the user allowed all prod loads this session.")
     else:
-        decide("ask", "Prod site in Claude in Chrome with GTA - Blocker active. Approve this one load, or reply 'allow all' to stop asking for the rest of this session.")
+        decide("ask", f"Prod site in Claude in Chrome with {BLOCKER_NAME} active. Approve this one load, or reply 'allow all' to stop asking for the rest of this session.")

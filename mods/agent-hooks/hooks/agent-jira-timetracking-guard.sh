@@ -2,6 +2,9 @@
 set -uo pipefail
 # Estimates and worklogs belong on Dev subtasks only: a key is allowed once it has been seen as a Dev subtask (created or fetched); every other timetracking write is denied.
 
+TYPE="${AGENT_JIRA_DEV_SUBTASK_TYPE:-}"
+[[ -n "$TYPE" ]] || exit 0
+
 CACHE="$HOME/.claude/state/jira-dev-subtasks.txt"
 mkdir -p "${CACHE%/*}" && touch "$CACHE"
 
@@ -20,12 +23,12 @@ if [[ "$event" == "PostToolUse" ]]; then
       else tojson end' <<<"$input" 2>/dev/null)
   case "$tool" in
     *createJiraIssue)
-      [[ "$(jq -r '.tool_input.issueType // ""' <<<"$input")" == "Dev subtask" ]] || exit 0
+      [[ "$(jq -r '.tool_input.issueType // ""' <<<"$input")" == "$TYPE" ]] || exit 0
       remember "$(jq -r '(.data // .) | (.issues.nodes[0].key? // .key) // empty' <<<"$resp" 2>/dev/null)" ;;
     *getJiraIssue|*searchJiraIssuesUsingJql)
-      jq -r '(.data // .) | (if (.issues | type) == "object" then .issues.nodes[]? elif has("issues") then .issues[] else . end)
+      jq -r --arg t "$TYPE" '(.data // .) | (if (.issues | type) == "object" then .issues.nodes[]? elif has("issues") then .issues[] else . end)
         | (., .fields.subtasks[]?)
-        | select(.fields.issuetype.name? == "Dev subtask") | .key // empty' <<<"$resp" 2>/dev/null \
+        | select(.fields.issuetype.name? == $t) | .key // empty' <<<"$resp" 2>/dev/null \
         | while read -r k; do remember "$k"; done ;;
   esac
   exit 0
@@ -35,13 +38,13 @@ deny() {
   jq -n --arg r "$1" '{hookSpecificOutput: {hookEventName: "PreToolUse", permissionDecision: "deny", permissionDecisionReason: $r}}'
   exit 0
 }
-MSG="Worklogs and estimates go on the Dev subtask only — never on the parent Story/Task/Bug/Epic. Find the Dev subtask (getJiraIssue on the parent → subtasks, or getJiraIssue on the target to confirm its type is Dev subtask) and log there."
+MSG="Worklogs and estimates go on the $TYPE only — never on the parent Story/Task/Bug/Epic. Find the $TYPE (getJiraIssue on the parent → subtasks, or getJiraIssue on the target to confirm its type is $TYPE) and log there."
 
 case "$tool" in
   *createJiraIssue)
     touches=$(jq -r "[.tool_input.additional_fields // {} | keys[] | select($TT)] | length" <<<"$input" 2>/dev/null)
     [[ "${touches:-0}" -gt 0 ]] || exit 0
-    [[ "$(jq -r '.tool_input.issueType // ""' <<<"$input")" == "Dev subtask" ]] || deny "Estimate on a new $(jq -r '.tool_input.issueType // "issue"' <<<"$input"). $MSG"
+    [[ "$(jq -r '.tool_input.issueType // ""' <<<"$input")" == "$TYPE" ]] || deny "Estimate on a new $(jq -r '.tool_input.issueType // "issue"' <<<"$input"). $MSG"
     exit 0 ;;
   *editJiraIssue)
     touches=$(jq -r "[(.tool_input.fields // {}), (.tool_input.additional_fields // {}) | keys[] | select($TT)] | length" <<<"$input" 2>/dev/null)
@@ -56,5 +59,5 @@ case "$tool" in
 esac
 
 key=${key##*/}
-grep -qx "$key" "$CACHE" || deny "${key:-Unknown issue} is not a confirmed Dev subtask. $MSG"
+grep -qx "$key" "$CACHE" || deny "${key:-Unknown issue} is not a confirmed $TYPE. $MSG"
 exit 0

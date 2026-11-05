@@ -31,6 +31,8 @@ Same folder as `agent-more-like-you`, resolved once, first hit wins:
 
 It reads `nepali-voice.json`, and reads and appends `nepali-glossary.md` and `raw/<date>-nepali-learnt.jsonl`. Missing or malformed files use defaults; nothing crashes.
 
+On `session.start` it writes `languages/ne-roman.json` once when missing. It is the Roman Nepali detector that `agent-more-like-you` uses for its language gate. Edit it freely; it is never overwritten.
+
 ## nepali-voice.json
 
 Optional, this plugin's own settings. Missing keys use the default. Voice settings are not read from `languages.json`, which is shared language knowledge owned by `agent-more-like-you`.

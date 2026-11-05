@@ -1,6 +1,7 @@
 import type { Engine, Register } from 'claude-code'
 import { detectNepali, translateContext } from './detect'
 import { glossaryPhrases, learnStep, parseFix, stageAndFold, understoodAs, type Learnt, type Pending } from './glossary'
+import { writeDetector } from './languages'
 import { ne, readVoiceConfig } from './voice'
 
 const FETCH_TIMEOUT_MS = 1500
@@ -38,7 +39,9 @@ export const register: Register = on => {
     await $.command.register({ name: 'ne', description: 'Speak Nepali: record, transcribe locally, act on the English meaning', argumentHint: '[fix <phrase> = <meaning>]' })
     if (!folded) {
       folded = true
-      await stageAndFold($, (await folderOf($)).folder, []).catch(() => {})
+      const { folder } = await folderOf($)
+      await writeDetector($, folder).catch(() => {})
+      await stageAndFold($, folder, []).catch(() => {})
     }
     return next(e)
   }).catch(($, e, next) => next(e))

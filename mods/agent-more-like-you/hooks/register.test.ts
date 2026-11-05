@@ -362,7 +362,19 @@ const LANGS = JSON.stringify({
   ],
 })
 const NE = 'tapai ma chha, yo garchu hai'
-const lang = { [`${F}/languages.json`]: LANGS }
+const NE_DETECTOR = JSON.stringify({
+  id: 'ne-roman',
+  label: 'Roman Nepali',
+  detect: {
+    scripts: [['0900', '097F']],
+    sure: 'chha chhu chhau chhan garchu garchau garne garnu garera gara bhayo bhane bhanera hoina chaina tapai timi hajur dhanyabad ramro kasto kina kaha yaha tyaha huncha parcha lagyo ahile bholi pani matlab'.split(' '),
+    maybe: 'ma ho ko ra ta ke ni ki ek'.split(' '),
+    minHits: 2,
+    normalise: [['x', 'ch'], ['v', 'bh']],
+  },
+})
+const detector = { [`${F}/languages/ne-roman.json`]: NE_DETECTOR }
+const lang = { [`${F}/languages.json`]: LANGS, ...detector }
 const jira = (commentBody: string) => ({ issueIdOrKey: 'X-1', commentBody })
 
 test('DM to listed contact allows Roman Nepali', async ($, on) => {
@@ -442,7 +454,7 @@ for (const [name, files, env, bypass] of [
   })
 }
 
-for (const [name, files] of [['missing', profile], ['malformed', { ...profile, [`${F}/languages.json`]: '{nope' }]] as [string, Record<string, string>][]) {
+for (const [name, files] of [['missing', { ...profile, ...detector }], ['malformed', { ...profile, ...detector, [`${F}/languages.json`]: '{nope' }]] as [string, Record<string, string>][]) {
   test(`${name} languages.json -> English everywhere`, async ($, on) => {
     world(on, files)
     expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST1', NE))).deny).toContain('English only for Slack DM')
@@ -456,7 +468,7 @@ test('English draft to Jira is not language-denied', async ($, on) => {
 })
 
 test('fs error reading languages.json still denies a Nepali Jira comment', async ($, on) => {
-  world(on, { [`${F}/languages.json`]: UNREADABLE })
+  world(on, { [`${F}/languages.json`]: UNREADABLE, ...detector })
   expect((await call($, JIRA_TOOL, jira(NE))).deny).toContain('English only for Jira')
   expect((await call($, JIRA_TOOL, jira('Fixed in the PR.'))).result).toBe('ok')
 })
@@ -482,3 +494,33 @@ for (const [name, tool, input, denied] of [
     else expect(r.deny).toBeUndefined()
   })
 }
+
+const XX = JSON.stringify({ id: 'xx-test', label: 'Testish', detect: { scripts: [['E000', 'E0FF']], sure: ['zorgle', 'blimp'], maybe: ['qua'], minHits: 2 } })
+const XX_TEXT = 'zorgle blimp qua'
+const xxLangs = JSON.stringify({ languages: { 'xx-test': { people: ['U0TEST1'] } }, chats: [{ channel: 'D0TEST1', kind: 'dm', people: ['U0TEST1'] }] })
+const xx = { ...profile, [`${F}/languages.json`]: xxLangs, [`${F}/languages/xx-test.json`]: XX }
+
+test('arbitrary language: DM to its people noted, Jira denied', async ($, on) => {
+  world(on, xx)
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST1', XX_TEXT))).deny).toContain('Testish OK')
+  expect((await call($, JIRA_TOOL, jira(XX_TEXT))).deny).toContain('English only for Jira')
+  expect((await call($, JIRA_TOOL, jira('\uE001'))).deny).toContain('English only for Jira')
+})
+
+test('no detector files: nothing denied, DM stays English', async ($, on) => {
+  world(on, { [`${F}/languages.json`]: LANGS })
+  expect((await call($, JIRA_TOOL, jira(NE))).result).toBe('ok')
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST1', NE))).result).toBe('ok')
+})
+
+test('bad detector file drops only that language', async ($, on) => {
+  world(on, { ...xx, [`${F}/languages/bad.json`]: '{nope' })
+  expect((await call($, JIRA_TOOL, jira(XX_TEXT))).deny).toContain('English only for Jira')
+})
+
+test('inline detect wins over a file with the same id', async ($, on) => {
+  const inline = JSON.stringify({ languages: { 'xx-test': { people: ['U0TEST1'], detect: { sure: ['other', 'word'], minHits: 2 } } } })
+  world(on, { [`${F}/languages.json`]: inline, [`${F}/languages/xx-test.json`]: XX })
+  expect((await call($, JIRA_TOOL, jira(XX_TEXT))).result).toBe('ok')
+  expect((await call($, JIRA_TOOL, jira('other word'))).deny).toContain('English only for Jira')
+})

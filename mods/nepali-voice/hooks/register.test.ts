@@ -14,6 +14,8 @@ function world(on: On, registered: string[] = []) {
   on('session.start', (_$, e) => e as never)
   on('fs.exists', (_$, e) => ({ value: w.files.has(e.path) || [...w.files.keys()].some((k) => k.startsWith(`${e.path}/`)) }))
   on('fs.read', (_$, e) => ({ value: w.files.get(e.path) ?? '' }))
+  on('fs.list', (_$, e) => ({ value: [...w.files.keys()].filter((k) => k.startsWith(`${e.path}/`)).map((k) => ({ name: k.slice(e.path.length + 1), isDirectory: false })) }) as never)
+  on('process.run', (_$, e) => ({ value: { code: 0, stdout: '', stderr: '' } }) as never)
   on('fs.write', (_$, e) => (w.files.set(e.path, e.text), { value: undefined }))
   on('http.fetch', () => ({ value: { ok: false, status: 503, headers: {}, text: '' } }) as never)
   on('command.register', (_$, e) => (registered.push(e.name), { value: undefined }) as never)
@@ -93,4 +95,21 @@ test('missing vault files -> no crash', async ($, on) => {
   world(on)
   await $.session.start({ cwd: '/w' } as never)
   expect((await $.prompt.submit(composer('ma ghar jaanchu'))).text).toBe('ma ghar jaanchu')
+})
+
+const NE = `${F}/languages/ne-roman.json`
+
+test('session.start writes detector when missing', async ($, on) => {
+  const w = world(on)
+  await $.session.start({ cwd: '/w' } as never)
+  const d = JSON.parse(w.files.get(NE) ?? '{}')
+  expect(d.id).toBe('ne-roman')
+  expect(d.detect.sure).toContain('chha')
+})
+
+test('session.start never overwrites existing detector', async ($, on) => {
+  const w = world(on)
+  w.files.set(NE, '{"id":"ne-roman","custom":true}')
+  await $.session.start({ cwd: '/w' } as never)
+  expect(w.files.get(NE)).toBe('{"id":"ne-roman","custom":true}')
 })
