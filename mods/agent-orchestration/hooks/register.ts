@@ -5,11 +5,12 @@ const STALE_MS = 12 * 60 * 60 * 1000
 const REPLY_TOOL = 'subtab_reply'
 const REPLY_TOOL_FULL = 'mcp__agent-orchestration__subtab_reply'
 const FINISH_TEXT = 'Finished: write the summary and hand off now.'
+const RUNNING_ON = /^[A-Z][A-Z-]*:\s*(CONTINUE|WAIT)\b/
 const STAY_IN_MAIN = ['loop', 'update-config', 'keybindings-help', 'fewer-permission-prompts']
 const MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk', 'auto']
 
 const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod from a skill running in a cmux sub-tab; the user did not type it.
-- "asks": the sub-tab is waiting for input. Answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) when the answer clearly follows from what the user asked for. If it is a judgement call, or approves publishing, posting, committing, pushing or merging, ask the user first and relay their answer.
+- "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting, committing, pushing or merging, ask the user first and relay their answer.
 - When the user is finished with it (no, that's all, wrap up, stop), call ${REPLY_TOOL} with finish: true.
 - "done": the sub-tab finished and closed. Give the user a short gist of the summary.`
 
@@ -177,6 +178,7 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (e.agentId !== undefined || e.isAborted || !e.answer.trim()) return done
+    if (RUNNING_ON.test(e.answer.trim().split('\n').at(-1)?.trim() ?? '')) return done
     const env = await readEnv($)
     if (!env.runId || !env.surface) return done
     const dir = `${env.state}/runs/${env.runId}`

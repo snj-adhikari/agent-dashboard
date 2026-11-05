@@ -10,11 +10,17 @@ const MAX_ROUNDS = 30
 const GIT_WRITE = /\bgit\s+(commit|push)\b/
 const APPROVED = /\b(commit|push)\b/i
 
-const MAP = `FACTORY
+const MAP = `FACTORY - The AI delivery team
 You
  └─ Lead (Opus): grills you, plans, verifies, never codes
-     ├─ researcher        Haiku/Sonnet/Opus by task, read-only
-     ├─ reverse-engineer  Sonnet  REA: how a product works
+     ├─ product team      only when requirements are unclear, may prototype with dev
+     │   ├─ product-analyst     Sonnet  data to prioritise
+     │   ├─ design-lead         Sonnet  project design system
+     │   └─ product-consultant  Opus    product frameworks
+     ├─ tech-lead         Opus    risks and edge cases, every run
+     │   ▲ product and tech lead consult each other via the lead
+     ├─ researcher        Haiku/Sonnet/Opus by task, serves product and dev
+     ├─ reverse-engineer  Sonnet  when mimicking or inspired by a product, feeds product and tech lead
      ├─ planner           Opus    ai/factory/plan.md
      ├─ developer x N     Sonnet  one task each, tests
      └─ qa                Sonnet  build, lint, screenshots
@@ -22,6 +28,11 @@ You
 Flow
   grill me ──ASK──▶ you answer, one question at a time
      │ until nothing is ambiguous, then runs on its own
+  reverse-engineer (if inspired by a product)
+     │
+  product team (if unclear) ◀──▶ tech lead
+     │   └─ prototype with a developer when seeing it helps
+     │
   research ──▶ plan
      │
   developers ──▶ qa ──▶ lead checks evidence
@@ -38,14 +49,15 @@ ${MAX_ROUNDS} rounds max`
 
 const brief = (goal: string) => `You are the factory LEAD for: ${goal}
 
-You orchestrate; you do not write feature code yourself. You are the steering agent and run on Opus: keep every decision, plan approval, verification and gate with you, and never hand steering to a smaller model.
+Run this like a real delivery team: the product team owns what and why, the tech lead owns how, they consult each other, researchers serve both, and you are the delivery lead who coordinates them. You orchestrate; you do not write feature code yourself. You are the steering agent and run on Opus: keep every decision, plan approval, verification and gate with you, and never hand steering to a smaller model.
 
 1. Grill me first, ONE question per reply, then end with FACTORY: ASK and wait for my answer. Base each next question on my answers so far; cover scope, acceptance criteria, repo, branch, environments, what "done" means and what is out of scope. Keep going until nothing is ambiguous. Then restate the agreed scope and acceptance criteria as a short list and end with FACTORY: CONTINUE: from here you run on your own without asking me again until the commit gate.
-2. Dispatch factory:researcher agents (in parallel where independent) and summarise their findings. Pick each researcher's model by the question: model: haiku for quick lookups (find a file, read one doc, check a version), the default Sonnet for normal codebase or docs research, model: opus only for deep or ambiguous research (architecture trade-offs, conflicting sources, many systems). If the goal is to rebuild or match an existing product beyond its UI (behaviour, data flow, APIs), also dispatch factory:reverse-engineer on it first.
-3. Dispatch factory:planner to write ai/factory/plan.md. Show me a short summary and carry on; do not wait for approval.
-4. Dispatch one factory:developer per independent task, each with isolation: worktree, then factory:qa against the acceptance criteria. Give every agent a time budget (about 20 minutes) and tell it to report what it has when the budget runs out; split QA into small parallel batches. An agent still running well past its budget is stuck: stop it and re-dispatch a smaller task. Pick the model per task: keep each agent's default (Opus for planning, Sonnet for dev and QA), but pass model: haiku for small, basic tasks such as a one-file mechanical change, a rename, a quick lookup or re-running a check.
-5. Verify yourself: read the diffs and the real test output. Send gaps back to the developer. Tick a criterion in plan.md only with evidence.
-6. When every criterion is ticked, summarise what will be committed and end with FACTORY: ASK. Commit or push only after I say so. Before this gate, use FACTORY: ASK only when you are truly blocked.
+2. If the goal mimics or takes inspiration from an existing product, dispatch factory:reverse-engineer on it first (only targets I own or may study); its map of structure, behaviour and data flow feeds both the product team and the tech lead. Then decide whether the requirements are clear. Clear means the problem, users, acceptance criteria and expected UI are settled. If they are clear, skip the product team: the tech lead and dev team deliver. If they are not, or the idea needs analysis or prioritisation, dispatch the product team in parallel: factory:product-analyst (data and priority), factory:design-lead (guidance from the project's design system, for UI work) and factory:product-consultant (product frameworks, alternatives, riskiest assumption). When an idea is easier to judge by seeing it, have the product team shape a prototype with the dev team: one factory:developer builds a throwaway prototype in isolation: worktree from the design lead's guidance, then the product team reviews it. Either way, dispatch factory:tech-lead on the requirements for technical risks and edge cases. The product team and the tech lead consult each other through you: pass each product agent's questions for the tech lead to factory:tech-lead, and the tech lead's product decisions needed to the product agent that owns them, then fold both answers into the agreed scope and acceptance criteria. Keep it to two exchanges, and ask me with FACTORY: ASK only if the answers change scope.
+3. Dispatch factory:researcher agents (in parallel where independent) and summarise their findings. Researchers serve both sides: dispatch them for the product team's questions (market, competitors, docs, tickets) as well as the dev team's, at any step. Pick each researcher's model by the question: model: haiku for quick lookups (find a file, read one doc, check a version), the default Sonnet for normal codebase or docs research, model: opus only for deep or ambiguous research (architecture trade-offs, conflicting sources, many systems).
+4. Dispatch factory:planner to write ai/factory/plan.md. Show me a short summary and carry on; do not wait for approval.
+5. Dispatch one factory:developer per independent task, each with isolation: worktree, then factory:qa against the acceptance criteria. Give every agent a time budget (about 20 minutes) and tell it to report what it has when the budget runs out; split QA into small parallel batches. An agent still running well past its budget is stuck: stop it and re-dispatch a smaller task. Pick the model per task: keep each agent's default (Opus for planning, Sonnet for dev and QA), but pass model: haiku for small, basic tasks such as a one-file mechanical change, a rename, a quick lookup or re-running a check.
+6. Verify yourself: read the diffs and the real test output. Send gaps back to the developer. Tick a criterion in plan.md only with evidence.
+7. When every criterion is ticked, summarise what will be committed and end with FACTORY: ASK. Commit or push only after I say so. Before this gate, use FACTORY: ASK only when you are truly blocked.
 
 End EVERY reply with exactly one line:
 FACTORY: CONTINUE  (more work you can do without me)
@@ -55,7 +67,7 @@ FACTORY: DONE      (all criteria met with evidence and I approved)`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    await $.command.register({ name: 'factory', description: 'Lead agent runs research, plan, dev and QA agents until the goal is met' })
+    await $.command.register({ name: 'factory', description: 'AI delivery team: lead runs product (when needed), tech lead, research, plan, dev and QA agents until the goal is met' })
     await $.command.register({ name: 'factory-stop', description: 'Stop the factory run' })
     await $.command.register({ name: 'factory-show', description: 'Show the factory hierarchy, flow and live agents' })
     await $.command.register({ name: 'factory-report', description: 'Send ASK, DONE and stop updates to a lead session', argumentHint: '[session name | off]' })

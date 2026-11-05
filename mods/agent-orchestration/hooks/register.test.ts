@@ -143,3 +143,23 @@ test('an unknown or injected mode never reaches the shell command', async ($, on
   await w.clock.advance(500)
   expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('--permission-mode default "')
 })
+
+test('a sub-tab relays questions but not turns that keep running on their own', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:9', AGENT_SUBTAB_ID: 'abc' })
+  w.files.set(`${STATE}/runs/abc/meta.json`, JSON.stringify({ main: 'surface:1', skill: '/factory', child: 'surface:9', started: 0 }))
+  on('turn.complete', () => ({ text: '' }) as never)
+  const asks = () => [...w.files.keys()].filter(k => /\/ask-\d+\.json$/.test(k))
+  for (const line of ['FACTORY: CONTINUE', 'FACTORY: WAIT']) {
+    await $.turn.complete({ answer: `round done\n${line}`, isAborted: false } as never)
+  }
+  expect(asks()).toHaveLength(0)
+  await $.turn.complete({ answer: 'Which branch?\nFACTORY: ASK', isAborted: false } as never)
+  expect(asks()).toHaveLength(1)
+})
+
+test('the relay tells the main tab to act as the user from its mission', async ($, on) => {
+  world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  const r = await $.prompt.submit({ text: '[subtab x asks]', wait: false, origin: { kind: 'plugin', name: 'agent-orchestration' } } as never)
+  expect(r.context?.join('\n')).toContain('Act as the user')
+  expect(r.context?.join('\n')).toContain('mission, goal and context the user gave you in this tab')
+})

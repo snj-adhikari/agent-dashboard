@@ -13,6 +13,7 @@ Runs each skill you type in its own cmux sub-tab of the same pane, so the main t
 ## How it works
 
 1. You type `/<skill> ...` in a cmux tab. The prompt is dropped, a sub-tab opens in the same pane running `claude --permission-mode <mode> "/<skill> ..."`, and the input box is cleared. `<mode>` is the main tab's permission mode, captured from each `classic.UserPromptSubmit` into `~/.claude/agent-orchestration/mode-<surface>.json`; `default` when unknown.
+- The main tab's agent acts as you: it answers the sub-tab from the mission, goal and context you gave it, and brings judgement calls and commit, push, merge or publish approvals to you. A sub-tab turn whose last line is a control line such as `FACTORY: CONTINUE` or `FACTORY: WAIT` is still running on its own and is not relayed. See the factory README for driving `/factory` this way.
 2. When a sub-tab turn ends with a question, the main tab gets `[subtab <surface> <skill> asks]` plus the sub-tab's last message.
 3. The main agent answers with `subtab_reply`, or asks you first for judgement calls and anything that publishes, posts, commits, pushes or merges.
 4. When the skill is finished, the sub-tab writes a short summary and hands off. The main tab gets `[subtab done]` with the summary, and the sub-tab closes itself.
