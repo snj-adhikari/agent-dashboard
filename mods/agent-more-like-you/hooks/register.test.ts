@@ -25,6 +25,7 @@ const RULES = `## Jira
 `
 const SLACK_BLOCK = (user: string, text: string, ts = '1762246800.000100') => `From: Person (ID: ${user})\nChannel: general (ID: C1)\nMessage_ts: ${ts}\nText: ${text}`
 let n = 0
+const UNREADABLE = '<unreadable>'
 const bottom = { result: 'ok' }
 
 interface World {
@@ -44,7 +45,10 @@ function world(on: On, files: Record<string, string>, env: Record<string, string
   const id = `s${++n}`
   on('session.id', () => ({ value: id }))
   on('fs.exists', (_$, e) => ({ value: w.files.has(e.path) || [...w.files.keys()].some((k) => k.startsWith(`${e.path}/`)) }))
-  on('fs.read', (_$, e) => ({ value: w.files.get(e.path) ?? '' }))
+  on('fs.read', (_$, e) => {
+    if (w.files.get(e.path) === UNREADABLE) throw new Error('EIO')
+    return { value: w.files.get(e.path) ?? '' }
+  })
   on('fs.write', (_$, e) => (w.files.set(e.path, e.text), { value: undefined }))
   on('fs.list', (_$, e) => ({
     value: [...w.files.keys()].filter((k) => k.startsWith(`${e.path}/`)).map((k) => ({ name: k.slice(e.path.length + 1), kind: 'file' as const })),
@@ -345,3 +349,136 @@ test('deny text puts the user formatting rules above the learnt profile', async 
   expect(deny).toContain('Formatting rules from those sources (layout, bullets, line breaks, length) override the learnt profile')
   expect(deny).toContain('never merge lines or collapse a list into one line')
 })
+
+const LANGS = JSON.stringify({
+  englishOnly: ['jira', 'confluence', 'github-pr', 'slack-channel'],
+  nepaliPeople: ['U0TEST1', 'U0TEST2'],
+  englishOnlyPeople: ['U0TEST3'],
+  chats: [
+    { channel: 'D0TEST1', kind: 'dm', people: ['U0TEST1'] },
+    { channel: 'C0TEST5', kind: 'group-dm', people: ['U0TEST1', 'U0TEST2'] },
+    { channel: 'C0TEST6', kind: 'group-dm', people: ['U0TEST1', 'U0TEST3'] },
+    { channel: 'C0TEST7', kind: 'group-dm', people: ['U0TEST1', 'U0TEST4'] },
+  ],
+})
+const NE = 'tapai ma chha, yo garchu hai'
+const lang = { [`${F}/languages.json`]: LANGS }
+const jira = (commentBody: string) => ({ issueIdOrKey: 'X-1', commentBody })
+
+test('DM to listed contact allows Roman Nepali', async ($, on) => {
+  world(on, { ...profile, ...lang })
+  const r = await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST1', NE))
+  expect(r.deny).toContain('Roman Nepali OK')
+  expect(r.deny).not.toContain('English only')
+})
+
+test('group DM: non-listed or englishOnlyPeople participant -> English', async ($, on) => {
+  world(on, { ...profile, ...lang })
+  for (const ch of ['C0TEST6', 'C0TEST7']) {
+    expect((await call($, 'mcp__slack__slack_send_message_draft', draft(ch, NE))).deny).toContain('English only for Slack channel')
+  }
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('C0TEST5', NE))).deny).toContain('Roman Nepali OK')
+})
+
+test('participants: chats[] entry wins over captures', async ($, on) => {
+  const row = JSON.stringify({ channel: 'C0TEST5', authorId: 'U0TEST3' })
+  world(on, { ...profile, ...lang, [`${F}/raw/2026-11-05-observed.jsonl`]: `${row}\n` })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('C0TEST5', NE))).deny).toContain('Roman Nepali OK')
+})
+
+const seen = (channel: string, ...ids: string[]) => ({ [`${F}/raw/2026-11-05-observed.jsonl`]: ids.map((authorId) => JSON.stringify({ channel, authorId })).join('\n') + '\n' })
+
+test('participants: captures fill the gap for a 1:1 DM not in chats[]', async ($, on) => {
+  world(on, { ...profile, ...lang, ...seen('D0TEST9', 'U0TEST1') })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST9', NE))).deny).toContain('Roman Nepali OK')
+})
+
+test('group DM not in chats[] with only nepaliPeople in captures -> English', async ($, on) => {
+  world(on, { ...profile, ...lang, ...seen('G0TEST9', 'U0TEST1', 'U0TEST2') })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('G0TEST9', NE))).deny).toContain('English only')
+})
+
+test('decision error still applies the Nepali deny', async ($, on) => {
+  world(on, { ...profile, ...lang, [`${F}/raw/2026-11-05-observed.jsonl`]: 1 as never })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST9', NE))).deny).toContain('English only')
+})
+
+test('scheduled Nepali message to a public channel is denied', async ($, on) => {
+  world(on, { ...profile, ...lang })
+  expect((await call($, 'mcp__slack__slack_schedule_message', draft('C0TEST1', NE))).deny).toContain('English only for Slack channel')
+})
+
+test('participants: unknown channel -> English', async ($, on) => {
+  world(on, { ...profile, ...lang })
+  expect((await call($, 'mcp__slack__slack_send_message_draft', draft('G0TEST9', NE))).deny).toContain('English only')
+})
+
+for (const [name, tool, input, title] of [
+  ['jira comment', 'mcp__atlassian__addOrEditJiraIssueComment', jira(NE), 'Jira'],
+  ['PR comment', 'Bash', { command: `gh pr comment 1 --body "${NE}"` }, 'GitHub PR'],
+  ['public channel', 'mcp__slack__slack_send_message_draft', draft('C0TEST1', NE), 'Slack channel'],
+  ['pr create', 'Bash', { command: `gh pr create --title t --body "${NE}"` }, 'GitHub PR'],
+  ['jira create', 'mcp__atlassian__createJiraIssue', { summary: 's', description: NE }, 'Jira'],
+  ['confluence page update', 'mcp__atlassian__updateConfluencePage', { pageId: '1', body: NE }, 'Confluence'],
+  ['canvas', 'mcp__slack__slack_create_canvas', { title: 't', content: NE }, 'Slack channel'],
+] as [string, string, Record<string, unknown>, string][]) {
+  test(`${name} in Nepali denied English only`, async ($, on) => {
+    world(on, { ...profile, ...lang })
+    expect((await call($, tool, input)).deny).toContain(`English only for ${title}`)
+  })
+}
+
+const JIRA_TOOL = 'mcp__atlassian__addOrEditJiraIssueComment'
+for (const [name, files, env, bypass] of [
+  ['session bypass', { ...profile, ...lang }, {}, true],
+  ['audiences off', { ...lang, [`${F}/config.json`]: JSON.stringify({ audiences: { jira: false } }) }, {}, false],
+  ['child mode', { ...profile, ...lang }, { MORE_LIKE_YOU_CHILD: '1' }, false],
+  ['empty profile', lang, {}, false],
+] as [string, Record<string, string>, Record<string, string>, boolean][]) {
+  test(`language check runs before ${name}`, async ($, on) => {
+    world(on, files, env)
+    if (bypass) await call($, JIRA_TOOL, jira('ok'))
+    expect((await call($, JIRA_TOOL, jira(NE))).deny).toContain('English only')
+  })
+}
+
+for (const [name, files] of [['missing', profile], ['malformed', { ...profile, [`${F}/languages.json`]: '{nope' }]] as [string, Record<string, string>][]) {
+  test(`${name} languages.json -> English everywhere`, async ($, on) => {
+    world(on, files)
+    expect((await call($, 'mcp__slack__slack_send_message_draft', draft('D0TEST1', NE))).deny).toContain('English only for Slack DM')
+  })
+}
+
+test('English draft to Jira is not language-denied', async ($, on) => {
+  world(on, lang)
+  const r = await call($, 'mcp__atlassian__addOrEditJiraIssueComment', jira('Fixed in the PR, please check.'))
+  expect(r.result).toBe('ok')
+})
+
+test('fs error reading languages.json still denies a Nepali Jira comment', async ($, on) => {
+  world(on, { [`${F}/languages.json`]: UNREADABLE })
+  expect((await call($, JIRA_TOOL, jira(NE))).deny).toContain('English only for Jira')
+  expect((await call($, JIRA_TOOL, jira('Fixed in the PR.'))).result).toBe('ok')
+})
+
+const GH = (args: string) => ({ command: `gh ${args}` })
+for (const [name, tool, input, denied] of [
+  ['gh issue create body', 'Bash', GH(`issue create --body "${NE}"`), true],
+  ['gh pr create title', 'Bash', GH(`pr create --title "${NE}"`), true],
+  ['gh body-file nepali', 'Bash', GH('pr create --body-file /tmp/b.md'), true],
+  ['gh issue create english', 'Bash', GH('issue create --title "Fix it" --body "Done"'), false],
+  ['gh body-file english', 'Bash', GH('pr edit 1 -F /tmp/e.md'), false],
+  ['gh pr create fill', 'Bash', GH('pr create --fill'), false],
+  ['addCommentToJiraIssue', 'mcp__atlassian__addCommentToJiraIssue', { commentBody: NE }, true],
+  ['transitionJiraIssue', 'mcp__atlassian__transitionJiraIssue', { transition: { id: '1' }, comment: NE }, true],
+  ['addWorklogToJiraIssue', 'mcp__atlassian__addWorklogToJiraIssue', { commentBody: NE }, true],
+  ['executeWrite createConfluencePage', 'mcp__atlassian__executeWrite', { name: 'createConfluencePage', inputs: { body: NE } }, true],
+  ['getJiraIssue', 'mcp__atlassian__getJiraIssue', { issueIdOrKey: NE }, false],
+] as [string, string, Record<string, unknown>, boolean][]) {
+  test(`${name} ${denied ? 'denied' : 'allowed'}`, async ($, on) => {
+    world(on, { ...profile, ...lang, '/tmp/b.md': NE, '/tmp/e.md': 'All good.' })
+    const r = await call($, tool, input)
+    if (denied) expect(r.deny).toContain('English only')
+    else expect(r.deny).toBeUndefined()
+  })
+}

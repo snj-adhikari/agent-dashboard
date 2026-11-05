@@ -1,9 +1,10 @@
 import type { Engine, Register } from 'claude-code'
-import { audienceOf, profileSection, type Audience } from './audience'
+import { audienceOf, profileSection, SECTION_TITLE, type Audience } from './audience'
 import { readConfig, resolveFolder } from './config'
 import { observe } from './extractors'
 import { feedbackEntry, rulesSection } from './feedback'
 import { label, queue, runEval, samples } from './ingest'
+import { decide, draftText, englishOnlyWrite, hasNepali, participantsOf, readLanguages } from './language'
 import { localLearn, modeOf, shouldSpawn, spawnRefresh } from './learn'
 import { cleanPrompt, pastedSpans, redact, writeText } from './transcripts'
 
@@ -107,7 +108,55 @@ async function maybeRefresh($: Engine, s: State, mode: string): Promise<void> {
   else s.usageUnknown = verdict.reason === 'usage-missing' || verdict.reason === 'usage-stale'
 }
 
-async function gate($: Engine, s: State, e: any, next: any, audience: Audience, folder: string, child: boolean) {
+const ROMAN_NOTE = "Roman Nepali OK in the user's spelling style; technical detail in English."
+
+async function captured($: Engine, folder: string, channel: string): Promise<Row[]> {
+  const names = (await $.fs.list(`${folder}/raw`)).map((f) => f.name).filter((n) => /-(observed|pull)\.jsonl$/.test(n))
+  const rows: Row[] = []
+  for (const name of names) {
+    for (const line of (await $.fs.read(`${folder}/raw/${name}`)).split('\n')) {
+      if (!line.startsWith('{') || !line.includes(channel)) continue
+      try {
+        rows.push(JSON.parse(line) as Row)
+      } catch {}
+    }
+  }
+  return rows
+}
+
+const denial = (audience: Audience) => `English only for ${SECTION_TITLE[audience]}: redraft in English.`
+
+async function withBodyFile($: Engine, e: any): Promise<string> {
+  const file = typeof e.command === 'string' ? e.command.match(/(?:^|\s)(?:--body-file|-F)[\s=]+(?:"([^"]+)"|'([^']+)'|(\S+))/) : null
+  const path = file?.[1] ?? file?.[2] ?? file?.[3]
+  const body = path && path !== '-' ? await readText($, path).catch(() => null) : null
+  return `${draftText(e)}\n${body ?? ''}`
+}
+
+async function language($: Engine, s: State, e: any, folder: string, audience: Audience): Promise<{ deny?: string; note?: string }> {
+  const langs = readLanguages(await readText($, `${folder}/languages.json`))
+  const channel = /slack_(send_message(_draft)?|schedule_message)$/.test(e.tool) ? String(e.channel_id ?? '') : ''
+  try {
+    let participants: string[] | null = null
+    if (channel) {
+      s.identity ??= (await readJson($, `${folder}/cursor.json`))?.identity
+      const known = langs.chats.some((c) => c.channel === channel) || /^U/.test(channel)
+      participants = participantsOf(channel, s.identity?.slackId, langs, known ? [] : ((await captured($, folder, channel)) as never))
+    }
+    if (decide(audience, channel, participants, langs) === 'roman-nepali') return { note: ROMAN_NOTE }
+  } catch {}
+  return hasNepali(await withBodyFile($, e)) ? { deny: denial(audience) } : {}
+}
+
+function failClosed(e: any, audience: Audience): { deny?: string } {
+  try {
+    return hasNepali(draftText(e)) ? { deny: denial(audience) } : {}
+  } catch {
+    return {}
+  }
+}
+
+async function gate($: Engine, s: State, e: any, next: any, audience: Audience, folder: string, child: boolean, note = '') {
   if (!(await configOf($, folder)).audiences[audience]) return next(e)
   const sid = await $.session.id()
   if (s.gated.has(`${sid}:${audience}`)) {
@@ -121,7 +170,7 @@ async function gate($: Engine, s: State, e: any, next: any, audience: Audience, 
   if (!rules && !profile) return next(e)
   s.gated.add(`${sid}:${audience}`)
   const reply = 'Redraft in this voice and call the tool again; do not quote this guidance.'
-  return { deny: [PRECEDENCE, rules, profile, reply].filter(Boolean).join('\n\n') }
+  return { deny: [PRECEDENCE, rules, profile, note, reply].filter(Boolean).join('\n\n') }
 }
 
 async function observeResult($: Engine, s: State, e: any, r: any, folder: string): Promise<void> {
@@ -237,7 +286,10 @@ export const register: Register = (on) => {
   on('tool.call', async ($, e, next) => {
     const audience = audienceOf(e.tool, e as unknown as Row)
     const { folder, env } = await where($, s)
-    if (audience) return gate($, s, e, next, audience, folder, env.MORE_LIKE_YOU_CHILD === '1')
+    const target = audience ?? englishOnlyWrite(e.tool, e as unknown as Row)
+    const lang = target ? await language($, s, e, folder, target).catch(() => failClosed(e, target)) : {}
+    if (lang.deny) return { deny: lang.deny }
+    if (audience) return gate($, s, e, next, audience, folder, env.MORE_LIKE_YOU_CHILD === '1', lang.note)
     const r = await next(e)
     await observeResult($, s, e, r, folder).catch(() => {})
     return r

@@ -27,7 +27,7 @@ export interface Identity { slackId?: string; ghLogin?: string; accountId?: stri
 
 const JIRA = 'addOrEditJiraIssueComment'
 const CONFLUENCE = ['createConfluenceFooterComment', 'createConfluenceInlineComment']
-const SLACK_SEND = /slack_send_message(_draft)?$/
+const SLACK_SEND = /slack_(send_message(_draft)?|schedule_message)$/
 const GH_COMMENT = /\bgh\s+pr\s+(comment|review)\b/
 const GH_API = /\bgh\s+api\b/
 const GH_BODY = /(?:^|\s)(?:-f|-F|--field|--raw-field)\s+body=|--body\b/

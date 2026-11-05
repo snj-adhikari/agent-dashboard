@@ -44,6 +44,19 @@ Written by `/more-like-you learn` on first run. Missing keys use the default.
 | `prompt.submit` | Captures your cleaned, redacted typed prompt to `raw/`. Logs your next prompt after an allowed gated draft as feedback. Adds a one-line nudge once per session when the cursor is missing or stale. Once per session, when `perspective` is on and `perspective.md` exists, adds an excerpt of it (800 character cap) as context, framed: "How the user thinks and why. Use it to understand their reasoning and explain trade-offs in terms they care about. It is not evidence that they are right: judge each case on its merits, disagree when the facts point elsewhere, and do not agree just because something matches their past choices." |
 | `tool.call` | Gate: the first write per audience per session (Slack draft, Jira or Confluence comment, `gh` PR comment or review) is denied with your rules, edits and profile section; the retry goes through. Never denies when there is nothing to apply. Passive capture: non-write tool results are run through `extractors.ts`; the result is never altered. |
 
+Language gate: before any other gate step, a draft containing Nepali (Devanagari or Roman) is denied with `English only for <audience>: redraft in English.` unless it goes to a Slack DM or a group DM listed in `chats[]` with kind `dm` or `group-dm` (any channel id prefix), whose every participant is in `nepaliPeople` and none in `englishOnlyPeople`. Participants come from the `people` of that `chats[]` entry, else (1:1 DM only) the single captured other author, else are unknown (English). Also covers `gh pr create/edit --body`, `gh issue comment`, Confluence page create/update, Jira create/edit and Slack canvases. `englishOnly` containing `slack-dm` blocks both DMs and listed group DMs; `slack-channel` does not block a listed group DM. Unlisted channels are never direct. Reads `languages.json` from the folder each call; missing or malformed means English everywhere.
+
+```json
+{
+  "englishOnly": ["jira", "confluence", "github-pr", "slack-channel"],
+  "nepaliPeople": [{ "name": "Test One", "slackId": "U0TEST1" }, { "name": "Test Two", "slackId": "U0TEST2" }],
+  "englishOnlyPeople": [{ "name": "Test Three", "slackId": "U0TEST3" }],
+  "chats": [{ "channel": "C0TEST5", "kind": "group-dm", "people": ["Test One", "Test Two"] }]
+}
+```
+
+People entries may also be plain id strings. `chats[].people` entries are names or ids, matched to a list entry by `name` or `slackId`; one that matches nothing counts as unlisted.
+
 The `more_like_you` tool has actions `ingest`, `queue`, `label`, `samples` and `eval`.
 
 ## Usage

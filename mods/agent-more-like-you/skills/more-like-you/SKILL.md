@@ -104,6 +104,10 @@ Synthesise `<folder>/perspective.md` at `learn` and `refresh`. Sources: self `hu
 - Sections: `## Priorities`, `## Recurring decisions` (each line with evidence count, last date, and the cases where they went the other way), `## What they push back on`, `## How they like to be challenged`, `## Changed their mind`, `## Open stances`.
 - An entry needs 3 or more evidence items. No quotes. Never restate CLAUDE.md or org rules; refer to them by name. Agent text that echoes `perspective.md` is AI and never counts as evidence.
 
+## 9b. Nepali phrases (only when `<folder>/languages.json` exists)
+
+From captured rows, take Roman Nepali or Devanagari phrases whose English meaning is clear from context and append one line each to `<folder>/raw/<date>-nepali-learnt.jsonl`: `{ "phrase", "meaning", "date", "source": "refresh", "section": "learnt" | "heard" }`. Author self is `learnt`, anyone else is `heard`. Skip a phrase with no clear meaning; never write a guess or `?`. Never edit `nepali-glossary.md` or `languages.json`; never add people. A person worth listing may be mentioned as one suggestion line in the report.
+
 ## 10. Changelog
 
 Append a dated entry to `changelog.md`: action, `coverageFrom`, counts per source and label, eval precision (learn), spot-check result (learn), sections changed.
