@@ -291,28 +291,43 @@ for (const [name, isInteractive, env, learns] of [
   })
 }
 
-test('session.start: autoRefresh full spawns exactly one /bin/sh refresh when stale', async ($, on) => {
-  const w = world(on, {
-    [`${F}/config.json`]: JSON.stringify({ autoRefresh: 'full' }),
-    [`${H}/.claude/usage-state.json`]: JSON.stringify({ updated_at: NOW / 1000, five_hour: { used_percentage: 5 }, seven_day: { used_percentage: 5 } }),
-  })
-  on('session.start', (_$, e) => e as never)
-  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+const FULL = {
+  [`${F}/config.json`]: JSON.stringify({ autoRefresh: 'full' }),
+  [`${F}/cursor.json`]: JSON.stringify({ version: 1, identity: {}, slack: '2020-01-01T00:00:00Z' }),
+  [`${H}/.claude/usage-state.json`]: JSON.stringify({ updated_at: NOW / 1000, five_hour: { used_percentage: 5 }, seven_day: { used_percentage: 5 } }),
+}
+const classicStart = (permission_mode?: string) =>
+  ({ hook_event_name: 'SessionStart', source: 'startup', session_id: 's', transcript_path: '', cwd: '/repo', permission_mode }) as never
+const refreshes = async ($: any, on: On, files: Record<string, string>, mode?: string, env: Record<string, string> = {}) => {
+  const w = world(on, files, env)
+  on('classic.SessionStart', (_$, e) => e as never)
+  await $.classic.SessionStart(classicStart(mode))
   await w.clock.advance(1000)
-  const sh = w.runs.filter((r) => r[0] === '/bin/sh')
+  return w.runs.filter((r) => r[0] === '/bin/sh').map((r) => r.join(' '))
+}
+
+test('autoRefresh full spawns exactly one refresh in the session permission mode', async ($, on) => {
+  const sh = await refreshes($, on, FULL, 'acceptEdits')
   expect(sh).toHaveLength(1)
-  expect(sh[0].join(' ')).toContain('MORE_LIKE_YOU_CHILD=1')
+  expect(sh[0]).toContain('MORE_LIKE_YOU_CHILD=1')
+  expect(sh[0]).toContain('--permission-mode acceptEdits')
 })
 
-test('session.start: MORE_LIKE_YOU_CHILD=1 never spawns', async ($, on) => {
-  const w = world(on, {
-    [`${F}/config.json`]: JSON.stringify({ autoRefresh: 'full' }),
-    [`${H}/.claude/usage-state.json`]: JSON.stringify({ updated_at: NOW / 1000 }),
-  }, { MORE_LIKE_YOU_CHILD: '1' })
-  on('session.start', (_$, e) => e as never)
-  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
-  await w.clock.advance(1000)
-  expect(w.runs.filter((r) => r[0] === '/bin/sh')).toHaveLength(0)
+test('refresh mode is default when the hook input has none', async ($, on) => {
+  expect((await refreshes($, on, FULL))[0]).toContain('--permission-mode default')
+})
+
+test('plan mode never spawns a refresh', async ($, on) => {
+  expect(await refreshes($, on, FULL, 'plan')).toHaveLength(0)
+})
+
+test('no cursor.json never spawns a refresh', async ($, on) => {
+  const { [`${F}/cursor.json`]: _, ...noCursor } = FULL
+  expect(await refreshes($, on, noCursor, 'default')).toHaveLength(0)
+})
+
+test('MORE_LIKE_YOU_CHILD=1 never spawns', async ($, on) => {
+  expect(await refreshes($, on, FULL, 'default', { MORE_LIKE_YOU_CHILD: '1' })).toHaveLength(0)
 })
 
 test('tool ingest: a held learn lock returns a short message and writes nothing', async ($, on) => {
@@ -321,4 +336,12 @@ test('tool ingest: a held learn lock returns a short message and writes nothing'
   const r = await $.tool.call({ tool: 'mcp__agent-more-like-you__more_like_you', action: 'ingest' } as never)
   expect((r as any).result).toBe('learn already running')
   expect([...w.files.keys()].some((k) => k.includes('/raw/'))).toBe(false)
+})
+
+test('deny text puts the user formatting rules above the learnt profile', async ($, on) => {
+  world(on, profile)
+  const { deny } = await call($, 'mcp__slack__slack_send_message_draft', draft('D123'))
+  expect(deny).toContain("Precedence: the user's CLAUDE.md, rules files, hooks and org rules first")
+  expect(deny).toContain('Formatting rules from those sources (layout, bullets, line breaks, length) override the learnt profile')
+  expect(deny).toContain('never merge lines or collapse a list into one line')
 })

@@ -1,4 +1,6 @@
-# agent-kit
+# Agent Kit - The orchestrator's toolbox
+
+Plugin id: `agent-kit`.
 
 Skills for agent work: a multi-repo controller, worktree tabs, template-first PR bodies, Artifact layouts, threaded Jira replies and starting Agent Dashboard.
 

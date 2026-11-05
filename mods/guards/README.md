@@ -1,4 +1,6 @@
-# guards
+# Guards - No force pushes, no surprises
+
+Plugin id: `guards`.
 
 Blocks risky shell commands before they run: force pushes, commits or pushes on protected branches, and `rm -rf` on the root, home or parent folder.
 

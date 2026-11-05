@@ -358,3 +358,17 @@ test('ingest full:true relearns markers over everything', async ($, on) => {
   expect(markersOf(fs)).toContain('humanN: 2')
   expect(markersOf(fs)).not.toContain('threshold: 0.7')
 })
+
+test('typed one-liners never become structure markers; bulleted slack sends do, for slack only', async ($, on) => {
+  const bulleted = (n: number) => `also checked ${n} ..\n- staging fine ..\n- prod after lunch ..\n- ping me ..`
+  const fs = world(on, {
+    ...BASE,
+    [`${V}/raw/2026-01-06-slack-pull.jsonl`]: { text: jl([1, 2, 3].map((n) => slack(`s${n}`, `2026-01-06T0${n}:00:00Z`, SELF, bulleted(n)))) },
+  })
+  await ingest($, V, H, null)
+  expect(rowsOf(fs).filter((r) => r.source === 'slack').map((r) => r.label)).toEqual(['human', 'human', 'human'])
+  const structure = fs.get(`${V}/phrasebook.md`)!.text.split('\n').filter((l) => l.startsWith('- structure '))
+  expect(structure.some((l) => l.startsWith('- structure slack-channel:bullets '))).toBe(true)
+  expect(structure.every((l) => l.startsWith('- structure slack-channel:'))).toBe(true)
+  expect(structure.some((l) => l.includes(':single-line'))).toBe(false)
+})

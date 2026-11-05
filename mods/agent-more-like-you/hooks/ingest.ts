@@ -4,7 +4,8 @@ import { readConfig } from './config'
 import { editPair, foldFeedback, type EditPair, type Feedback } from './feedback'
 import {
   buildIndex, classifyItem, containment, evaluateBoth, finalLabel, learnMarkers, needsJudge, normalise,
-  bestSimilarity, paragraphs, parseMarkers, renderMarkers, updateMarkers, type AiIndex, type Judged, type Markers, type ParagraphResult,
+  bestSimilarity, learnStructure, paragraphs, parseMarkers, renderMarkers, updateMarkers,
+  type AiIndex, type Judged, type Marker, type Markers, type ParagraphResult,
 } from './score'
 import { agentWrites, aiOutputs, notesWrites, typedPrompts } from './transcripts'
 
@@ -217,6 +218,7 @@ export async function ingest($: Ctx, folder: string, home: string, vaultRoot: st
   const aiTexts = [...writes.map((w) => w.text), ...noteParas.map((w) => w.text)]
   const train = (h: string[], a: string[]): Markers => (prevMarkers?.items.length && !full ? updateMarkers(prevMarkers, h, a) : learnMarkers(h, a))
   const override = (m: Markers): Markers => (cfg.threshold === null ? m : { ...m, threshold: cfg.threshold })
+  const withStructure = (m: Markers, items: Marker[]): Markers => ({ ...m, items: [...m.items.filter((i) => i.kind !== 'structure'), ...items] })
 
   const rows: Row[] = []
   const notes: { row: PullRow; ps: ParagraphResult[] }[] = []
@@ -237,8 +239,7 @@ export async function ingest($: Ctx, folder: string, home: string, vaultRoot: st
     }
   }
   const humanNotes = notes.flatMap((n) => n.ps).filter((p) => p.label === 'human').map((p) => p.text)
-  const markers = override(train([...human, ...humanNotes], aiTexts))
-  await writeMarkers($, folder, markers)
+  const markers = withStructure(override(train([...human, ...humanNotes], aiTexts)), prevMarkers?.items.filter((i) => i.kind === 'structure') ?? [])
   for (const n of notes) rows.push(rowOf(n.row, null, 'self', n.ps[0]?.label ?? 'unsure', n.ps))
 
   const byTarget = new Map<string, AgentWrite[]>()
@@ -258,7 +259,7 @@ export async function ingest($: Ctx, folder: string, home: string, vaultRoot: st
     }
     const target = targetOfRow(r)
     const cands = [...(target !== '' ? byTarget.get(target) ?? [] : []), ...(r.source === 'github' ? byTarget.get('') ?? [] : [])]
-    const item = classifyItem(r.text, r.ts, cands, index, coverage, markers)
+    const item = classifyItem(r.text, r.ts, cands, index, coverage, markers, audience ?? undefined)
     rows.push(rowOf(r, audience, 'self', item.label, item.paragraphs))
     const at = Date.parse(r.ts)
     const draft = bestSimilarity(r.text, cands, at)
@@ -273,9 +274,18 @@ export async function ingest($: Ctx, folder: string, home: string, vaultRoot: st
     rows.push(rowOf({ id: `typed:${t.ts}`, source: 'transcript', ts: t.ts, text: t.text }, null, 'self', containment(t.text, index) >= 0.8 ? 'ai' : 'human'))
   }
 
+  const feedback = await readJsonl<Feedback>($, folder, /-feedback\.jsonl$/)
+  const judged = await judgedMap($, folder)
+  const history = new Map<string, Row>()
+  for (const r of [...(await readJsonl<Row>($, folder, /-classified(-\d+)?\.jsonl$/)), ...rows]) history.set(r.id, r)
+  const sends = [...history.values()]
+    .filter((r) => r.author === 'self' && r.audience && r.paragraphs?.length && r.paragraphs.every((p, i) => finalLabel(p, judged.get(`${r.id}#${i}`)) === 'human'))
+    .map((r) => ({ audience: r.audience!, text: r.text }))
+  for (const f of feedback) if (f.after) sends.push({ audience: f.audience, text: f.after })
+  await writeMarkers($, folder, withStructure(markers, learnStructure(sends, aiTexts)))
+
   const date = today()
   await appendJsonl($, `${folder}/raw/${date}-edits.jsonl`, pairs)
-  const feedback = await readJsonl<Feedback>($, folder, /-feedback\.jsonl$/)
   const edits = await readJsonl<EditPair>($, folder, /-edits\.jsonl$/)
   await $.fs.write(`${folder}/rules.md`, foldFeedback(feedback, edits))
 

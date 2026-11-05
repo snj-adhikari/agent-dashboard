@@ -9,6 +9,8 @@ const LEARN_STALE = 30 * MIN
 const REFRESH_STALE = 60 * MIN
 const USAGE_STALE = 120 * MIN
 const SOURCES = ['slack', 'jira', 'confluence', 'github']
+const MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk', 'auto']
+export const modeOf = (m: unknown): string => (typeof m === 'string' && MODES.includes(m) ? m : 'default')
 
 const ALLOWED = [
   'mcp__claude_ai_Slack__slack_search_public_and_private',
@@ -58,10 +60,13 @@ export function shouldSpawn(
   env: (k: string) => string | undefined,
   lock: Lock,
   now: number,
+  mode = 'default',
 ): { spawn: boolean; reason: string } {
   const no = (reason: string) => ({ spawn: false, reason })
   if (env('MORE_LIKE_YOU_CHILD') === '1') return no('child')
   if (cfg.autoRefresh !== 'full') return no('local-mode')
+  if (mode === 'plan') return no('plan-mode')
+  if (!cursor || typeof cursor !== 'object') return no('no-cursor')
   const c = (cursor ?? {}) as Record<string, string | undefined>
   const limit = cfg.staleDays * 24 * 60 * MIN
   if (SOURCES.every((s) => c[s] && now - Date.parse(c[s]!) < limit)) return no('fresh')
@@ -74,11 +79,11 @@ export function shouldSpawn(
   return { spawn: true, reason: 'stale' }
 }
 
-export const refreshCommand = (lock: string) =>
-  `( MORE_LIKE_YOU_CHILD=1 nohup claude -p "/more-like-you refresh" --allowedTools "${ALLOWED}" >/dev/null 2>&1 </dev/null; rm -f "${lock}" ) >/dev/null 2>&1 </dev/null &`
+export const refreshCommand = (lock: string, mode = 'default') =>
+  `( MORE_LIKE_YOU_CHILD=1 nohup claude -p "/more-like-you refresh" --permission-mode ${modeOf(mode)} --allowedTools "${ALLOWED}" >/dev/null 2>&1 </dev/null; rm -f "${lock}" ) >/dev/null 2>&1 </dev/null &`
 
-export async function spawnRefresh($: Ctx, folder: string): Promise<void> {
+export async function spawnRefresh($: Ctx, folder: string, mode = 'default'): Promise<void> {
   const lock = `${folder}/.refresh.lock`
   await $.fs.write(lock, JSON.stringify({ startedAt: new Date(await $.clock.now()).toISOString() }))
-  await $.process.run(['/bin/sh', '-c', refreshCommand(lock)], { timeoutMs: 10_000 })
+  await $.process.run(['/bin/sh', '-c', refreshCommand(lock, mode)], { timeoutMs: 10_000 })
 }

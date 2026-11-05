@@ -1,4 +1,6 @@
-# factory
+# Factory - The AI dev team
+
+Plugin id: `factory`.
 
 `/factory <goal>`: a lead agent grills you one question at a time, then drives researcher, planner, developer and QA agents unattended until every acceptance criterion has evidence.
 

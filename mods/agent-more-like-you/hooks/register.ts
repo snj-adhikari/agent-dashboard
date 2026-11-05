@@ -4,7 +4,7 @@ import { readConfig, resolveFolder } from './config'
 import { observe } from './extractors'
 import { feedbackEntry, rulesSection } from './feedback'
 import { label, queue, runEval, samples } from './ingest'
-import { localLearn, shouldSpawn, spawnRefresh } from './learn'
+import { localLearn, modeOf, shouldSpawn, spawnRefresh } from './learn'
 import { cleanPrompt, pastedSpans, redact, writeText } from './transcripts'
 
 const TOOL = 'more_like_you'
@@ -13,7 +13,7 @@ const FETCH_TIMEOUT_MS = 800
 const PERSPECTIVE_MAX = 800
 const PERSPECTIVE_HEAD = 'How the user thinks and why. Use it to understand their reasoning and explain trade-offs in terms they care about. It is not evidence that they are right: judge each case on its merits, disagree when the facts point elsewhere, and do not agree just because something matches their past choices.'
 const PRECEDENCE =
-  "Precedence: the user's CLAUDE.md and org rules first, then stop-slop bans, then the user's explicit instructions below, then the learnt profile."
+  "Precedence: the user's CLAUDE.md, rules files, hooks and org rules first, then stop-slop bans, then the user's explicit instructions below, then the learnt profile. Formatting rules from those sources (layout, bullets, line breaks, length) override the learnt profile; never merge lines or collapse a list into one line to match it."
 
 type Row = Record<string, unknown>
 type Identity = { slackId?: string; ghLogin?: string; accountId?: string }
@@ -86,8 +86,12 @@ async function rawFile($: Engine, folder: string, kind: string): Promise<string>
 }
 
 async function startLearning($: Engine, s: State, interactive: boolean): Promise<void> {
-  const { folder, vaultRoot, home, env } = await where($, s)
+  const { folder, vaultRoot, env } = await where($, s)
   if (interactive && env.MORE_LIKE_YOU_CHILD !== '1') localLearn($, folder, vaultRoot).catch(() => {})
+}
+
+async function maybeRefresh($: Engine, s: State, mode: string): Promise<void> {
+  const { folder, home, env } = await where($, s)
   const cfg = await configOf($, folder)
   if (cfg.autoRefresh !== 'full') return
   const verdict = shouldSpawn(
@@ -97,8 +101,9 @@ async function startLearning($: Engine, s: State, interactive: boolean): Promise
     (k) => env[k],
     await readJson($, `${folder}/.refresh.lock`),
     await $.clock.now(),
+    mode,
   )
-  if (verdict.spawn) await spawnRefresh($, folder)
+  if (verdict.spawn) await spawnRefresh($, folder, mode)
   else s.usageUnknown = verdict.reason === 'usage-missing' || verdict.reason === 'usage-stale'
 }
 
@@ -200,6 +205,11 @@ export const register: Register = (on) => {
     })
     await startLearning($, s, (e as unknown as { isInteractive?: boolean }).isInteractive === true).catch(() => {})
     return started
+  }).catch(($, e, next) => next(e))
+
+  on('classic.SessionStart', async ($, e, next) => {
+    await maybeRefresh($, s, modeOf(e.permission_mode)).catch(() => {})
+    return next(e)
   }).catch(($, e, next) => next(e))
 
   on('tool.call', { tool: `mcp__agent-more-like-you__${TOOL}` }, async ($, e) => {

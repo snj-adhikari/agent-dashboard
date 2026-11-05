@@ -1,4 +1,6 @@
-# agent-monitor-hook
+# Live Wire - Your agent's pulse in the status line
+
+Plugin id: `agent-monitor-hook`.
 
 Reports each interactive Claude session's phase to Agent Dashboard and shows the hook ticket in the status line. Needed for phone push notifications when a session is waiting.
 

@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import {
   buildIndex, classify, classifyItem, containment, evaluate, evaluateBoth, finalLabel, humanScore, learnMarkers,
-  needsJudge, normalise, paragraphs, parseMarkers, renderMarkers, similarity, updateMarkers,
+  learnStructure, needsJudge, normalise, paragraphs, parseMarkers, renderMarkers, similarity, updateMarkers,
 } from './score'
 
 const NOW = '2026-03-10T00:00:00Z'
@@ -63,7 +63,7 @@ test('built-in negatives still lower the score', () => {
 test('built-in AI tells veto markers: score capped at 0.5', () => {
   const m = { threshold: 0.6, humanN: 0, aiN: 0, items: [{ kind: 'feature' as const, pattern: 'laughter', weight: 0.3, h: 3, a: 0 }, { kind: 'feature' as const, pattern: 'padded-ellipsis', weight: 0.3, h: 3, a: 0 }] }
   expect(humanScore('ok .. lol', m).score).toBeGreaterThan(0.9)
-  for (const t of ['ok .. lol \u2014 yes', 'ok .. lol\n- a\n- b\n- c', 'ok .. lol **yes**', 'ok .. lol `x`', 'ok .. lol __x__', 'Hello all .. lol']) {
+  for (const t of ['ok .. lol \u2014 yes', 'ok .. lol\n- MC-1 done\n- MC-2 done\n- #42 merged', 'ok .. lol **yes**', 'ok .. lol `x`', 'ok .. lol __x__', 'Hello all .. lol']) {
     expect(humanScore(t, m).score).toBeLessThanOrEqual(0.5)
   }
 })
@@ -182,4 +182,41 @@ test('evaluate and evaluateBoth output shape', () => {
   expect(both[5]).toBe('heuristic + judge')
   expect(both[7]).toBe('actual human    2           0')
   expect(both[9]).toContain('precision(human) = 1.00')
+})
+
+const CASUAL_M = { threshold: 0.6, humanN: 0, aiN: 0, items: [{ kind: 'feature' as const, pattern: 'padded-ellipsis', weight: 0.3, h: 3, a: 0 }] }
+const BULLETED = 'checked the build ..\n- staging looks fine ..\n- prod deploy after lunch\n- ping me if it breaks'
+
+test('a bulleted casual send with .. scores human; structure is neutral by default', () => {
+  expect(humanScore(BULLETED, CASUAL_M).signals).not.toContain('formal')
+  expect(humanScore(BULLETED, CASUAL_M).score).toBeGreaterThanOrEqual(0.6)
+  expect(classifyItem(BULLETED, NOW, [], buildIndex([]), null, CASUAL_M).label).toBe('human')
+  expect(humanScore('- one ..\n- two ..\n- three ..').score).toBe(humanScore('one .. two .. three ..').score)
+})
+
+test('only id-dominated bullet walls and formal greetings are penalised', () => {
+  expect(humanScore('- MC-101 fixed\n- MC-102 fixed\n- #33 merged\n- docs').signals).toContain('id-bullet-wall')
+  expect(humanScore('- MC-101 fixed\n- tidy up\n- docs\n- tests').signals).not.toContain('id-bullet-wall')
+  expect(humanScore('Hello team, quick one').signals).toContain('formal')
+})
+
+test('structure markers are per audience and learnt only from that audience', () => {
+  const sends = [1, 2, 3, 4].map((n) => ({ audience: 'slack-channel' as const, text: `update ${n}\n- a\n- b` }))
+  const items = learnStructure(sends, ['One line agent reply.', 'Another one line reply.'])
+  expect(items.map((i) => i.pattern)).toContain('slack-channel:bullets')
+  expect(items.every((i) => i.pattern.startsWith('slack-channel:'))).toBe(true)
+  const m = { ...CASUAL_M, items: [...CASUAL_M.items, ...items] }
+  expect(humanScore(BULLETED, m, 'slack-channel').score).toBeGreaterThan(humanScore(BULLETED, m, 'jira').score)
+  expect(parseMarkers(renderMarkers(m))!.items.filter((i) => i.kind === 'structure')).toHaveLength(items.length)
+})
+
+test('a prompt-only one-liner set does not lower a bulleted Slack audience', () => {
+  const oneLiners = ['fix it .. now', 'run tests ..', 'ship it .. lol', 'check prod ..', 'rename that ..']
+  const ai = ['The change has been applied. Tests pass.', 'I have updated the file. Review it.']
+  const structure = learnStructure([1, 2, 3].map(() => ({ audience: 'slack-channel' as const, text: BULLETED })), ai)
+  const withPrompts = learnMarkers(oneLiners, ai)
+  expect(withPrompts.items.some((i) => i.kind === 'structure')).toBe(false)
+  const m = { ...withPrompts, items: [...withPrompts.items, ...structure] }
+  expect(humanScore(BULLETED, m, 'slack-channel').score).toBeGreaterThanOrEqual(humanScore(BULLETED, { ...m, items: structure }, 'slack-channel').score)
+  expect(updateMarkers(m, oneLiners).items.filter((i) => i.kind === 'structure')).toEqual(structure)
 })

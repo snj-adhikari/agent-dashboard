@@ -1,4 +1,4 @@
-import type { AgentWrite, Label } from './audience'
+import type { AgentWrite, Audience, Label } from './audience'
 
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 const AI_SIM = 0.9
@@ -71,7 +71,7 @@ export function bestSimilarity(text: string, candidates: readonly AgentWrite[], 
   return best
 }
 
-export interface Marker { kind: 'feature' | 'token'; pattern: string; weight: number; h: number; a: number }
+export interface Marker { kind: 'feature' | 'token' | 'structure'; pattern: string; weight: number; h: number; a: number }
 export interface Markers { threshold: number; humanN: number; aiN: number; items: Marker[] }
 
 const FEATURES: Record<string, RegExp> = {
@@ -86,10 +86,21 @@ const FEATURES: Record<string, RegExp> = {
   'casual-first-word': /^\W*(?:also|and|but|so|yeah|yep|nah|hey|ok|okay|oh)\b/i,
 }
 
+const lineCount = (t: string) => t.split('\n').filter((l) => l.trim()).length
+const bulletCount = (t: string) => t.split('\n').filter((l) => /^\s*([-*•]|\d+\.)\s/.test(l)).length
+const STRUCTURE: Record<string, (t: string) => boolean> = {
+  'single-line': (t) => lineCount(t) === 1,
+  'multi-line': (t) => lineCount(t) >= 2,
+  'many-lines': (t) => lineCount(t) >= 5,
+  bullets: (t) => bulletCount(t) >= 2,
+}
+const ID = /\b[A-Z][A-Z0-9]+-\d+\b|#\d+\b|\/pull\/\d+/
+
 const symbols = (t: string): string[] => t.match(/\p{Extended_Pictographic}/gu) ?? []
 
 function has(text: string, kind: Marker['kind'], pattern: string): boolean {
   if (kind === 'feature') return FEATURES[pattern]?.test(text.trim()) ?? false
+  if (kind === 'structure') return STRUCTURE[pattern.split(':')[1]]?.(text.trim()) ?? false
   return text.includes(pattern)
 }
 
@@ -154,12 +165,31 @@ export function updateMarkers(m: Markers, newHuman: readonly string[], newAi: re
   const known = new Set(m.items.map((i) => `${i.kind} ${i.pattern}`))
   const items: Marker[] = []
   for (const i of m.items) {
+    if (i.kind === 'structure') {
+      items.push(i)
+      continue
+    }
     const h = i.h + newHuman.filter((t) => has(t, i.kind, i.pattern)).length
     const a = i.a + newAi.filter((t) => has(t, i.kind, i.pattern)).length
     if (h >= MIN_SUPPORT) items.push({ ...i, weight: weigh(h, a, humanN, aiN), h, a })
   }
   const hc = new Map([...count(newHuman)].filter(([k, n]) => !known.has(k) && n >= MIN_SUPPORT + 1))
   return { ...m, humanN, aiN, items: [...items, ...build(hc, count(newAi), humanN, aiN)] }
+}
+
+export function learnStructure(sends: readonly { audience: Audience; text: string }[], ai: readonly string[]): Marker[] {
+  const items: Marker[] = []
+  for (const audience of new Set(sends.map((s) => s.audience))) {
+    const hs = sends.filter((s) => s.audience === audience).map((s) => s.text.trim())
+    for (const [f, test] of Object.entries(STRUCTURE)) {
+      const h = hs.filter(test).length
+      if (h < MIN_SUPPORT) continue
+      const a = ai.filter((t) => test(t.trim())).length
+      const weight = weigh(h, a, hs.length, ai.length)
+      if (weight > MIN_WEIGHT) items.push({ kind: 'structure', pattern: `${audience}:${f}`, weight, h, a })
+    }
+  }
+  return items
 }
 
 export function parseMarkers(md: string): Markers | null {
@@ -173,7 +203,7 @@ export function parseMarkers(md: string): Markers | null {
   if (threshold === null) return null
   const items: Marker[] = []
   for (const line of body.split('\n')) {
-    const r = line.match(/^- (feature|token) (\S+) (-?[\d.]+) (\d+) (\d+)\s*$/)
+    const r = line.match(/^- (feature|token|structure) (\S+) (-?[\d.]+) (\d+) (\d+)\s*$/)
     if (r && !(r[1] === 'token' && /\p{L}/u.test(r[2]))) items.push({ kind: r[1] as Marker['kind'], pattern: r[2], weight: Number(r[3]), h: Number(r[4]), a: Number(r[5]) })
   }
   return { threshold, humanN: num('humanN') ?? 0, aiN: num('aiN') ?? 0, items }
@@ -190,7 +220,12 @@ export function renderMarkers(m: Markers): string {
   ].join('\n')
 }
 
-export function humanScore(text: string, markers?: Markers): { score: number; signals: string[] } {
+function idBulletWall(t: string): boolean {
+  const bullets = t.split('\n').filter((l) => /^\s*([-*•]|\d+\.)\s/.test(l))
+  return bullets.length >= 3 && bullets.filter((b) => ID.test(b)).length * 2 > bullets.length
+}
+
+export function humanScore(text: string, markers?: Markers, audience?: Audience, whole = text): { score: number; signals: string[] } {
   const t = text.trim()
   const signals: string[] = []
   let score = 0.5
@@ -198,15 +233,16 @@ export function humanScore(text: string, markers?: Markers): { score: number; si
     signals.push(name)
     score += delta
   }
-  const lines = t.split('\n').map((l) => l.trim()).filter(Boolean)
-  const bullets = lines.filter((l) => /^([-*•]|\d+\.)\s/.test(l))
   const sentences = t.split(/(?<=[.!?])\s+|\n+/).map((s) => s.trim()).filter(Boolean)
-  if (/^(hi|hello|dear|good (morning|afternoon|evening))\b/i.test(t) || bullets.length >= 3) add('formal', -0.35)
+  if (/^(hi|hello|dear|good (morning|afternoon|evening))\b/i.test(t)) add('formal', -0.35)
+  if (idBulletWall(whole)) add('id-bullet-wall', -0.35)
   if (sentences.filter((s) => /^[A-Z].*[.!?]$/.test(s)).length >= 2) add('punctuated', -0.2)
   if (/[\u2014\u201C\u201D\u2018\u2019]/.test(t)) add('em-dash-or-curly', -0.15)
   if (/\*\*[^*]+\*\*|__[^_]+__|`[^`]+`/.test(t)) add('markdown', -0.15)
   const veto = signals.length > 0
-  for (const i of markers?.items ?? []) if (has(t, i.kind, i.pattern)) add(`${i.kind}:${i.pattern}`, i.weight)
+  for (const i of markers?.items ?? []) {
+    if (i.kind === 'structure' ? audience && i.pattern.startsWith(`${audience}:`) && has(whole, i.kind, i.pattern) : has(t, i.kind, i.pattern)) add(`${i.kind}:${i.pattern}`, i.weight)
+  }
   return { score: Math.min(veto ? 0.5 : 1, Math.max(0, score)), signals }
 }
 
@@ -290,11 +326,13 @@ function judge(
   index: AiIndex | null,
   coverageFrom: string | null,
   markers?: Markers,
+  audience?: Audience,
+  whole = text,
 ): ParagraphResult {
   const at = Date.parse(ts)
   const sim = bestSimilarity(text, candidates, at)?.s ?? 0
   const cont = index ? containment(text, index) : 0
-  const { score, signals } = humanScore(text, markers)
+  const { score, signals } = humanScore(text, markers, audience, whole)
   const done = (label: Label): ParagraphResult => ({ text, label, sim, containment: cont, score, signals })
   if (sim >= AI_SIM || cont >= CONTAIN_AI) return done('ai')
   if (Math.max(sim, cont) >= MIXED_SIM) return done('mixed')
@@ -320,8 +358,11 @@ export function classifyItem(
   index: AiIndex,
   coverageFrom: string | null,
   markers?: Markers,
+  audience?: Audience,
 ): { label: Label; paragraphs: ParagraphResult[] } {
-  const ps = paragraphs(text).map((p) => judge(p, ts, candidates, index, coverageFrom, markers))
+  const whole = judge(text, ts, [], null, coverageFrom, markers, audience)
+  const ps = paragraphs(text).map((p) => judge(p, ts, candidates, index, coverageFrom, markers, audience, text))
+    .map((p) => (whole.label === 'human' && p.label === 'unsure' && p.score >= 0.5 ? { ...p, label: 'human' as const } : p))
   const n = (l: Label) => ps.filter((p) => p.label === l).length
   let label: Label = 'unsure'
   if (ps.length && n('human') === ps.length) label = 'human'

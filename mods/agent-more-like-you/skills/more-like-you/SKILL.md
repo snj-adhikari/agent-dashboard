@@ -84,12 +84,12 @@ Per audience, input is `more_like_you` `{ action: "samples", audience }` only: s
 
 Precedence, written at the top of `style-profile.md`, highest first:
 
-1. CLAUDE.md and org rules.
+1. CLAUDE.md, rules files, hooks and org rules, including their formatting rules (layout, bullets, line breaks, length).
 2. stop-slop bans.
 3. The user's explicit instructions in `<folder>/rules.md`.
 4. The learnt profile.
 
-`style-profile.md`: frontmatter `updated`, `samples` per audience, `precision`; `## Precedence`; one section per audience with keys Length, Opening, Casing, Punctuation and separators, Structure, Informal tokens, Sign-off, Do (3 to 6), Avoid (3 to 6), about 1200 characters max, patterns and short fragments only. Add `## Edits` per audience from the `### Edits` block in `rules.md`, including its target length. Under 15 samples: the single line `insufficient samples`.
+`style-profile.md`: frontmatter `updated`, `samples` per audience, `precision`; `## Precedence`; one section per audience with keys Length, Opening, Casing, Punctuation and separators, Structure, Informal tokens, Sign-off, Do (3 to 6), Avoid (3 to 6), about 1200 characters max, patterns and short fragments only. Add `## Edits` per audience from the `### Edits` block in `rules.md`, including its target length. Structure comes only from that audience's samples and its `structure` lines in the phrasebook `## Markers` section, never from typed prompts. Under 15 samples: the single line `insufficient samples`.
 
 `phrasebook.md`: `## Mine` (recurring openers, closers, connectors with counts), `## Recurring typos` (detection only, never reproduced), `## Heard from others` (others' phrases, never used for voice). Pasted text feeds vocabulary only.
 

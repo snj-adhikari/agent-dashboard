@@ -1,4 +1,6 @@
-# agent-sessions
+# Roll Call - Every Claude session, one list
+
+Plugin id: `agent-sessions`.
 
 Adds `/agent-sessions`: a terminal tree of every Claude session, grouped by repo and worktree, read from Agent Dashboard.
 

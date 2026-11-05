@@ -1,4 +1,6 @@
-# agent-hooks
+# Gatekeeper - Nothing ships without your yes
+
+Plugin id: `agent-hooks`.
 
 Claude Code hooks for safer git, cleaner PRs and read-only cloud access. Each hook fails open when it can't parse its input.
 

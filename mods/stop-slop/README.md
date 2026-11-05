@@ -1,4 +1,6 @@
-# stop-slop
+# Stop Slop - Writes like a human
+
+Plugin id: `stop-slop`.
 
 Writing rules added to every session (short bullets, plain words, no AI tells), plus a `stop-slop` skill for an editing pass on text about to ship.
 

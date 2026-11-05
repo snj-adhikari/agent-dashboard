@@ -1,4 +1,6 @@
-# agent-device-qa
+# Device Lab - Real phones, real taps
+
+Plugin id: `agent-device-qa`.
 
 Skill that tests one web page or flow across a real Android phone, the iOS simulator, Mac Safari, Mac Chrome widths and a real iPhone, captures dataLayer events and screenshots, and reports per device and scenario.
 

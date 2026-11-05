@@ -1,4 +1,6 @@
-# dev-kit
+# Dev Kit - Set up once, ship faster
+
+Plugin id: `dev-kit`.
 
 Skills that set up a Claude Code instance (working rules, learning notes, guards) and run a dev or QA task end to end with approval gates.
 

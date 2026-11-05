@@ -115,3 +115,31 @@ test('closing a sub-tab with cmux is refused while its run is live', async ($, o
   const call = await $.tool.call({ tool: 'Bash', command: 'cmux close-surface --surface surface:9' } as never)
   expect(JSON.stringify(call)).toContain('still running')
 })
+
+const classicPrompt = (permission_mode?: string) =>
+  ({ hook_event_name: 'UserPromptSubmit', session_id: 's1', transcript_path: '', cwd: '/repo', prompt: 'x', permission_mode }) as never
+
+test('a sub-tab starts in the main tab permission mode, default when unknown', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  on('classic.UserPromptSubmit', (_$, e) => e as never)
+  await $.prompt.submit(typed('/review 1'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode default "')
+  await $.classic.UserPromptSubmit(classicPrompt('plan'))
+  expect(JSON.parse(w.files.get(`${STATE}/mode-surface:1.json`) ?? '{}').mode).toBe('plan')
+  w.runs.length = 0
+  await $.prompt.submit(typed('/review 2'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode plan "')
+})
+
+test('an unknown or injected mode never reaches the shell command', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  on('classic.UserPromptSubmit', (_$, e) => e as never)
+  await $.classic.UserPromptSubmit(classicPrompt('plan; rm -rf /'))
+  expect(w.files.has(`${STATE}/mode-surface:1.json`)).toBe(false)
+  w.files.set(`${STATE}/mode-surface:1.json`, JSON.stringify({ mode: '$(boom)' }))
+  await $.prompt.submit(typed('/review 3'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('--permission-mode default "')
+})

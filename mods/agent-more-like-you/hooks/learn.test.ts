@@ -26,6 +26,20 @@ test('shouldSpawn table', () => {
   expect(run({ usage: { ...usage, five_hour: { used_percentage: 50 } } }).spawn).toBe(false)
   expect(run({ usage: { ...usage, five_hour: { used_percentage: 49 } } }).spawn).toBe(true)
   expect(run({ usage: { ...usage, seven_day: { used_percentage: 95 } } }).spawn).toBe(false)
+  expect(run({ cursor: null })).toEqual({ spawn: false, reason: 'no-cursor' })
+  expect(run({ cursor: undefined }).reason).toBe('no-cursor')
+})
+
+test('shouldSpawn skips plan mode and allows the other modes', () => {
+  const at = (mode: string) => shouldSpawn(cfg, old, usage, noEnv, null, NOW, mode)
+  expect(at('plan')).toEqual({ spawn: false, reason: 'plan-mode' })
+  for (const m of ['default', 'acceptEdits', 'auto', 'dontAsk']) expect(at(m).spawn).toBe(true)
+})
+
+test('refreshCommand passes the permission mode, default when unknown', () => {
+  expect(refreshCommand('/v/l', 'acceptEdits')).toContain('-p "/more-like-you refresh" --permission-mode acceptEdits --allowedTools')
+  expect(refreshCommand('/v/l')).toContain('--permission-mode default ')
+  expect(refreshCommand('/v/l', 'plan; rm -rf ~')).toContain('--permission-mode default ')
 })
 
 test('lockHeld: young held, 30 min stale, missing free', () => {

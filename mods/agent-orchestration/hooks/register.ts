@@ -6,6 +6,7 @@ const REPLY_TOOL = 'subtab_reply'
 const REPLY_TOOL_FULL = 'mcp__agent-orchestration__subtab_reply'
 const FINISH_TEXT = 'Finished: write the summary and hand off now.'
 const STAY_IN_MAIN = ['loop', 'update-config', 'keybindings-help', 'fewer-permission-prompts']
+const MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk', 'auto']
 
 const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod from a skill running in a cmux sub-tab; the user did not type it.
 - "asks": the sub-tab is waiting for input. Answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) when the answer clearly follows from what the user asked for. If it is a judgement call, or approves publishing, posting, committing, pushing or merging, ask the user first and relay their answer.
@@ -29,6 +30,17 @@ async function readEnv($: Engine): Promise<Env> {
 const readMeta = async ($: Engine, dir: string): Promise<Meta | undefined> =>
   (await $.fs.exists(`${dir}/meta.json`)) ? (JSON.parse(await $.fs.read(`${dir}/meta.json`)) as Meta) : undefined
 
+const modeFile = (env: Env) => `${env.state}/mode-${env.surface}.json`
+
+async function readMode($: Engine, env: Env): Promise<string> {
+  try {
+    const { mode } = JSON.parse(await $.fs.read(modeFile(env))) as { mode?: unknown }
+    return typeof mode === 'string' && MODES.includes(mode) ? mode : 'default'
+  } catch {
+    return 'default'
+  }
+}
+
 async function isSkill($: Engine, name: string): Promise<boolean> {
   const extra = ((await $.env.get('AGENT_SUBTAB_STAY')) ?? '').split(',').map(s => s.trim())
   if ([...STAY_IN_MAIN, ...extra].includes(name.split(':').pop() ?? name)) return false
@@ -43,7 +55,7 @@ async function openSubtab($: Engine, env: Env, skill: string, prompt: string): P
   await $.fs.write(`${dir}/prompt.txt`, prompt)
   const { stdout } = await $.process.run(['cmux', 'identify'])
   const pane = (JSON.parse(stdout) as { caller: { pane_ref: string } }).caller.pane_ref
-  const cmd = `cd ${JSON.stringify(await $.session.cwd())} && AGENT_SUBTAB_ID=${id} claude "$(cat ${JSON.stringify(`${dir}/prompt.txt`)})"`
+  const cmd = `cd ${JSON.stringify(await $.session.cwd())} && AGENT_SUBTAB_ID=${id} claude --permission-mode ${await readMode($, env)} "$(cat ${JSON.stringify(`${dir}/prompt.txt`)})"`
   const opened = await $.process.run(['cmux', 'new-surface', '--type', 'terminal', '--pane', pane, '--focus', 'false', '--command', cmd])
   const child = /surface:\d+/.exec(opened.stdout)?.[0]
   if (!child) throw new Error(`cmux new-surface failed: ${opened.stderr.trim()}`)
@@ -112,6 +124,13 @@ export const register: Register = on => {
     $.clock.every(POLL_MS, () => void poll().catch(err => $.ui.log(`poll failed: ${String(err)}`, { to: 'debug' })))
     return started
   })
+
+  on('classic.UserPromptSubmit', async ($, e, next) => {
+    const env = await readEnv($)
+    const mode = e.permission_mode
+    if (env.surface && !env.runId && mode && MODES.includes(mode)) await $.fs.write(modeFile(env), JSON.stringify({ mode }))
+    return next(e)
+  }).catch(($, e, next) => next(e))
 
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind === 'plugin' && e.origin.name === $.plugin.name) {

@@ -1,4 +1,6 @@
-# agent-orchestration
+# Agent Magic - Every skill gets its own tab
+
+Plugin id: `agent-orchestration`.
 
 Runs each skill you type in its own cmux sub-tab of the same pane, so the main tab's context stays clean. The sub-tab's questions and its done-summary are relayed into the main tab, and the main agent answers them or tells the sub-tab to finish.
 
@@ -10,7 +12,7 @@ Runs each skill you type in its own cmux sub-tab of the same pane, so the main t
 
 ## How it works
 
-1. You type `/<skill> ...` in a cmux tab. The prompt is dropped, a sub-tab opens in the same pane running `claude "/<skill> ..."`, and the input box is cleared.
+1. You type `/<skill> ...` in a cmux tab. The prompt is dropped, a sub-tab opens in the same pane running `claude --permission-mode <mode> "/<skill> ..."`, and the input box is cleared. `<mode>` is the main tab's permission mode, captured from each `classic.UserPromptSubmit` into `~/.claude/agent-orchestration/mode-<surface>.json`; `default` when unknown.
 2. When a sub-tab turn ends with a question, the main tab gets `[subtab <surface> <skill> asks]` plus the sub-tab's last message.
 3. The main agent answers with `subtab_reply`, or asks you first for judgement calls and anything that publishes, posts, commits, pushes or merges.
 4. When the skill is finished, the sub-tab writes a short summary and hands off. The main tab gets `[subtab done]` with the summary, and the sub-tab closes itself.
