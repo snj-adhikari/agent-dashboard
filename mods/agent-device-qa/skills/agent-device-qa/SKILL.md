@@ -21,7 +21,7 @@ Scripts: `S=${CLAUDE_PLUGIN_ROOT}/skills/agent-device-qa/scripts` (this skill's 
 Offer each, any can be skipped:
 
 - Real Android phone, Chrome (adb + remote debugging)
-- Real Android phone via Artemis (natural-language tasks over adb, USB or Wireless debugging), when the `mobile_*` tools are loaded
+- Real Android phone, any app (adb helpers driven by a Haiku subagent, no API key; USB or Wireless debugging)
 - iOS simulator, Safari
 - Mac Safari
 - Mac Chrome at responsive widths, e.g. 375, 768, 1280 (emulated)
@@ -32,7 +32,7 @@ Offer each, any can be skipped:
 - Run `bash $S/doctor.sh <android|ios|safari|chrome|iphone|all>`.
 - NOT READY: show the printed steps, then wait for the user or skip that device.
 - Never run sudo, never change OS or browser security settings; give the user the command (e.g. `sudo safaridriver --enable`).
-- Artemis, before any `mobile_*` call: `adb devices`; nothing attached, `adb mdns services` and `adb connect` to a paired `_adb-tls-connect._tcp` entry; none paired, guide QR pairing; then `mobile_diagnose(attempt_fix=true)` must say `ready`. Not configured: give the setup in `artemis.md` (Claude Code provider by default, API key otherwise), or fall back to `android.sh`.
+- Android, on demand: `adb devices`; nothing attached, `adb mdns services` and `adb connect` to a paired `_adb-tls-connect._tcp` entry; none paired, guide QR pairing (`android-apps.md`); using Artemis, `mobile_diagnose(attempt_fix=true)` must say `ready`.
 - Safari and iOS need the proxy in front of the dev server: `node $S/inject-proxy.mjs --listen $PROXY_PORT --target $APP_PORT --out $OUT &`. Stop it when done.
 
 ## 4. Run
@@ -45,7 +45,7 @@ Env: `OUT`, `APP_PORT` (3000), `PROXY_PORT` (3005), `CDP_PORT` (9333), `SIM_UDID
 
 - **Mac Chrome** (`chrome.sh`, emulated): `cview <w> <h>` before `copen <path>`, then `clog`, `cclick <selector>` (JS click, not coordinates), `cev`, `cshot <name>`.
 - **Android** (`android.sh`, real device): `asetup` once (adb reverse for the app port, forward CDP to 9333), `aopen <path>` (opens and runs the logger), `atap <text-regex> [n]` (real finger tap), `aev`, `aclear`, `ashot <name>`, `aback` after a tel: or intent picker. `ab <cmd>` is agent-browser on the phone.
-- **Android via Artemis** (MCP, real device): connect (section 3) > `mobile_get_device_state` > `mobile_run_task` (steps + expected outcome, `locked_app_package`, `expected_output_desc` for Pro tasks) > `mobile_manage_task` status every ~60 s > `mobile_inspect_trace` for evidence. Details and debugging in `artemis.md`.
+- **Android, any app** (`android.sh`, real device, no key): one Haiku subagent per scenario loops observe (`aui`) > decide > act (`alaunch`, `autap`, `atapxy`, `atype`, `aswipe`, `aback`) until the expected outcome or 20 actions, with `ashot` as evidence. If the `artemis` MCP is loaded, observe with `mobile_get_device_state(view_type="hierarchy")` and convert its 0-1000 bounds with `anorm` before tapping. `mobile_run_task` is optional and needs the user's own key. Details in `android-apps.md`.
 - **iOS simulator** (`ios.sh`, via proxy): `iboot [name]`, `iopen <path> <tag> [hash-params]` (waits up to 120 s, screenshots), `iresult <tag>`.
 - **Mac Safari** (`safari.sh`, via proxy): `sopen <path> <tag> [hash-params]`, `sresult <tag>`.
 - **Real iPhone** (manual): user opens the page; Mac Safari > Develop > iPhone > Console; paste `logger.js`; user taps; read `window.__dl`.
@@ -74,7 +74,7 @@ Proxy hash params (`runner.js`), joined with `&`:
 
 - Android: keep the phone unlocked (locked = black screenshots, zero-height elements).
 - Android: press Back only when Chrome isn't focused (`aback` checks), or it navigates the page back.
-- Wireless debugging needs Wi-Fi, and manual pairing uses the port in the pair dialog, not the connect port (`artemis.md`).
+- Wireless debugging needs Wi-Fi, and manual pairing uses the port in the pair dialog, not the connect port (`android-apps.md`).
 - CDP on 9333, because desktop Chrome often holds 9222.
 - First `simctl openurl` after boot can time out; `iopen` retries once.
 - The simulator has no Phone app; tel: prompts can't be verified there.

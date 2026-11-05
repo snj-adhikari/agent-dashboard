@@ -14,7 +14,7 @@ Skill that tests one web page or flow across a real Android phone, the iOS simul
 | Device | Needs |
 | --- | --- |
 | Android phone, Chrome | `adb` (`brew install --cask android-platform-tools`), USB debugging on, `agent-browser` |
-| Android phone, Artemis (optional) | `adb` (USB or Wireless debugging), the [Artemis](https://github.com/snj-adhikari/artemis) MCP server, and a Claude Code login (fork's `claude-code` provider) or a model key; setup in `skills/agent-device-qa/artemis.md` |
+| Android phone, any app | `adb` (USB or Wireless debugging); optional [Artemis](https://github.com/google/artemis) MCP for observing, plus a model key only for its autonomous tasks; see `skills/agent-device-qa/android-apps.md` |
 | iOS simulator, Safari | Xcode with an iOS runtime (about 8.5 GB), Node 18+ for the inject proxy |
 | Mac Safari | Safari, Node 18+ for the inject proxy |
 | Mac Chrome widths | `agent-browser` (`npm i -g agent-browser && agent-browser install`) |
@@ -24,7 +24,7 @@ Skill that tests one web page or flow across a real Android phone, the iOS simul
 
 | Skill | What it does |
 | --- | --- |
-| `agent-device-qa` | Asks what to test and the expected outcome per scenario, picks devices, runs the setup doctor, opens pages, injects a non-throwing dataLayer logger, clicks, captures events and screenshots, then builds an Artifact report (device x scenario matrix, gaps, anomalies, setup guide) from `report-template.html`. Can drive a real Android phone through Artemis MCP tools when configured (`artemis.md`). |
+| `agent-device-qa` | Asks what to test and the expected outcome per scenario, picks devices, runs the setup doctor, opens pages, injects a non-throwing dataLayer logger, clicks, captures events and screenshots, then builds an Artifact report (device x scenario matrix, gaps, anomalies, setup guide) from `report-template.html`. Can drive any app on a real Android phone with adb helpers and a Haiku subagent, no API key (`android-apps.md`). |
 
 ## Scripts
 
@@ -34,7 +34,8 @@ All under `skills/agent-device-qa/scripts/`. Source the helpers under bash, not 
 | --- | --- |
 | `doctor.sh [android\|ios\|safari\|chrome\|iphone\|all]` | Read-only. Prints READY / NOT READY per device and the steps to run yourself. Never runs sudo. |
 | `chrome.sh` | Mac Chrome (emulated widths): `cview`, `copen`, `clog`, `cclick`, `cev`, `cshot`. |
-| `android.sh` | Real Android phone over adb and CDP: `asetup`, `aopen`, `atap`, `aev`, `aclear`, `ashot`, `aback`, `ab`. |
+| `android.sh` | Real Android phone over adb and CDP: `asetup`, `aopen`, `atap`, `aev`, `aclear`, `ashot`, `aback`, `ab`. Any app: `alaunch`, `aui`, `autap`, `atapxy`, `atype`, `aswipe`, `anorm`. |
+| `android.test.sh` | Checks the any-app helpers with adb stubbed: `bash android.test.sh`. |
 | `ios.sh` | iOS simulator through the proxy: `iboot`, `iopen`, `iresult`. |
 | `safari.sh` | Mac Safari through the proxy: `sopen`, `sresult`. |
 | `inject-proxy.mjs` | HTTP proxy in front of the dev server that injects `logger.js` and `runner.js` and appends results to `$OUT/results.jsonl`. |
