@@ -114,7 +114,7 @@ When the session runs inside herdr (`HERDR_ENV=1` with `HERDR_SESSION` set) deve
 - The lead never puts brief text in a shell command: follow-ups are appended to `task.md` and announced with a fixed prompt.
 - `FACTORY_DEV=1` makes this mod deny every `git commit` and `git push` in a developer session.
 - Each developer tab gets its own codename and colour from `snj-term codename <session> --seed <KEY>-dev<n>`, shown in the herdr sidebar via `herdr pane report-metadata --display-agent <codename> --token codename=<codename>`. Without `snj-term` the agent is named `<key-lower>-dev<n>`.
-- With `snj-term`, each developer agent also shows as a cmux tab (`snj-term attach <session> <agent> --title "<codename> · <KEY> · dev <n> · <task>"`, via `herdr agent attach`). It ends by itself when the herdr tab closes.
+- Developer agents live in herdr only; watch one with `herdr agent attach <name>` when needed.
 - At most 4 developer tabs per ticket at once; the rest queue.
 - The lead tracks tabs with `herdr agent wait --until idle --until blocked` and `herdr agent read`. Every prompt it types into another session starts with `[relay factory-lead]`.
 - QA stays a `factory:qa` subagent. After QA passes the lead copies each developer's working-tree changes into the ticket worktree and closes the tab. Developer worktrees stay for you to clear.

@@ -101,7 +101,7 @@ test('inside herdr, developers run in herdr tabs unless --no-herdr', async ($, o
   expect(b).toContain('herdr agent start <name> --kind claude --pane <pane> -- -n <name>` with no prompt argument')
   expect(b).toContain('herdr agent prompt <name> "[relay factory-lead] Read ai/factory/task.md and do it."')
   expect(b).toContain('Never put brief or follow-up text into a shell command')
-  expect(b).toContain('snj-term attach "$HERDR_SESSION" <name> --title "<codename> · <KEY> · dev <n> · <task>"')
+  expect(b).not.toContain('snj-term attach')
   expect(b).toContain('[relay factory-lead]')
   expect(b).toContain('herdr agent wait <name> --until idle --until blocked')
   expect(b).toContain('herdr tab close <tab>')

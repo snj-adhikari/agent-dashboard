@@ -176,6 +176,21 @@ test('the relay tells the main tab to act as the user from its mission', async (
   expect(r.context?.join('\n')).toContain('mission, goal and context the user gave you in this tab')
 })
 
+const relayedAsk = { text: '[subtab w1:p2 /fix asks]', wait: false, origin: { kind: 'plugin', name: 'agent-orchestration' } } as never
+
+test('commit, push and PR asks go to the user as a question, with no approval helper by default', async ($, on) => {
+  world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  const context = (await $.prompt.submit(relayedAsk)).context?.join('\n') ?? ''
+  expect(context).toContain('AskUserQuestion')
+  expect(context).not.toContain('Approval helper')
+})
+
+test('a configured approval helper is run with the sub-tab session and pane before replying', async ($, on) => {
+  world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_APPROVER: 'approve-cmd' })
+  const context = (await $.prompt.submit(relayedAsk)).context?.join('\n') ?? ''
+  expect(context).toContain('run `approve-cmd <session> <pane> <kinds> [branch]`')
+})
+
 const HERDR = { HERDR_ENV: '1', HERDR_PANE_ID: 'w1:p1', HERDR_WORKSPACE_ID: 'w1', HERDR_SESSION: 'grille', CMUX_SURFACE_ID: 'surface:1' }
 
 test('the stay list skips listed skills, with a trailing * as a prefix', async ($, on) => {

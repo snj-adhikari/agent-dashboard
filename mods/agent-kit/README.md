@@ -1,6 +1,6 @@
 # Agent Kit - The orchestrator's toolbox
 
-Skills for agent work: a multi-repo controller, worktree tabs, template-first PR bodies, Artifact layouts, threaded Jira replies and starting Agent Dashboard.
+Skills for agent work: a multi-repo controller, worktree tabs, quick herdr agents, template-first PR bodies, Artifact layouts, threaded Jira replies and starting Agent Dashboard.
 
 Plugin id: `agent-kit`.
 
@@ -9,7 +9,7 @@ Plugin id: `agent-kit`.
 - Marketplace: `claude plugin install agent-kit@agent-monitor`
 - Local: `claude --plugin-dir ./mods/agent-kit`
 - Or the Plugin page in Agent Dashboard.
-- Needs `git`. `agent-worktree` needs cmux (falls back to a plain git worktree). `agent-pr` needs `gh`. `agent-jira-reply` needs the Atlassian MCP.
+- Needs `git`. `agent-worktree` needs cmux (falls back to a plain git worktree). `agent-spin` needs herdr 0.9.5+. `agent-pr` needs `gh`. `agent-jira-reply` needs the Atlassian MCP.
 
 ## Skills
 
@@ -17,6 +17,7 @@ Plugin id: `agent-kit`.
 | --- | --- |
 | `agent-orchestrator` | One controller session opens a worktree and agent tab per repo (cmux, herdr, tmux, zellij or WezTerm; plain terminal tabs otherwise), sends each its task, watches for `DONE:`, `BLOCKED:` or permission prompts and relays approvals word for word. Notes in `~/.agent-orchestrator/<session>/`. |
 | `agent-worktree` | Creates a worktree on a `type/slug` branch (folder `<repo>-worktrees/<type-slug>`, `-i`, `-ii` suffix on collision), opens it in a new cmux workspace named `Ticket - <KEY>` or `Research - <title>` with its own Claude session and sends the task. |
+| `agent-spin` | Quick herdr agent on a repo: herdr worktree on a `type/slug` branch (`-i`, `-ii` suffix on collision), one Claude agent with a codename, task sent as its first prompt. `factory`/`deliver` wording seeds `/factory <task>`; `space` opens the worktree tab only; `here` skips the worktree. Repo names resolve under `AGENT_SPIN_ROOT`. Starts a headless herdr session per repo when none is running (view with `herdr agent attach <name>` or `herdr --session <repo>`). |
 | `agent-pr` | Builds the PR body from the target repo's own template (keeps every heading, follows its inline instructions), matches the title convention from recent merged PRs, adds mermaid diagrams and root-cause notes where the PR type calls for them. Asks if no template exists. |
 | `agent-artifact` | Picks a layout for an Artifact page (step guide or visual report) and reuses `templates/step-guide.html`. |
 | `agent-jira-reply` | Posts a threaded reply under a Jira comment by filling a blank reply you started (the MCP can't create threaded replies). Never falls back to a top-level comment unless told. |
@@ -40,11 +41,17 @@ flowchart LR
 | --- | --- | --- |
 | `AGENT_MONITOR_DIR` | unset (asks where the repo is cloned) | `agent-dashboard` |
 | `MONITOR_PORT` | `5818` | `agent-dashboard` |
+| `AGENT_SPIN_ROOT` | parent folder of the current repo | `agent-spin` (where bare repo names resolve) |
+
+## Changelog
+
+- 0.3.0: `agent-spin` skill (quick herdr agent, factory/deliver or space on a repo).
 
 ## Usage
 
 - "be the controller and open a tab per repo for these: api, web, https://github.com/org/worker", or `/agent-kit:agent-orchestrator`.
 - "new worktree for fix/abc-123".
+- "spin up an agent on api to fix the footer", "spin and deliver ABC-123 on web", or `/agent-kit:agent-spin space api`.
 - "raise a PR for this branch".
 - "open the agent dashboard".
 - No commit, push, PR or external post from any skill without your go-ahead in that turn.

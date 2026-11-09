@@ -12,9 +12,13 @@ const MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk',
 const CLOSE_CMD = /\bcmux\s+close-(surface|workspace)\b|\bherdr\s+(tab|pane)\s+close\b/
 
 const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod from a skill running in a sub-tab; the user did not type it.
-- "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting, committing, pushing or merging, ask the user first and relay their answer.
+- "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting or merging, ask the user first and relay their answer.
+- A commit, push or PR request: ask the user with one AskUserQuestion, recommended option first = what the sub-tab asked for (e.g. "Approve commit + push + create PR", "Commit + push", "Commit only", "Deny"), then relay their pick with ${REPLY_TOOL}. Never approve on your own.
 - When the user is finished with it (no, that's all, wrap up, stop), call ${REPLY_TOOL} with finish: true.
 - "done": the sub-tab finished and closed. Give the user a short gist of the summary.`
+
+const approverContext = (cmd: string) =>
+  `- Approval helper: after the user approves a commit, push or PR for a herdr sub-tab, run \`${cmd} <session> <pane> <kinds> [branch]\` (pane = the surface id in the brackets, session = this tab's $HERDR_SESSION, kinds joined with +, e.g. commit+push+pr) before replying with ${REPLY_TOOL}, so the sub-tab's gate lets it retry once. Not for cmux sub-tabs.`
 
 const childContext = (dir: string) =>
   `You are running in a sub-tab opened for one skill. When that skill is fully finished (including any gates or questions answered here), write a compact summary to ${dir}/summary.md: max 20 lines, no tables, line 1 = skill + outcome, then key results, file paths, PR/ticket links, and anything still needing the user. Then create the empty file ${dir}/done. That closes this tab and hands the summary to the main tab, so do it only once, at the very end. Until then, ask any question as plain text at the end of your reply, never with AskUserQuestion: the main tab's agent reads your last message and answers here with a prompt starting [subtab <id> reply].`
@@ -250,7 +254,8 @@ export const register: Register = on => {
 
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind === 'plugin' && e.origin.name === $.plugin.name) {
-      return next({ ...e, context: [...(e.context ?? []), RELAY_CONTEXT] })
+      const approver = ((await $.env.get('AGENT_SUBTAB_APPROVER')) ?? '').trim()
+      return next({ ...e, context: [...(e.context ?? []), RELAY_CONTEXT, ...(approver ? [approverContext(approver)] : [])] })
     }
     const env = await readEnv($)
     if (env.runId) {

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { Register } from 'claude-code'
+import type { EngineInterface as Engine, Register } from 'claude-code'
 
 import type { FactoryRun } from '../types'
 
@@ -85,7 +85,7 @@ const herdrDevs = (session: string) => `5. Developers run in visible herdr tabs.
    a. Run \`~/.claude/hooks/snj/snj-mem-guard.sh check\`; if free RAM is below 12%, queue the task and open nothing. Then pick the tab's codename: if \`~/.claude/hooks/snj/snj-term\` exists, run \`~/.claude/hooks/snj/snj-term codename "$HERDR_SESSION" --seed "<KEY>-dev<n>"\` and take codename from its JSON; the agent name is <key-lower>-<codename>. Without snj-term, or if it fails, there is no codename and the agent name is <key-lower>-dev<n>.
    b. \`git -C <ticket worktree> worktree add -b <ticket-branch>-dev<n> <ticket worktree>-dev<n> <ticket-branch>\`, then write the task brief to \`<ticket worktree>-dev<n>/ai/factory/task.md\`: the files, the acceptance criteria, the tests to run, a time budget (about 20 minutes), the report format (files changed, real test output, open issues) and never commit.
    c. \`herdr tab create --cwd <ticket worktree>-dev<n> --env FACTORY_DEV=1 --label "<KEY> · <codename> · dev <n> · <task>" --no-focus\` (without a codename: "<KEY> · dev <n> · <task>"); keep the tab id and its root pane from its JSON, or from \`herdr pane list\` for that tab. FACTORY_DEV=1 makes the factory git guard deny every git commit and push in that session.
-   d. \`herdr agent start <name> --kind claude --pane <pane> -- -n <name>\` with no prompt argument, then \`herdr agent prompt <name> "[relay factory-lead] Read ai/factory/task.md and do it."\`. With a codename, run \`herdr pane report-metadata <pane> --source factory --display-agent <codename> --token codename=<codename>\`. If snj-term exists, also run \`~/.claude/hooks/snj/snj-term attach "$HERDR_SESSION" <name> --title "<codename> · <KEY> · dev <n> · <task>"\` to show the agent as a cmux tab; skip it otherwise. That tab ends by itself when you close the herdr tab.
+   d. \`herdr agent start <name> --kind claude --pane <pane> -- -n <name>\` with no prompt argument, then \`herdr agent prompt <name> "[relay factory-lead] Read ai/factory/task.md and do it."\`. With a codename, run \`herdr pane report-metadata <pane> --source factory --display-agent <codename> --token codename=<codename>\`.
    Never put brief or follow-up text into a shell command: for a follow-up, append it to that task.md and send the fixed prompt \`herdr agent prompt <name> "[relay factory-lead] Read the latest update at the end of ai/factory/task.md."\`. Every prompt you type into another session starts with [relay factory-lead]. Track each with \`herdr agent wait <name> --until idle --until blocked --timeout <ms>\` and \`herdr agent read <name> --source recent --lines 80\`. herdr tabs do not wake you: poll them and end with FACTORY: CONTINUE, not WAIT, while only herdr developers are running. Stop and re-brief a tab still running well past its budget. QA stays factory:qa via the Agent tool, against the developers' worktrees, in small parallel batches. After QA passes, bring each developer's changes into the ticket worktree (developers never commit, so copy the working tree, not a branch: \`git -C <dev worktree> add -N . && git -C <dev worktree> diff HEAD --binary -- . ':!ai/factory/task.md' | git -C <ticket worktree> apply\`), touching only that task's files, then \`herdr tab close <tab>\`. Leave the developer worktrees for me to clear.`
 
 type BriefOpts = { briefPath?: string; herdrSession?: string }
@@ -109,6 +109,18 @@ FACTORY: CONTINUE  (more work you can do without me)
 FACTORY: WAIT      (background agents are running; their results will wake you)
 FACTORY: ASK      (you need my answer or approval)
 FACTORY: DONE      (all criteria met with evidence and I approved)`
+
+const HERDR_AGENT = /^[a-z][a-z0-9_-]{0,31}$/
+
+/** Inside herdr, reach the report target as a herdr agent; otherwise (or if that fails) as a Claude session. */
+async function deliver($: Engine, lead: string, text: string): Promise<void> {
+  const session = await $.env.get('HERDR_SESSION')
+  if ((await $.env.get('HERDR_ENV')) === '1' && session && HERDR_AGENT.test(lead)) {
+    const sent = await $.process.run(['herdr', 'agent', 'prompt', lead, text], { env: { HERDR_SESSION: session, HERDR_SOCKET_PATH: '' } })
+    if (sent.exitCode === 0) return
+  }
+  await $.session.send({ to: lead, text })
+}
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -183,7 +195,7 @@ export const register: Register = on => {
       const ask = signal === 'DONE' ? 'DONE' : HUMAN_ONLY.test(e.answer) ? 'ASK (HUMAN ONLY: pass to the human verbatim, do not answer)' : 'ASK (answer from the brief and your context; ask the human if unsure)'
       const tag = capped ? `STOPPED at ${MAX_ROUNDS} rounds` : ask
       const text = `[relay factory] factory "${r.goal}": ${tag} (round ${r.round})\n${e.answer.slice(-1500)}`
-      $.clock.after(0, () => void $.session.send({ to: lead, text }))
+      $.clock.after(0, () => void deliver($, lead, text))
     }
     if (signal === 'WAIT') {
       $.ui.status(`factory: waiting on agents (round ${r.round})`)
