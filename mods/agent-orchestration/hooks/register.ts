@@ -13,7 +13,7 @@ const CLOSE_CMD = /\bcmux\s+close-(surface|workspace)\b|\bherdr\s+(tab|pane)\s+c
 const HC_ID = /^t[0-9a-z]{1,16}$/
 
 const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod from a skill running in a sub-tab; the user did not type it.
-- "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting or merging, ask the user first and relay their answer.
+- "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting or merging, ask the user first and relay their answer. When the sub-tab offers choices (a verdict, options, which items to keep), ask with AskUserQuestion, never as prose: the sub-tab's recommended option first with "(Recommended)" in its label, one question per choice it asks for (multiSelect for picking items to remove), and your own view in the option descriptions.
 - A commit, push or PR request: ask the user with one AskUserQuestion, recommended option first = what the sub-tab asked for (e.g. "Approve commit + push + create PR", "Commit + push", "Commit only", "Deny"), then relay their pick with ${REPLY_TOOL}. Never approve on your own.
 - When the user is finished with it (no, that's all, wrap up, stop), call ${REPLY_TOOL} with finish: true.
 - "done": the sub-tab finished and closed. Give the user a short gist of the summary.`

@@ -200,6 +200,13 @@ test('the relay tells the main tab to act as the user from its mission', async (
 
 const relayedAsk = { text: '[subtab w1:p2 /fix asks]', wait: false, origin: { kind: 'plugin', name: 'agent-orchestration' } } as never
 
+test('a sub-tab choice such as a review verdict goes to the user as a pick list, recommended first', async ($, on) => {
+  world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  const context = (await $.prompt.submit(relayedAsk)).context?.join('\n') ?? ''
+  expect(context).toContain('When the sub-tab offers choices')
+  expect(context).toContain('"(Recommended)"')
+})
+
 test('commit, push and PR asks go to the user as a question, with no approval helper by default', async ($, on) => {
   world(on, { CMUX_SURFACE_ID: 'surface:1' })
   const context = (await $.prompt.submit(relayedAsk)).context?.join('\n') ?? ''
