@@ -3,7 +3,8 @@ import { jiraHook, jiraEventForKey, workTypes } from './jiraHook'
 import { slackPrReviewHook } from './slackPrReviewHook'
 import { jiraMentionPrHook } from './jiraMentionPrHook'
 import { checkPollGate, checkStartGate, fiveHourUsage, sessionUsageHalt } from './usageGate'
-import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, shouldAutoEnable } from './state'
+import { herdrRef, herdrSnapshot, parseHerdrRef, promptHerdrAgent, sendHerdrKeys } from '../herdr'
+import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, herdrHookRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, setHerdrHookRefs, shouldAutoEnable } from './state'
 import { DeferredError, SkippedError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
 import { loadConfig, pollIntervalMin } from './config'
@@ -26,10 +27,33 @@ function errorMessage(e: unknown): string {
   return (err.stderr || err.message || String(e)).toString().trim().slice(0, 300)
 }
 
+/** Hook-opened herdr panes still hosting an agent; closed ones are forgotten. */
+function liveHerdrHookRefs(): string[] {
+  const saved = herdrHookRefs()
+  const snap = herdrSnapshot()
+  if (!saved.length || !snap.ok) return saved
+  const live = new Set(snap.agents.map((a) => herdrRef(a.session, a.paneId)))
+  const refs = saved.filter((r) => live.has(r))
+  if (refs.length !== saved.length) setHerdrHookRefs(refs)
+  return refs
+}
+
 function activeHookTabs(): string[] {
-  return terminalTabs()
+  const tabs = terminalTabs()
     .filter((t) => t.title.startsWith(HOOK_TAB_PREFIX))
     .map((t) => t.ref)
+  return [...tabs, ...liveHerdrHookRefs()]
+}
+
+async function haltRef(ref: string, message: string): Promise<void> {
+  const pane = parseHerdrRef(ref)
+  if (!pane) {
+    sendKey(ref, 'escape')
+    sendToWorkspace(ref, message)
+    return
+  }
+  await sendHerdrKeys(pane.session, pane.paneId, 'esc').catch((e) => logError(`halt ${ref} esc: ${errorMessage(e)}`))
+  await promptHerdrAgent(pane.session, pane.paneId, `[monitor] ${message}`).catch((e) => logError(`halt ${ref} STOP: ${errorMessage(e)}`))
 }
 
 function refreshGateStatus(): boolean {
@@ -117,7 +141,7 @@ async function drainQueue(): Promise<void> {
   }
 }
 
-function haltOnSessionUsage(): void {
+async function haltOnSessionUsage(): Promise<void> {
   if (!sessionUsageHalt()) {
     if (haltedRefs().length) setHalted([])
     return
@@ -126,8 +150,7 @@ function haltOnSessionUsage(): void {
   const skip = [...haltedRefs(), ...overrideRefs()]
   const toHalt = active.filter((ref) => !skip.includes(ref))
   for (const ref of toHalt) {
-    sendKey(ref, 'escape')
-    sendToWorkspace(
+    await haltRef(
       ref,
       `STOP: 5-hour usage reached ${loadConfig().gate.fiveHourPct}%. Do not start any new step. Leave the worktree as-is, print a one-line status of where you stopped, and wait for my instruction.`
     )
@@ -162,7 +185,7 @@ async function drainTick(): Promise<void> {
   if (draining) return
   draining = true
   try {
-    haltOnSessionUsage()
+    await haltOnSessionUsage()
     autoEnable()
     await drainQueue()
   } catch (e) {

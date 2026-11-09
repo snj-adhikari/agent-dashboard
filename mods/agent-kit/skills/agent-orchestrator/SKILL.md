@@ -61,7 +61,7 @@ git -C "$repo" worktree add "$wt" -b "$branch" "$base"
 
 - Branch or folder exists: never reset or reuse it, suffix `-i`, `-ii`, ...
 - Research-only tab with no code changes: a worktree is still useful so it never touches the user's main checkout.
-- herdr: `herdr worktree create --cwd "$repo" --branch "$branch" --base "$base" --label "<Tab>" --no-focus --json` does this and the tab in one call; read the path from the JSON.
+- herdr: `herdr worktree create --cwd "$repo" --branch "$branch" --base "$base" --path "$wt" --label "<Tab>" --no-focus` does this and the tab in one call. It prints JSON already (no `--json` flag): `workspace`, `tab`, `root_pane`, `worktree`. Pick the session with env `HERDR_SESSION=<name>`.
 
 ## Step 5: Open a worker tab per repo
 
@@ -70,13 +70,13 @@ Start the agent CLI the user runs (default `claude`) in the worktree, named afte
 | Backend | Open tab | Rename |
 |---|---|---|
 | cmux | `cmux new-surface --type terminal --workspace <ws> --pane <pane> --command "cd '$wt' && claude" --focus false` | `cmux tab-action --action rename --tab <surface> --workspace <ws> --title "<Tab>"` |
-| herdr | from `worktree create` above, or `herdr tab create` in the workspace, then `herdr agent start <pane>` | `herdr tab rename` / `herdr agent rename` |
+| herdr | from `worktree create` above (`root_pane`), or `herdr tab create` in the workspace; then `herdr agent start <name> --kind claude --pane <pane>` (pane at a shell prompt, name `[a-z][a-z0-9_-]{0,31}`) | `herdr tab rename <tab> "<Tab>"` / `herdr agent rename <target> <name>` |
 | tmux | `tmux new-window -d -n "<Tab>" -c "$wt" claude` | set by `-n` |
 | zellij | `zellij action new-tab --name "<Tab>" --cwd "$wt"` then `zellij action write-chars "claude"` + Enter | set by `--name` |
 | WezTerm | `wezterm cli spawn --cwd "$wt" -- claude` (prints pane id) | `wezterm cli set-tab-title --pane-id <id> "<Tab>"` |
 | plain | macOS: `osascript` / iTerm new tab; Linux: `gnome-terminal --tab --working-directory="$wt" -- claude`; Windows: `wt -w 0 nt -d "$wt" --title "<Tab>" claude` | set at launch |
 
-Record every id in `controller.md`. Ids can change after a restart: re-list (`cmux list-pane-surfaces`, `herdr agent list`, `tmux list-windows`, `wezterm cli list`) before trusting them.
+Record every id in `controller.md`. Ids can change after a restart: re-list (`cmux list-pane-surfaces`, `herdr agent list` (JSON; it has no `--json` flag), `tmux list-windows`, `wezterm cli list`) before trusting them.
 
 ## Step 6: Send each worker its task
 

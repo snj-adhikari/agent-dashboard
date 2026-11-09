@@ -6,7 +6,9 @@ import type { AgentProcess } from '../types'
 const AGENT_BINARIES = 'claude|copilot|codex|antigravity|agentastic'
 const SCAN_TTL_MS = 5000
 
-let scan: { at: number; agents: AgentProcess[] } | null = null
+type ScannedAgent = AgentProcess & { inHerdr: boolean }
+
+let scan: { at: number; agents: ScannedAgent[] } | null = null
 
 function sessionIdOf(args: string): string | undefined {
   return args.match(/--(?:session-id|resume)[= ]([0-9a-f-]{36})/)?.[1]
@@ -36,14 +38,25 @@ function psFields(pids: string[], field: 'comm' | 'args'): Map<string, string> {
   return out
 }
 
+/** `ps eww` appends each process's env to its command, so herdr panes show HERDR_PANE_ID there. */
+export function herdrOwnedPids(psOut: string): Set<string> {
+  return new Set(
+    psOut
+      .split('\n')
+      .map((line) => line.match(/^\s*(\d+)\s.*\bHERDR_PANE_ID=w\d+:p\d+/)?.[1])
+      .filter((pid): pid is string => !!pid)
+  )
+}
+
 /**
- * Every agent process. pgrep finds the live pids; those whose plugin already reported (pid, cwd, session id)
+ * Every agent process, flagged when it runs in a herdr pane. pgrep finds the live pids; those whose plugin already reported (pid, cwd, session id)
  * skip the slow lsof and ps lookups, and the rest are scanned with one call each. Cached briefly since it blocks the event loop.
  */
-function scanAgents(): AgentProcess[] {
+function scanAgents(): ScannedAgent[] {
   if (scan && Date.now() - scan.at < SCAN_TTL_MS) return scan.agents
   const pids = sh(`pgrep -x '${AGENT_BINARIES}'`).split('\n').filter(Boolean)
-  let agents: AgentProcess[] = []
+  const owned = pids.length ? herdrOwnedPids(sh(`ps eww -p ${pids.join(',')} -o pid=,command=`)) : new Set<string>()
+  let agents: ScannedAgent[] = []
   if (pids.length) {
     const reported = reportedByPid()
     const unknown = pids.filter((pid) => !reported.has(pid))
@@ -52,16 +65,27 @@ function scanAgents(): AgentProcess[] {
     const args = unknown.length ? psFields(unknown, 'args') : new Map<string, string>()
     agents = pids.map((pid) => {
       const r = reported.get(pid)
-      if (r) return { pid, cmd: 'claude', cwd: r.cwd, sessionId: r.sessionId }
-      return { pid, cmd: path.basename(comms.get(pid) || ''), cwd: cwds.get(pid) || '', sessionId: sessionIdOf(args.get(pid) || '') }
+      const inHerdr = owned.has(pid)
+      if (r) return { pid, cmd: 'claude', cwd: r.cwd, sessionId: r.sessionId, inHerdr }
+      return { pid, cmd: path.basename(comms.get(pid) || ''), cwd: cwds.get(pid) || '', sessionId: sessionIdOf(args.get(pid) || ''), inHerdr }
     })
   }
   scan = { at: Date.now(), agents }
   return agents
 }
 
+/** Bare agents only; processes inside herdr panes are listed by the herdr source. */
 export function agentProcesses(): AgentProcess[] {
-  return scanAgents().filter((a) => watchDirs().some((dir) => a.cwd.startsWith(dir)))
+  return scanAgents()
+    .filter((a) => !a.inHerdr && watchDirs().some((dir) => a.cwd.startsWith(dir)))
+    .map(({ inHerdr: _inHerdr, ...a }) => a)
+}
+
+/** Cwds of agent processes running in herdr panes, so their worktrees stay protected even when herdr can't be listed. */
+export function herdrProcessCwds(): { cwd: string }[] {
+  return scanAgents()
+    .filter((a) => a.inHerdr && a.cwd)
+    .map((a) => ({ cwd: a.cwd }))
 }
 
 export function claudeSessionIdForCwd(cwd: string): string | undefined {

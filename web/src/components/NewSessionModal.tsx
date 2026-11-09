@@ -4,22 +4,25 @@ import { api } from '../api'
 
 export function NewSessionModal({
   repo,
+  herdrRunning,
   onClose,
   onCreated
 }: {
   repo: Repo
+  herdrRunning: boolean
   onClose: () => void
   onCreated: () => void
 }) {
   const [branch, setBranch] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [herdr, setHerdr] = useState(herdrRunning)
 
   async function submit() {
     if (!branch) return
     setBusy(true)
     setError(null)
-    const r = await api.newSession(repo.path, branch)
+    const r = await api.newSession(repo.path, branch, herdr)
     setBusy(false)
     if (!r.ok) {
       setError(String(r.error))
@@ -54,6 +57,11 @@ export function NewSessionModal({
           placeholder="type/slug e.g. fix/proj-123"
           className="mt-6 w-full box-border rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-brand"
         />
+        <label className="mt-3 flex items-center gap-2 text-xs text-slate-300">
+          <input type="checkbox" checked={herdr} onChange={(e) => setHerdr(e.target.checked)} />
+          Open in project herdr pane
+          <span className="text-slate-500">(needs a ticket key in the branch)</span>
+        </label>
         {error && <p className="mt-2 text-xs text-red-400">{error}</p>}
 
         <div className="mt-6 flex justify-end gap-2">

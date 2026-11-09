@@ -33,10 +33,32 @@ export interface AgentProcess {
   sessionId?: string
 }
 
+export interface HerdrAgent {
+  session: string
+  display?: string
+  paneId: string
+  workspaceId: string
+  tabId: string
+  tabTitle?: string
+  agent: string
+  status: string
+  title: string
+  cwd: string
+  name?: string
+  codename?: string
+  colour?: string
+  ticket?: string
+  worktree?: string
+  branch?: string
+  changedFiles?: number
+  cmuxWorkspaceId?: string
+}
+
 export interface MonitorState {
   repos: Repo[]
   tabs: CmuxTab[]
   agents: AgentProcess[]
+  herdr: HerdrAgent[]
 }
 
 export interface GraphResponse {

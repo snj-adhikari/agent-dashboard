@@ -3,9 +3,10 @@ import type { On } from 'claude-code'
 
 const STATE = '/h/.claude/agent-orchestration'
 
-function world(on: On, env: Record<string, string>) {
+function world(on: On, env: Record<string, string>, failing: string[] = []) {
   const files = new Map<string, string>()
   const runs: string[][] = []
+  const sessions: (string | undefined)[] = []
   const fills: string[] = []
   const submitted: string[] = []
   let tree = ''
@@ -19,6 +20,8 @@ function world(on: On, env: Record<string, string>) {
       { name: 'review', description: '', source: 'plugin' },
       { name: 'loop', description: '', source: 'plugin' },
       { name: 'compact', description: '', source: 'builtin' },
+      { name: 'SNJ-work-on-new-worktree', description: '', source: 'plugin' },
+      { name: 'ponytail:ponytail-review', description: '', source: 'plugin' },
     ],
   }))
   on('fs.write', (_$, e) => {
@@ -46,7 +49,9 @@ function world(on: On, env: Record<string, string>) {
   on('process.run', (_$, e) => {
     const argv = [...e.argv]
     runs.push(argv)
+    sessions.push(e.init?.env?.HERDR_SESSION)
     let stdout = ''
+    let exitCode = 0
     if (argv[0] === 'rm') under(argv[2]).forEach(k => files.delete(k))
     if (argv[0] === 'mv') {
       files.set(argv[2], files.get(argv[1]) ?? '')
@@ -55,9 +60,16 @@ function world(on: On, env: Record<string, string>) {
     if (argv[1] === 'identify') stdout = JSON.stringify({ caller: { pane_ref: 'pane:2' } })
     if (argv[1] === 'new-surface') stdout = 'OK surface:9'
     if (argv[1] === 'tree') stdout = tree
-    return { value: { exitCode: 0, stdout, stderr: '' } }
+    if (argv[0] === 'herdr' && argv[1] === 'tab' && argv[2] === 'create') {
+      stdout = JSON.stringify({ result: { tab: { tab_id: 'w1:t2' }, root_pane: { pane_id: 'w1:p2' } } })
+    }
+    if (argv[0] === 'herdr' && argv[1] === 'pane' && argv[2] === 'list') stdout = tree
+    if (argv[0] === 'mem-low') [exitCode, stdout] = [1, 'RAM free 5%']
+    if (argv[0] === 'namer') stdout = JSON.stringify({ codename: 'bond' })
+    if (failing.includes(argv.slice(0, 3).join(' '))) [exitCode, stdout] = [1, '']
+    return { value: { exitCode, stdout, stderr: failing.length ? 'boom' : '' } }
   })
-  return { files, runs, fills, submitted, clock, setTree: (t: string) => (tree = t) }
+  return { files, runs, sessions, fills, submitted, clock, setTree: (t: string) => (tree = t) }
 }
 
 const typed = (text: string) => {
@@ -162,4 +174,142 @@ test('the relay tells the main tab to act as the user from its mission', async (
   const r = await $.prompt.submit({ text: '[subtab x asks]', wait: false, origin: { kind: 'plugin', name: 'agent-orchestration' } } as never)
   expect(r.context?.join('\n')).toContain('Act as the user')
   expect(r.context?.join('\n')).toContain('mission, goal and context the user gave you in this tab')
+})
+
+const HERDR = { HERDR_ENV: '1', HERDR_PANE_ID: 'w1:p1', HERDR_WORKSPACE_ID: 'w1', HERDR_SESSION: 'grille', CMUX_SURFACE_ID: 'surface:1' }
+
+test('the stay list skips listed skills, with a trailing * as a prefix', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_STAY: 'SNJ-work-on-new-worktree, ponytail*' })
+  for (const text of ['/SNJ-work-on-new-worktree mc-1', '/ponytail:ponytail-review']) {
+    expect((await $.prompt.submit(typed(text))).drop).toBe(undefined)
+  }
+  expect(w.runs.some(r => r[1] === 'new-surface')).toBe(false)
+  expect((await $.prompt.submit(typed('/review 1'))).drop).toContain('surface:9')
+  await w.clock.advance(500)
+})
+
+test('a failing guard drops the prompt with its output and opens nothing', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_GUARD: 'mem-low check' })
+  const result = await $.prompt.submit(typed('/review 1'))
+  expect(result.drop).toContain('RAM free 5%')
+  expect(w.runs.some(r => r.join(' ') === 'mem-low check')).toBe(true)
+  expect(w.runs.some(r => r[1] === 'new-surface')).toBe(false)
+})
+
+test('a passing guard lets the sub-tab open', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_GUARD: 'mem-ok' })
+  expect((await $.prompt.submit(typed('/review 1'))).drop).toContain('surface:9')
+  await w.clock.advance(500)
+})
+
+test('inside herdr a skill opens a herdr tab keyed by the pane, not a cmux surface', async ($, on) => {
+  const w = world(on, HERDR)
+  const result = await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  expect(result.drop).toContain('w1:p2')
+  expect(w.runs.some(r => r[0] === 'cmux' && r[1] === 'new-surface')).toBe(false)
+  const create = (w.runs.find(r => r[0] === 'herdr' && r[2] === 'create') ?? []).join(' ')
+  expect(create).toContain('--label /review')
+  expect(create).toContain('--workspace w1')
+  expect(create).toMatch(/--env AGENT_SUBTAB_ID=[0-9a-f]{8}/)
+  const start = w.runs.find(r => r[0] === 'herdr' && r[2] === 'start') ?? []
+  expect(start).toEqual(['herdr', 'agent', 'start', start[3], '--kind', 'claude', '--pane', 'w1:p2', '--', '--permission-mode', 'default'])
+  expect(w.runs.find(r => r[2] === 'prompt')).toEqual(['herdr', 'agent', 'prompt', 'w1:p2', '/review 12'])
+  expect(w.runs.every((r, i) => r[0] !== 'herdr' || w.sessions[i] === 'grille')).toBe(true)
+  const meta = [...w.files.entries()].find(([k]) => k.endsWith('meta.json'))?.[1] ?? ''
+  expect(JSON.parse(meta)).toEqual(expect.objectContaining({ main: 'grille:w1:p1', child: 'w1:p2', tab: 'w1:t2', session: 'grille' }))
+})
+
+test('a namer gives the herdr agent and tab a codename and reports it as pane metadata', async ($, on) => {
+  const w = world(on, { ...HERDR, AGENT_SUBTAB_NAMER: 'namer codename' })
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  const namer = w.runs.find(r => r[0] === 'namer') ?? []
+  expect(namer.slice(0, 4)).toEqual(['namer', 'codename', 'grille', '--seed'])
+  expect((w.runs.find(r => r[2] === 'create') ?? []).join(' ')).toContain('--label /review · bond')
+  expect((w.runs.find(r => r[2] === 'start') ?? [])[3]).toBe('sub-bond')
+  expect(w.runs.find(r => r[2] === 'report-metadata')).toEqual([
+    'herdr', 'pane', 'report-metadata', 'w1:p2', '--source', 'agent-orchestration', '--display-agent', 'bond', '--token', 'codename=bond',
+  ])
+})
+
+test('inside herdr a finished run closes its herdr tab and still notifies through cmux', async ($, on) => {
+  const w = world(on, HERDR)
+  w.setTree('"pane_id":"w1:p2"')
+  w.files.set(`${STATE}/runs/abc/meta.json`, JSON.stringify({ main: 'grille:w1:p1', skill: '/review', child: 'w1:p2', tab: 'w1:t2', session: 'grille', started: 0 }))
+  w.files.set(`${STATE}/runs/abc/done`, '')
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.runs.some(r => r.join(' ') === 'herdr tab close w1:t2')).toBe(true)
+  expect(w.runs.some(r => r[0] === 'cmux' && r[1] === 'notify')).toBe(true)
+  expect(w.runs.some(r => r[1] === 'close-surface')).toBe(false)
+})
+
+test('closing a live sub-tab with herdr is refused', async ($, on) => {
+  const w = world(on, HERDR)
+  w.setTree('"pane_id":"w1:p2"')
+  w.files.set(`${STATE}/runs/abc/meta.json`, JSON.stringify({ main: 'grille:w1:p1', skill: '/review', child: 'w1:p2', tab: 'w1:t2', session: 'grille', started: 0 }))
+  const call = await $.tool.call({ tool: 'Bash', command: 'herdr tab close w1:t2' } as never)
+  expect(JSON.stringify(call)).toContain('still running')
+})
+
+test('a herdr reply carries the [subtab] tag', async ($, on) => {
+  const w = world(on, HERDR)
+  await $.tool.call({ tool: 'mcp__agent-orchestration__subtab_reply', surface: 'w1:p2', text: 'yes,\nmain' } as never)
+  expect(w.runs.find(r => r[2] === 'prompt')).toEqual(['herdr', 'agent', 'prompt', 'w1:p2', '[subtab w1:p2 reply] yes, main'])
+})
+
+test('a cmux reply and a finish request are tagged too', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  const call = $.tool.call({ tool: 'mcp__agent-orchestration__subtab_reply', surface: 'surface:9', finish: true } as never)
+  await w.clock.advance(500)
+  await call
+  const sent = w.runs.find(r => r[1] === 'send') ?? []
+  expect(sent.at(-1)).toMatch(/^\[subtab surface:9 reply\] Finished:/)
+})
+
+test('a show command displays the started herdr agent under the tab title', async ($, on) => {
+  const w = world(on, { ...HERDR, AGENT_SUBTAB_NAMER: 'namer codename', AGENT_SUBTAB_SHOW: 'shower attach' })
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  expect(w.runs.find(r => r[0] === 'shower')).toEqual(['shower', 'attach', 'grille', 'sub-bond', '--title', '/review · bond'])
+})
+
+test('without a show command nothing else is run after the herdr agent starts', async ($, on) => {
+  const w = world(on, HERDR)
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  expect(w.runs.some(r => r[0] === 'shower')).toBe(false)
+})
+
+test('a herdr run belongs to its own session even when another session has the same pane id', async ($, on) => {
+  const w = world(on, { ...HERDR, HERDR_SESSION: 'apig' })
+  on('tool.call', () => ({ result: 'ran' }) as never)
+  w.setTree('')
+  w.files.set(`${STATE}/runs/abc/meta.json`, JSON.stringify({ main: 'grille:w1:p1', skill: '/review', child: 'w1:p2', tab: 'w1:t2', session: 'grille', started: 0 }))
+  w.files.set(`${STATE}/runs/abc/done`, '')
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.files.has(`${STATE}/runs/abc/meta.json`)).toBe(true)
+  expect(w.runs.some(r => r[1] === 'tab' && r[2] === 'close')).toBe(false)
+  expect(JSON.stringify(await $.tool.call({ tool: 'Bash', command: 'herdr tab close w1:t2' } as never))).not.toContain('still running')
+})
+
+test('a failing herdr pane list keeps every run alive', async ($, on) => {
+  const w = world(on, HERDR, ['herdr pane list'])
+  w.files.set(`${STATE}/runs/abc/meta.json`, JSON.stringify({ main: 'grille:w1:p1', skill: '/review', child: 'w1:p2', tab: 'w1:t2', session: 'grille', started: 0 }))
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.files.has(`${STATE}/runs/abc/meta.json`)).toBe(true)
+  expect(w.runs.some(r => r[1] === 'tab' && r[2] === 'close')).toBe(false)
+})
+
+test('a herdr agent that fails to start closes its tab, drops the run and notifies', async ($, on) => {
+  const w = world(on, HERDR, ['herdr agent start'])
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  expect(w.runs.some(r => r.join(' ') === 'herdr tab close w1:t2')).toBe(true)
+  expect(w.runs.some(r => r[0] === 'cmux' && r[1] === 'notify' && r[3] === '/review not started')).toBe(true)
+  expect(w.runs.some(r => r[2] === 'prompt')).toBe(false)
+  expect([...w.files.keys()].some(k => k.endsWith('meta.json'))).toBe(false)
 })

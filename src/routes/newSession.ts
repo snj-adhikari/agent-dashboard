@@ -1,10 +1,12 @@
 import type { IncomingMessage, ServerResponse } from 'http'
-import { createWorktreeSession } from '../services/newSession'
+import { createHerdrTicketSession, createWorktreeSession } from '../services/newSession'
 import { readJsonBody, sendJson } from '../http'
 
 export async function handleNewSession(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const { repoPath, branch } = await readJsonBody(req)
+  const { repoPath, branch, herdr } = await readJsonBody(req)
   try {
+    const viaHerdr = herdr === true ? await createHerdrTicketSession(String(repoPath), String(branch)) : null
+    if (viaHerdr) return sendJson(res, { ok: true, workspaceRef: viaHerdr.ref, mode: viaHerdr.mode })
     const workspaceRef = createWorktreeSession(String(repoPath), String(branch))
     sendJson(res, { ok: true, workspaceRef })
   } catch (e) {

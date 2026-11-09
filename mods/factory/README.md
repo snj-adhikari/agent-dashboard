@@ -18,9 +18,9 @@ Plugin id: `factory`.
 
 | Command | What it does |
 | --- | --- |
-| `/factory <goal or ticket key>` | Starts a run: prints the agent map and sends the lead brief. |
+| `/factory [--brief <path>] [--no-herdr] <goal or ticket key>` | Starts a run: prints the agent map and sends the lead brief. Flags go anywhere; with `--brief` the goal may be left out and is taken from the brief's first heading or line. |
 | `/factory-show` | Agent map, current round and live `factory:*` agents. |
-| `/factory-report <session name \| off>` | Sends ASK, DONE and stop updates to another (lead) session. No argument shows the current target. |
+| `/factory-report <session name \| off>` | Sends ASK, DONE and stop updates to another (lead) session, which answers the lead's questions (see below). No argument shows the current target. |
 | `/factory-stop` | Ends the run. |
 
 ## Agents
@@ -91,6 +91,34 @@ sequenceDiagram
 - Each reply from the lead ends with one control line: `CONTINUE`, `WAIT`, `ASK` or `DONE`. The hooks below act on it.
 - The lead runs on Opus and keeps every decision. Agents pick their model per task: Haiku for small lookups or mechanical changes, Sonnet for normal work, Opus for planning and judgement.
 
+### Starting from a brief (`--brief`)
+
+`/factory --brief ai/factory/brief.md` makes the lead read the brief before anything else.
+
+- The grill step lists only what the brief leaves open (scope, acceptance criteria, repo, branch, environments, done, out of scope), one question at a time.
+- A complete brief means no questions: the lead restates scope and acceptance criteria and goes straight to research, plan, dev and QA.
+- A relative path is read from the session's folder. An unreadable brief stops the command before anything starts.
+
+### Who answers the lead's questions
+
+- With a report target set (`/factory-report <session>`), `ASK` turns go to that session, tagged `[relay factory] factory "<goal>": ASK ...` so they never count as your approval there. It answers from the brief and its own context, and asks you only when unsure.
+- Always yours, never answered by the report target: scope changes, the commit gate, push or PR, and anything posted externally. The lead marks these `HUMAN ONLY:` and the report target passes them on verbatim.
+- Prompts that start with `[relay ...]`, `[monitor]` or `[subtab ...]` never count as your approval for the git guard.
+
+### Developers in herdr tabs (default inside herdr)
+
+When the session runs inside herdr (`HERDR_ENV=1` with `HERDR_SESSION` set) developers open as visible herdr tabs instead of subagents. `--no-herdr` opts out; outside herdr the Agent-tool developers are used as before.
+
+- The lead first checks `herdr session list` shows the session as running, else falls back to subagents.
+- Per dev task: `snj-mem-guard.sh check` (queue when free RAM is below 12%), `git worktree add` branched from the ticket branch (`<ticket-branch>-dev<n>`, worktree `<ticket worktree>-dev<n>`), the task brief written to `ai/factory/task.md` in that worktree, `herdr tab create --env FACTORY_DEV=1` titled `<KEY> · <codename> · dev <n> · <task>`, `herdr agent start <key-lower>-<codename> --kind claude` with no prompt, then the fixed prompt `[relay factory-lead] Read ai/factory/task.md and do it.`
+- The lead never puts brief text in a shell command: follow-ups are appended to `task.md` and announced with a fixed prompt.
+- `FACTORY_DEV=1` makes this mod deny every `git commit` and `git push` in a developer session.
+- Each developer tab gets its own codename and colour from `snj-term codename <session> --seed <KEY>-dev<n>`, shown in the herdr sidebar via `herdr pane report-metadata --display-agent <codename> --token codename=<codename>`. Without `snj-term` the agent is named `<key-lower>-dev<n>`.
+- With `snj-term`, each developer agent also shows as a cmux tab (`snj-term attach <session> <agent> --title "<codename> · <KEY> · dev <n> · <task>"`, via `herdr agent attach`). It ends by itself when the herdr tab closes.
+- At most 4 developer tabs per ticket at once; the rest queue.
+- The lead tracks tabs with `herdr agent wait --until idle --until blocked` and `herdr agent read`. Every prompt it types into another session starts with `[relay factory-lead]`.
+- QA stays a `factory:qa` subagent. After QA passes the lead copies each developer's working-tree changes into the ticket worktree and closes the tab. Developer worktrees stay for you to clear.
+
 ### Driving factory from agent-orchestration
 
 With the `agent-orchestration` mod, an agent can drive factory for you. Give the main tab your context and mission (the goal, constraints, what done means), then type `/factory <goal>`. Factory opens in a sub-tab; the main tab's agent answers the lead's grilling as you would, from that mission.
@@ -122,9 +150,9 @@ Registered in `hooks/register.ts`.
 
 | Event | What it does |
 | --- | --- |
-| `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. |
-| `prompt.submit` | Records your latest message for the git gate. |
-| `tool.call` Bash | During a run, denies `git commit` and `git push` unless your latest message says commit or push. |
+| `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. With a report target, `ASK` is tagged human-only when the lead wrote `HUMAN ONLY:`. |
+| `prompt.submit` | Records your latest message for the git gate; relayed prompts (`[relay ...]`, `[monitor]`, `[subtab ...]`) clear it instead. |
+| `tool.call` Bash | During a run, denies `git commit` and `git push` unless your latest message says commit or push without a negation ("don't", "do not", "never", "no", "without", "not yet" a few words before). In a developer session (`FACTORY_DEV=1`) always denies them. |
 
 ## Skills
 
@@ -138,6 +166,8 @@ None. The round cap is fixed at 30 (`MAX_ROUNDS` in `hooks/register.ts`).
 
 ```
 /factory add dark mode to the settings page
+/factory --brief ai/factory/brief.md
+/factory --no-herdr --brief ai/factory/brief.md MC-1234 dark mode
 ```
 
 - Answer the lead's questions until it restates scope and criteria, then it runs on its own until the commit gate.

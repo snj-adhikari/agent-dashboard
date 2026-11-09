@@ -2,12 +2,18 @@ import path from 'path'
 import { activeCwds as activeCwdsOf, isActiveWorktree, sanitize } from '../utils'
 import type { MonitorState } from '../types'
 
+/** The graph renders with securityLevel loose (click callbacks), so label text must not carry markup. */
+export function mermaidText(s: string): string {
+  return s.replace(/["\\]/g, '').replace(/&/g, '#amp;').replace(/</g, '#lt;').replace(/>/g, '#gt;').replace(/[\r\n]+/g, ' ')
+}
+
 export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> = new Set()): string {
   const nodes: string[] = []
   const edges: string[] = []
   const clicks: string[] = []
 
   const activeCwds = activeCwdsOf(state)
+  const renderedWorktrees = new Set<string>()
 
   function repoScore(repo: MonitorState['repos'][number]): number {
     if (repo.worktrees.some((wt) => isActiveWorktree(wt.path, activeCwds))) return 2
@@ -31,6 +37,7 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
 
     for (const wt of activeWts) {
       const wtId = `wt_${sanitize(wt.path)}`
+      renderedWorktrees.add(wtId)
       nodes.push(`${wtId}["${wtLabel(wt)}"]:::worktree`)
       edges.push(`${repoId} --> ${wtId}`)
     }
@@ -39,6 +46,7 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
       if (expandedRepoIds.has(repoId)) {
         for (const wt of inactiveWts) {
           const wtId = `wt_${sanitize(wt.path)}`
+          renderedWorktrees.add(wtId)
           nodes.push(`${wtId}["${wtLabel(wt)}"]:::worktreeDim`)
           edges.push(`${repoId} -.-> ${wtId}`)
         }
@@ -67,14 +75,31 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
     edges.push(`${wtId} -.-> ${agentId}`)
   }
 
+  const styles: string[] = []
+  const bySession = new Map<string, MonitorState['herdr']>()
+  for (const a of state.herdr) bySession.set(a.session, [...(bySession.get(a.session) || []), a])
+  for (const [session, agents] of bySession) {
+    nodes.push(`subgraph herdr_${sanitize(session)}["herdr ${mermaidText(agents[0].display || session)}"]`)
+    for (const a of agents) {
+      const id = `herdr_${sanitize(session)}_${sanitize(a.paneId)}`
+      nodes.push(`${id}(["${mermaidText([a.codename, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
+      if (a.colour && /^#[0-9a-fA-F]{6}$/.test(a.colour)) styles.push(`style ${id} stroke:${a.colour},stroke-width:3px`)
+      const wtId = a.worktree && `wt_${sanitize(a.worktree)}`
+      if (wtId && renderedWorktrees.has(wtId)) edges.push(`${wtId} -.-> ${id}`)
+    }
+    nodes.push('end')
+  }
+
   return `graph LR
 classDef repo fill:#334155,color:#f1f5f9,stroke:#64748b,cursor:pointer
 classDef worktree fill:#1e40af,color:#dbeafe,stroke:#3b82f6
 classDef worktreeDim fill:#1e293b,color:#94a3b8,stroke:#334155
 classDef tab fill:#166534,color:#dcfce7,stroke:#22c55e
 classDef agent fill:#78350f,color:#fef3c7,stroke:#f59e0b
+classDef herdr fill:#3b0764,color:#f3e8ff,stroke:#a855f7
 classDef more fill:#0f172a,color:#64748b,stroke:#334155,stroke-dasharray: 3 3,cursor:pointer
 ${nodes.join('\n')}
 ${edges.join('\n')}
-${clicks.join('\n')}`
+${clicks.join('\n')}
+${styles.join('\n')}`
 }

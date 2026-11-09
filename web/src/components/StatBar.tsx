@@ -1,8 +1,8 @@
 import type { MonitorState } from '../types'
 
-function Stat({ value, label, dot }: { value: number; label: string; dot?: string }) {
+function Stat({ value, label, dot, title }: { value: number; label: string; dot?: string; title?: string }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-2.5">
+    <div title={title} className="flex items-center gap-2.5 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-2.5">
       {dot && <span className={`inline-block w-2 h-2 rounded-full ${dot}`} />}
       <div className="leading-tight">
         <div className="text-xl font-semibold text-slate-100">{value}</div>
@@ -19,6 +19,12 @@ export function StatBar({ state }: { state: MonitorState }) {
       <Stat value={state.repos.length} label="repos" dot="bg-slate-500" />
       <Stat value={worktreeCount} label="worktrees" dot="bg-brand" />
       <Stat value={state.tabs.length} label="terminal tabs" dot="bg-ok" />
+      <Stat
+        value={state.herdr.length}
+        label="herdr agents"
+        dot="bg-purple-500"
+        title={state.herdr.map((a) => [a.codename || a.name || a.paneId, a.ticket, a.status].filter(Boolean).join(' · ')).join('\n')}
+      />
       <Stat value={state.agents.length} label="bare agents" dot="bg-warn" />
     </div>
   )

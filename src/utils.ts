@@ -37,8 +37,9 @@ export function isUnder(cwd: string, root: string): boolean {
   return cwd === root || cwd.startsWith(`${root}/`)
 }
 
-export function activeCwds(state: Pick<MonitorState, 'tabs' | 'agents'>): Set<string> {
-  return new Set([...state.tabs.map((t) => t.cwd), ...state.agents.map((a) => a.cwd)].filter(Boolean).map(normPath))
+export function activeCwds(state: Pick<MonitorState, 'tabs' | 'agents'> & { herdr?: { cwd: string }[] }): Set<string> {
+  const cwds = [...state.tabs, ...state.agents, ...(state.herdr || [])].map((s) => s.cwd)
+  return new Set(cwds.filter(Boolean).map(normPath))
 }
 
 export function isActiveWorktree(wtPath: string, active: Set<string>): boolean {

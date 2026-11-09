@@ -42,7 +42,11 @@ export const api = {
   send: (ref: string, text: string, surface?: string) => postJson('/api/send', { ref, text, surface }),
   screen: (ref: string, surface?: string): Promise<{ ok: boolean; screen?: string; error?: string }> =>
     fetch('/api/screen?ref=' + encodeURIComponent(ref) + (surface ? '&surface=' + encodeURIComponent(surface) : '')).then((r) => r.json()),
-  newSession: (repoPath: string, branch: string) => postJson('/api/new-session', { repoPath, branch }),
+  newSession: (repoPath: string, branch: string, herdr = false) => postJson('/api/new-session', { repoPath, branch, herdr }),
+  herdrRead: (session: string, target: string): Promise<{ ok: boolean; screen?: string; error?: string }> =>
+    fetch(`/api/herdr/read?session=${encodeURIComponent(session)}&target=${encodeURIComponent(target)}`).then((r) => r.json()),
+  herdrFocus: (session: string, target: string) => postJson('/api/herdr/focus', { session, target }),
+  herdrPrompt: (session: string, target: string, text: string) => postJson<ApiResult & { code?: string }>('/api/herdr/prompt', { session, target, text }),
   history: (range: 'day' | 'week' | 'month'): Promise<HistoryResponse> =>
     fetch('/api/history?range=' + range).then((r) => r.json()),
   learning: (gran: LearningGran): Promise<LearningResponse> => fetch('/api/learning?gran=' + gran).then((r) => r.json()),

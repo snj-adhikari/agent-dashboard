@@ -6,6 +6,12 @@ import { activeCwds, isActiveWorktree, isUnder } from './utils'
 import { downsample, summarise, type Snapshot } from './services/history'
 import { tmuxKey, tmuxName } from './services/terminal'
 import { keepReason, recentlyModified, type WorktreeFacts } from './services/repos'
+import { herdrOwnedPids } from './services/processes'
+import { alertMessage, codenameOf, focusHerdrAgent, herdrEnv, ticketRef, colourOf, parseAgentList, parseHerdrError, parseHerdrRef, parseSessionList, statusAlerts, ticketOf, withWorktrees } from './services/herdr'
+import { isPermanentTitle, sidePane } from './services/cmuxControl'
+import { relaySeed } from './services/hooks/execute'
+import { buildMermaid, mermaidText } from './services/mermaid'
+import type { HerdrAgent } from './types'
 import './learningCheck'
 
 assert.strictEqual(tmuxName('[hook:jira] Fix: a/b.c'), 'ad-hook-jira-Fix-a-b-c')
@@ -53,6 +59,71 @@ const summary = summarise([snap(1000, ['a']), snap(2000, ['b'])])
 assert.deepStrictEqual(summary.timeline.map((p) => [p.tabs, p.agents, p.worktrees]), [[1, 0, 4], [1, 0, 4]], 'timeline carries counts only')
 assert.strictEqual(summary.sessions.length, 2)
 assert.strictEqual(summary.sessions[0].ref, 'b', 'most recently seen session first')
+const agentJson = JSON.stringify({ result: { type: 'agent_list', agents: [
+  { agent: 'claude', agent_status: 'blocked', cwd: '/r', foreground_cwd: '/r/wt', name: 'mc-183-bond', pane_id: 'w1:p2', tab_id: 'w1:t2', workspace_id: 'w1', terminal_title: 'x', terminal_title_stripped: 'Fixing\nthe cast' },
+  { agent: 'claude', agent_status: 'idle', cwd: '/r', pane_id: 'w1:p1', tab_id: 'w1:t1', workspace_id: 'w1', display_agent: 'turing', tokens: { codename: 'curie' } },
+  { agent_status: 'idle' }
+] } })
+const parsed = parseAgentList(agentJson)
+assert.strictEqual(parsed.length, 2, 'agents without a pane are dropped')
+assert.deepStrictEqual([parsed[0].paneId, parsed[0].status, parsed[0].cwd, parsed[0].title, parsed[0].codename], ['w1:p2', 'blocked', '/r/wt', 'Fixing\nthe cast', 'bond'])
+assert.strictEqual(parsed[1].codename, 'curie', 'reported codename token wins over the name')
+assert.deepStrictEqual(parseAgentList('{"id":"cli:agent:list","error":{"code":"server_not_running","message":"no herdr server"}}'), [], 'server down lists nothing')
+assert.deepStrictEqual(parseAgentList('not json'), [])
+assert.strictEqual(parseHerdrError('{"error":{"code":"agent_blocked","message":"blocked"},"id":"x"}')?.code, 'agent_blocked')
+assert.strictEqual(codenameOf('', 'sub-nova'), 'nova')
+assert.strictEqual(codenameOf('', 'reviewer'), undefined)
+assert.strictEqual(colourOf('bond', { b: { colour: '#ef4444' } }), '#ef4444')
+assert.strictEqual(colourOf('zed', { b: { colour: '#ef4444' } }), '#64748b', 'unknown letter falls back to grey')
+assert.strictEqual(colourOf('bond', { b: { colour: 'red;x' } }), '#64748b', 'only hex colours pass')
+assert.deepStrictEqual(
+  parseSessionList('name                 status   directory   socket\ndefault              stopped  /a  /a/s\ngrille               running  /b  /b/s\nBad Name             running  /c  /c/s\n'),
+  ['grille']
+)
+assert.strictEqual(ticketOf(undefined, 'MC-183 · bond · fix'), 'MC-183')
+assert.strictEqual(ticketOf('no ticket', 'FIX/MC-1032-I'), 'MC-1032')
+assert.strictEqual(ticketOf('mc-1 lower'), undefined)
+const herdrAgent = (over: Partial<HerdrAgent> = {}): HerdrAgent => ({
+  session: 'grille', paneId: 'w1:p2', workspaceId: 'w1', tabId: 'w1:t2', agent: 'claude', status: 'working', title: 't', cwd: '/nope', ...over
+})
+const joined = withWorktrees([herdrAgent({ cwd: os.tmpdir(), tabTitle: 'plain' })], [
+  { path: '/r', name: 'r', worktrees: [{ path: os.tmpdir(), branch: 'fix/mc-77', changedFiles: 3 }] }
+])
+assert.deepStrictEqual([joined[0].changedFiles, joined[0].ticket], [3, 'MC-77'], 'worktree and ticket come from the branch')
+assert.deepStrictEqual(
+  [...herdrOwnedPids('  101 /bin/claude PATH=/x HERDR_PANE_ID=w1:p1 TERM=x\n  102 /bin/claude PATH=/x\n  103 claude HERDR_PANE_ID=\n')],
+  ['101'],
+  'only pids with a pane id in env are herdr-owned'
+)
+const prev = new Map([['grille/w1:p2', 'working'], ['grille/w1:p3', 'working']])
+const { alerts, next } = statusAlerts(prev, [
+  herdrAgent({ status: 'blocked', ticket: 'MC-1', codename: 'bond', title: 'a\nlast line' }),
+  herdrAgent({ paneId: 'w1:p3', status: 'done', name: 'main-grille' }),
+  herdrAgent({ paneId: 'w1:p4', status: 'done' })
+])
+assert.deepStrictEqual(alerts.map((a) => a.paneId), ['w1:p2'], 'controller and first sightings never alert')
+assert.strictEqual(next.get('grille/w1:p4'), 'done')
+assert.strictEqual(alertMessage(alerts[0]), '[monitor] MC-1 bond: blocked — last line')
+assert.deepStrictEqual(parseHerdrRef('herdr:grille:w1:p2'), { session: 'grille', paneId: 'w1:p2' })
+assert.strictEqual(parseHerdrRef('workspace:3'), null)
+assert.strictEqual(ticketRef({ mode: 'herdr', session: 'grille', items: [{ pane: 'w2:p1' }] }), 'herdr:grille:w2:p1')
+assert.strictEqual(ticketRef({ mode: 'cmux', items: [{ workspace: 'workspace:9' }] }), 'workspace:9')
+assert.ok(isPermanentTitle('Drive - PR Review') && isPermanentTitle('Drive - Generic '))
+assert.ok(!isPermanentTitle('Ticket - MC-1'))
+const repoWithWt = { path: '/r', name: 'r', worktrees: [{ path: '/r', isMain: true }, { path: '/r/wt', branch: 'fix/mc-1' }] }
+const graph = buildMermaid({ repos: [repoWithWt], tabs: [], agents: [], herdr: [herdrAgent({ cwd: '/r/wt', codename: 'bond', colour: '#ef4444', worktree: '/r/wt' })] })
+assert.ok(graph.includes('subgraph herdr_grille') && graph.includes('herdr_grille_w1_p2') && graph.includes('style herdr_grille_w1_p2 stroke:#ef4444'))
+assert.ok(graph.includes('wt__r_wt -.-> herdr_grille_w1_p2'), 'linked to its rendered worktree')
+const orphan = buildMermaid({ repos: [], tabs: [], agents: [], herdr: [herdrAgent({ worktree: '/gone', colour: 'red;x' })] })
+assert.ok(!orphan.includes('wt__gone') && !orphan.includes('style herdr'), 'no edge to an unrendered worktree, no unsafe style')
+assert.strictEqual(mermaidText('a<b>&"c"\nd'), 'a#lt;b#gt;#amp;c d')
+assert.strictEqual(relaySeed('/factory --brief x'), '/factory --brief x', 'slash-command seeds stay untagged')
+assert.strictEqual(relaySeed('Fix it'), '[relay agent-monitor] Fix it')
+const env = herdrEnv({ PATH: '/bin', HERDR_PANE_ID: 'w1:p1', HERDR_SOCKET_PATH: '/s', HERDR_ENV: '1', HERDR_SESSION: 'other' }, 'grille')
+assert.deepStrictEqual(env, { PATH: '/bin', HERDR_SESSION: 'grille' }, 'inherited pane vars are stripped')
+assert.strictEqual(sidePane([{ ref: 'pane:1', pixel_frame: { x: 0 } }]), undefined, 'one pane means split first')
+assert.strictEqual(sidePane([{ ref: 'pane:1', pixel_frame: { x: 0 } }, { ref: 'pane:2', pixel_frame: { x: 500 } }, { ref: 'pane:3', pixel_frame: { x: 900 } }]), 'pane:3')
+void assert.rejects(focusHerdrAgent('grille', 'w1:p1'), /invalid/, 'focus needs an agent name, not a pane id')
 console.log('check: ok')
 
 void (async () => {

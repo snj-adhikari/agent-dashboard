@@ -40,8 +40,43 @@ export function workspaceSurfaces(ref: string): CmuxSurface[] {
   })
 }
 
+export const PERMANENT_WORKSPACES = ['Drive - PR Review', 'Drive - Generic']
+
+export const isPermanentTitle = (title: string): boolean => PERMANENT_WORKSPACES.includes(title.trim())
+
+interface CmuxWorkspace {
+  ref: string
+  id: string
+  title: string
+}
+
+export function listWorkspaces(): CmuxWorkspace[] {
+  const { workspaces } = JSON.parse(cmux(['workspace', 'list', '--json'])) as { workspaces: Record<string, unknown>[] }
+  return workspaces.map((w) => ({ ref: String(w.ref || ''), id: String(w.id || ''), title: String(w.custom_title || w.title || '') }))
+}
+
 export function closeWorkspace(ref: string): void {
+  const ws = listWorkspaces().find((w) => w.ref === ref || w.id === ref)
+  if (ws && isPermanentTitle(ws.title)) throw new Error(`"${ws.title}" is a permanent workspace and is never closed`)
   cmux(['close-workspace', '--workspace', ref])
+}
+
+/** The rightmost pane other than the first, where repeat runs stack up as tabs. */
+export function sidePane(panes: { ref: string; pixel_frame?: { x?: number } }[]): string | undefined {
+  return panes
+    .slice(1)
+    .sort((a, b) => (b.pixel_frame?.x ?? 0) - (a.pixel_frame?.x ?? 0))[0]?.ref
+}
+
+/** Runs a command as a tab in the workspace's side pane (split once), creating the workspace when missing. */
+export function openInTitledWorkspace(title: string, cwd: string, command: string): string {
+  const ws = listWorkspaces().find((w) => w.title === title)
+  if (!ws) return openCmuxTab(title, cwd, command)
+  const shellCommand = `cd ${shellQuote(cwd)} && ${command}`
+  const pane = sidePane(JSON.parse(cmux(['--json', 'list-panes', '--workspace', ws.ref])).panes || [])
+  if (pane) cmux(['new-surface', '--workspace', ws.ref, '--pane', pane, '--working-directory', cwd, '--command', shellCommand])
+  else cmux(['new-split', 'right', '--workspace', ws.ref, '--command', shellCommand, '--focus', 'false'])
+  return ws.ref
 }
 
 /** Always names the surface: without --surface, cmux closes whichever one is focused. */

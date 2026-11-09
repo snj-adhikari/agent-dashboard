@@ -38,10 +38,12 @@ Repo folders come from the Setup page (`repoDirs` in the MongoDB `settings` coll
 - `POST /api/send {ref, text, surface?}`
 - `GET /api/screen?ref=&surface=`
 - `POST /api/new-session {repoPath, branch}`
+- `GET /api/herdr/read?session=&target=` and `POST /api/herdr/prompt {session, target, text}`: read or prompt a herdr agent (`herdr agent read --source recent` / `herdr agent prompt`); prompt returns 409 when the agent is blocked
 - `GET|POST /api/settings`
 
 ## Notes
 
 - No token or cost data per session exists; never fabricate it.
 - Terminal backend: `auto`, `cmux`, `tmux` or `terminal` (Setup or `TERMINAL_BACKEND`). Without cmux or tmux, tabs are not listed.
+- herdr is a second source beside the terminal backend: agents from every running herdr session (`herdr session list`, then `herdr agent list` per session; it prints JSON, no `--json` flag) are listed with status, worktree and files changed. No herdr or no running session: nothing changes.
 - A LaunchAgent service sees 0 cmux tabs unless cmux socket access is enabled in Setup.

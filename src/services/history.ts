@@ -26,6 +26,10 @@ export interface Snapshot {
   agents: { pid: string; cmd: string; cwd: string; sessionId?: string; branch?: string }[]
 }
 
+export function clientRecentlySeen(): boolean {
+  return Date.now() - lastClientAt <= CLIENT_IDLE_MS
+}
+
 export function startHistoryLogging(): void {
   const log = async () => {
     if (Date.now() - lastClientAt > CLIENT_IDLE_MS) return

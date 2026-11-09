@@ -3,6 +3,9 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { terminalTabs } from '../terminal'
+import { herdrAgents, herdrRef } from '../herdr'
+import { herdrHookRefs } from './state'
+import { liveSessions } from './sessions'
 import { HOOK_TAB_PREFIX } from './types'
 
 const CONTEXT_LIMIT_PCT = 50
@@ -101,14 +104,26 @@ function worktreeRoots(repoPath: string): string[] {
     .map((l) => l.slice(9).toLowerCase())
 }
 
-/** Live, non-hook Claude tabs whose cwd is inside the repo or one of its worktrees. */
+/** herdr agents count with unknown usage while blocked, so they defer rather than receive a prompt. */
+function herdrRepoSessions(inRepo: (cwd: string) => boolean): SessionUsage[] {
+  const hookRefs = herdrHookRefs()
+  const live = liveSessions().reverse()
+  return herdrAgents()
+    .filter((a) => a.agent === 'claude' && a.name !== `main-${a.session}` && inRepo(a.cwd) && !hookRefs.includes(herdrRef(a.session, a.paneId)))
+    .map((a) => {
+      const sessionId = live.find((s) => s.cwd === a.cwd)?.sessionId
+      const pct = a.status === 'blocked' || !sessionId ? null : contextPct(sessionId, a.cwd)
+      return { ref: herdrRef(a.session, a.paneId), pct }
+    })
+}
+
+/** Live, non-hook Claude tabs and herdr agents whose cwd is inside the repo or one of its worktrees. */
 export function repoSessions(repoPath: string): SessionUsage[] {
   const roots = worktreeRoots(repoPath)
-  return terminalTabs()
-    .filter((t) => {
-      // macOS paths are case-insensitive and a repo directory can be reached under either casing
-      const cwd = t.cwd.toLowerCase()
-      return t.sessionId && !t.title.startsWith(HOOK_TAB_PREFIX) && roots.some((r) => cwd === r || cwd.startsWith(`${r}/`))
-    })
+  // macOS paths are case-insensitive and a repo directory can be reached under either casing
+  const inRepo = (dir: string): boolean => roots.some((r) => dir.toLowerCase() === r || dir.toLowerCase().startsWith(`${r}/`))
+  const tabs = terminalTabs()
+    .filter((t) => t.sessionId && !t.title.startsWith(HOOK_TAB_PREFIX) && inRepo(t.cwd))
     .map((t) => ({ ref: t.ref, pct: contextPct(t.sessionId as string, t.cwd) }))
+  return [...tabs, ...herdrRepoSessions(inRepo)]
 }

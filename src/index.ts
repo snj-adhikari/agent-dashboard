@@ -11,6 +11,7 @@ import { handleInactiveWorktrees } from './routes/inactiveWorktrees'
 import { handleSend } from './routes/send'
 import { handleScreen } from './routes/screen'
 import { handleNewSession } from './routes/newSession'
+import { handleHerdrFocus, handleHerdrPrompt, handleHerdrRead } from './routes/herdr'
 import { handleHistory } from './routes/history'
 import { handleLearning, handleLearningRefresh } from './routes/learning'
 import { handleVaultTree, handleVaultGraph, handleVaultFile } from './routes/vault'
@@ -24,6 +25,7 @@ import { isTrustedRequest } from './http'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
 import { startLearningSnapshots } from './services/learning'
+import { startHerdrSync } from './services/state'
 import { loadSettings } from './services/settings'
 import { MONGO_URL } from './services/db'
 import { missingSteps } from './routes/setup'
@@ -77,6 +79,9 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/send' && req.method === 'POST') return handleSend(req, res)
   if (url.pathname === '/api/new-session' && req.method === 'POST') return handleNewSession(req, res)
   if (url.pathname === '/api/screen') return handleScreen(res, url.searchParams.get('ref') || '', url.searchParams.get('surface'))
+  if (url.pathname === '/api/herdr/read') return handleHerdrRead(res, url.searchParams)
+  if (url.pathname === '/api/herdr/focus' && req.method === 'POST') return handleHerdrFocus(req, res)
+  if (url.pathname === '/api/herdr/prompt' && req.method === 'POST') return handleHerdrPrompt(req, res)
   if (url.pathname === '/api/history') return handleHistory(res, url.searchParams.get('range') || 'day')
   if (url.pathname === '/api/learning') return handleLearning(res, url.searchParams.get('gran') || 'day')
   if (url.pathname === '/api/learning/refresh' && req.method === 'POST') return handleLearningRefresh(res)
@@ -143,5 +148,6 @@ server.listen(PORT, '127.0.0.1', async () => {
   startHistoryLogging()
   await initSettings()
   startLearningSnapshots()
+  startHerdrSync()
   if (!process.env.DISABLE_HOOKS) startHookPolling()
 })

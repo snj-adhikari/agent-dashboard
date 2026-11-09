@@ -25,10 +25,11 @@ interface HookState {
   autoDisabled: Record<string, AutoDisable>
   idleCount: Record<string, number>
   intervals: Record<string, number>
+  herdrRefs: string[]
 }
 
 function empty(): HookState {
-  return { seen: {}, queue: [], halted: [], overrides: [], disabled: [], autoDisabled: {}, idleCount: {}, intervals: {} }
+  return { seen: {}, queue: [], halted: [], overrides: [], disabled: [], autoDisabled: {}, idleCount: {}, intervals: {}, herdrRefs: [] }
 }
 
 function read(): HookState {
@@ -115,6 +116,14 @@ export function setHalted(refs: string[]): void {
   write({ ...read(), halted: refs })
 }
 
+/** herdr panes opened by a hook, as `herdr:<session>:<pane>` refs. */
+export function herdrHookRefs(): string[] {
+  return read().herdrRefs
+}
+
+export function setHerdrHookRefs(refs: string[]): void {
+  write({ ...read(), herdrRefs: refs.slice(-50) })
+}
 
 /** Tabs the user explicitly ran from the dashboard; exempt from the usage auto-halt. */
 export function overrideRefs(): string[] {

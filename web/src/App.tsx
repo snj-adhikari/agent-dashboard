@@ -6,6 +6,7 @@ import { StatBar } from './components/StatBar'
 import { MermaidGraph } from './components/MermaidGraph'
 import { TabList } from './components/TabList'
 import { AgentList } from './components/AgentList'
+import { HerdrList } from './components/HerdrList'
 import { WorktreeList } from './components/WorktreeList'
 import { NewSessionModal } from './components/NewSessionModal'
 import { RouteProgress } from './components/RouteProgress'
@@ -21,6 +22,8 @@ const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({
 const LearningPage = lazy(() => import('./components/LearningPage').then((m) => ({ default: m.LearningPage })))
 const SetupPage = lazy(() => import('./components/SetupPage').then((m) => ({ default: m.SetupPage })))
 const VaultPage = lazy(() => import('./components/VaultPage').then((m) => ({ default: m.VaultPage })))
+
+const scopeOf = (repoName: string): string => repoName.replace(/^drive-/, '').toLowerCase()
 
 type View = 'home' | 'history' | 'learning' | 'vault' | 'hooks' | 'plugin' | 'setup'
 
@@ -190,6 +193,10 @@ export default function App() {
                   {data && <TabList tabs={data.state.tabs} />}
                 </div>
                 <div>
+                  <SectionHeader title="herdr agents" count={data?.state.herdr.length} />
+                  {data && <HerdrList agents={data.state.herdr} />}
+                </div>
+                <div>
                   <SectionHeader title="Bare agent processes" count={data?.state.agents.length} />
                   {data && <AgentList agents={data.state.agents} onChange={poll} />}
                 </div>
@@ -216,7 +223,7 @@ export default function App() {
         </ErrorBoundary>
       </div>
 
-      {modalRepo && <NewSessionModal repo={modalRepo} onClose={() => setModalRepo(null)} onCreated={poll} />}
+      {modalRepo && <NewSessionModal repo={modalRepo} herdrRunning={!!data?.state.herdr.some((a) => a.session === scopeOf(modalRepo.name))} onClose={() => setModalRepo(null)} onCreated={poll} />}
     </div>
   )
 }
