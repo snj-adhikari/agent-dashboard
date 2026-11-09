@@ -7,12 +7,26 @@ import { downsample, summarise, type Snapshot } from './services/history'
 import { tmuxKey, tmuxName } from './services/terminal'
 import { keepReason, recentlyModified, type WorktreeFacts } from './services/repos'
 import { herdrOwnedPids } from './services/processes'
-import { alertMessage, codenameOf, focusHerdrAgent, herdrEnv, ticketRef, colourOf, parseAgentList, parseHerdrError, parseHerdrRef, parseSessionList, statusAlerts, ticketOf, withWorktrees } from './services/herdr'
+import { alertMessage, codenameOf, hcAgent, parseHcList, focusHerdrAgent, herdrEnv, ticketRef, colourOf, parseAgentList, parseHerdrError, parseHerdrRef, parseSessionList, statusAlerts, ticketOf, withWorktrees } from './services/herdr'
 import { isPermanentTitle, sidePane } from './services/cmuxControl'
 import { relaySeed } from './services/hooks/execute'
 import { buildMermaid, mermaidText } from './services/mermaid'
 import type { HerdrAgent } from './types'
+import { houseOf } from './shared/house'
+import { buildHouses } from './services/herdr'
 import './learningCheck'
+
+assert.deepStrictEqual(houseOf('Grille + APIG'), houseOf('grille + apig'), 'house is deterministic and case-insensitive')
+assert.match(houseOf('Grille').house, /^House [A-Z][a-z]+ of Grille$/)
+assert.match(houseOf('Grille + APIG').house, / of Grille and Apig$/)
+assert.notStrictEqual(houseOf('Grille').colours[0], houseOf('Grille').colours[1], 'two distinct house colours')
+{
+  const agent = (name: string, codename: string, status: string): HerdrAgent => ({ session: 'grille', paneId: 'w1:p1', workspaceId: 'w1', tabId: 't1', agent: 'claude', status, title: '', cwd: '/', name, codename })
+  const houses = buildHouses([agent('main-grille', 'ash', 'idle'), agent('mc-1', 'bond', 'working')], ['grille'], { grille: { display: 'Grille', workspaceId: 'ws1' } }) as Record<string, { house: string; warden: string; creatures: unknown[] }>
+  assert.strictEqual(houses.grille.house, houseOf('Grille').house, 'server house matches the shared generator')
+  assert.strictEqual(houses.grille.warden, 'ash')
+  assert.deepStrictEqual(houses.grille.creatures, [{ name: 'mc-1', codename: 'bond', status: 'working' }])
+}
 
 assert.strictEqual(tmuxName('[hook:jira] Fix: a/b.c'), 'ad-hook-jira-Fix-a-b-c')
 assert.strictEqual(tmuxName('x', ['ad-x', 'ad-x-2']), 'ad-x-3', 'collision gets a suffix')
@@ -95,6 +109,25 @@ assert.deepStrictEqual(
   ['101'],
   'only pids with a pane id in env are herdr-owned'
 )
+assert.deepStrictEqual([...herdrOwnedPids('  201 claude HC_TERMINAL_ID=t7 TERM=x\n  202 claude HC_TERMINAL_ID=\n')], ['201'], 'Herdr app terminals are owned')
+const hcList = parseHcList(JSON.stringify({ terminals: [
+  { address: 't4', agent: 'claude-code', cwd: '/d', state: 'live', status: 'idle', where: 'Drive / Claude Code' },
+  { address: 't7', agent: 'claude-code', cwd: '/w', state: 'live', status: 'working', name: 'mc-1-bond' },
+  { address: 't9', agent: 'zsh', cwd: '/x', state: 'live' },
+  { address: 't2', agent: 'env', cwd: '/x', state: 'finished', status: 'done' }
+] }))
+assert.deepStrictEqual(hcList.map((t) => t.address), ['t4', 't7'], 'only live agent terminals are listed')
+const handRun = parseHcList(JSON.stringify({ terminals: [{ address: 't13', agent: 'codex', cwd: '/w', state: 'live' }, { address: 't11', agent: 'sh', cwd: '/', state: 'live' }] }))
+assert.deepStrictEqual(handRun.map((t) => [t.address, t.status]), [['t13', 'unknown']], 'a hand-run agent with no status report still counts')
+assert.strictEqual(hcAgent(hcList[0], { labels: { codename: 'kepler' } }, {}).codename, 'kepler', 'the recorded codename label wins')
+assert.deepStrictEqual(parseHcList('not json'), [])
+const hcBond = hcAgent(hcList[1], { labels: { agent: 'bond', ticket: 'MC-1', 'herdr.space': 'sp1', 'herdr.tab': 'snj-mc-1-bond' }, foreground: { cwd: '/w/sub' } }, { b: { colour: '#ef4444' } })
+assert.deepStrictEqual(
+  [hcBond.session, hcBond.host, hcBond.codename, hcBond.colour, hcBond.ticket, hcBond.cwd, hcBond.workspaceId, hcBond.status],
+  ['hc', 'herdr-app', 'bond', '#ef4444', 'MC-1', '/w/sub', 'sp1', 'working'],
+  'hc terminals become herdr-app agents in session hc'
+)
+assert.strictEqual(hcAgent(hcList[0], {}, {}).tabTitle, 'Drive / Claude Code')
 const prev = new Map([['grille/w1:p2', 'working'], ['grille/w1:p3', 'working']])
 const { alerts, next } = statusAlerts(prev, [
   herdrAgent({ status: 'blocked', ticket: 'MC-1', codename: 'bond', title: 'a\nlast line' }),

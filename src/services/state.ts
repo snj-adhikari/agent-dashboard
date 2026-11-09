@@ -43,7 +43,7 @@ export function startHerdrSync(): void {
     try {
       const snap = await refreshHerdr()
       if (!snap.ok) return
-      const full = snap.sessions.length && clientRecentlySeen()
+      const full = (snap.sessions.length || snap.agents.length) && clientRecentlySeen()
       herdrSideEffects(full ? (await collectState()).herdr : withWorktrees(snap.agents, []), snap.sessions)
     } catch {}
   }, HERDR_SYNC_MS)

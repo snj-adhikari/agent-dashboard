@@ -54,6 +54,8 @@ export interface HerdrAgent {
   branch?: string
   changedFiles?: number
   cmuxWorkspaceId?: string
+  /** Terminal host: the herdr TUI (default) or the Herdr desktop app's herdr-core (session `hc`). */
+  host?: 'herdr' | 'herdr-app'
 }
 
 export interface MonitorState {

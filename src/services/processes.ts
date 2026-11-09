@@ -38,12 +38,12 @@ function psFields(pids: string[], field: 'comm' | 'args'): Map<string, string> {
   return out
 }
 
-/** `ps eww` appends each process's env to its command, so herdr panes show HERDR_PANE_ID there. */
+/** `ps eww` appends each process's env to its command, so herdr panes show HERDR_PANE_ID and Herdr app terminals HC_TERMINAL_ID. */
 export function herdrOwnedPids(psOut: string): Set<string> {
   return new Set(
     psOut
       .split('\n')
-      .map((line) => line.match(/^\s*(\d+)\s.*\bHERDR_PANE_ID=w\d+:p\d+/)?.[1])
+      .map((line) => line.match(/^\s*(\d+)\s.*\b(?:HERDR_PANE_ID=w\d+:p\d+|HC_TERMINAL_ID=t[0-9a-z]+)\b/)?.[1])
       .filter((pid): pid is string => !!pid)
   )
 }

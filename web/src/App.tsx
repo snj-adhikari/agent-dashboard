@@ -22,12 +22,13 @@ const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({
 const LearningPage = lazy(() => import('./components/LearningPage').then((m) => ({ default: m.LearningPage })))
 const SetupPage = lazy(() => import('./components/SetupPage').then((m) => ({ default: m.SetupPage })))
 const VaultPage = lazy(() => import('./components/VaultPage').then((m) => ({ default: m.VaultPage })))
+const DexPage = lazy(() => import('./dex/DexPage').then((m) => ({ default: m.DexPage })))
 
 const scopeOf = (repoName: string): string => repoName.replace(/^drive-/, '').toLowerCase()
 
-type View = 'home' | 'history' | 'learning' | 'vault' | 'hooks' | 'plugin' | 'setup'
+type View = 'home' | 'history' | 'learning' | 'vault' | 'dex' | 'hooks' | 'plugin' | 'setup'
 
-const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', learning: '/learning', vault: '/vault', hooks: '/hooks', plugin: '/plugin', setup: '/setup' }
+const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', learning: '/learning', vault: '/vault', dex: '/dex', hooks: '/hooks', plugin: '/plugin', setup: '/setup' }
 
 function viewFromPath(pathname: string): View {
   const entry = Object.entries(VIEW_PATHS).find(([, p]) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)))
@@ -118,14 +119,14 @@ export default function App() {
       <RouteProgress view={view} />
       <div className="mx-auto max-w-[1400px] px-6 py-6">
         <header className="mb-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-white">Agent Dashboard</h1>
               <p className="mt-1 text-sm text-slate-400">Browse, monitor, and control your AI coding sessions</p>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <MongoPulse status={mongo} />
-              <nav className="flex gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1">
+              <nav className="flex flex-wrap gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1">
                 <NavButton active={view === 'home'} onClick={() => setView('home')}>
                   Home
                 </NavButton>
@@ -137,6 +138,9 @@ export default function App() {
                 </NavButton>
                 <NavButton active={view === 'vault'} onClick={() => setView('vault')}>
                   Vault
+                </NavButton>
+                <NavButton active={view === 'dex'} onClick={() => setView('dex')}>
+                  Dex
                 </NavButton>
                 <NavButton active={view === 'hooks'} onClick={() => setView('hooks')}>
                   Hooks
@@ -162,6 +166,8 @@ export default function App() {
             <LearningPage />
           ) : view === 'vault' ? (
             <VaultPage />
+          ) : view === 'dex' ? (
+            <DexPage />
           ) : view === 'setup' ? (
             <SetupPage key={setupKey} onRunGuide={() => setWizardOpen(true)} />
           ) : view === 'plugin' ? (

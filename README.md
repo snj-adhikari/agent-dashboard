@@ -219,6 +219,15 @@ agent-dashboard/
 | tmux | sessions prefixed `ad-` | yes | detached session, plus a Terminal window on macOS when `terminalOpenWindow` is on |
 | terminal (Terminal.app) | no (bare agent processes are still detected) | no | new window |
 
+### herdr agents
+
+The herdr list (Home) and `/dex` read two agent sources side by side, each card and house showing its host:
+
+- **herdr TUI:** every running session from `herdr session list`, agents from `herdr agent list`.
+- **Herdr app (herdr-core):** every live terminal from `hc ls --json` running an agent, however it was started (reports an agent status, or hc names a known agent such as claude-code, codex, gemini), as session `hc`, with `hc get` labels (`codename=`, `ticket=`, `herdr.space`/`herdr.tab`) and current folder. Unnamed ones get a deterministic codename from `snj-term hc-agents`, recorded as `hc label <t> codename=<name>`, and show up in the sidebar data and `houses.json` as the "Herdr app" house. Read, prompt, keys and Focus go through `hc read`, `hc send`, `hc keys` and `snj-term attach hc <terminal>`.
+- Skipped when `hc` is missing or `~/.local/state/herdr-core/default/default.sock` doesn't exist, with a 3 s timeout per call, so a stopped core never blocks or gets started. A failing source keeps its last agents.
+- Agent processes whose env carries `HERDR_PANE_ID` or `HC_TERMINAL_ID` are listed by these sources, not again as bare processes.
+
 ## Mobile (phone over Tailscale)
 
 `/m/` is an installable phone page (PWA): server pulse, terminal tabs with waiting sessions first, live screen output, and a prompt box with quick replies (`1`, `2`, `3`, `continue`). With notifications on, the phone gets a push whenever a Claude session reports `awaiting-you`; tapping it opens that session. No SSH is involved: the phone talks to Agent Dashboard through `tailscale serve`.

@@ -5,6 +5,7 @@ import path from 'path'
 import { promisify } from 'util'
 import { isUnder, normPath } from '../utils'
 import type { HerdrAgent, Repo } from '../types'
+import { houseOf, isWarden } from '../shared/house'
 
 export const SESSION_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/
 export const TARGET_RE = /^w\d+:p\d+$|^[a-z][a-z0-9_-]{0,31}$/
@@ -13,9 +14,13 @@ const CACHE_MS = 3000
 const HERDR_DIR = path.join(os.homedir(), '.config', 'herdr')
 const PROJECTS_PATH = path.join(HERDR_DIR, 'projects.json')
 const SIDEBAR_PATH = path.join(HERDR_DIR, 'cmux-sidebar.json')
+const HOUSES_PATH = path.join(HERDR_DIR, 'houses.json')
 export const SNJ_TERM = path.join(os.homedir(), '.claude', 'hooks', 'snj', 'snj-term')
 const GREY = '#64748b'
 const STATUS_RANK: Record<string, number> = { blocked: 0, working: 1, done: 2, idle: 3 }
+
+export const HC_SESSION = 'hc'
+const HC_SOCKET = path.join(os.homedir(), '.local', 'state', 'herdr-core', 'default', 'default.sock')
 
 export class HerdrError extends Error {
   constructor(message: string, readonly code: string) {
@@ -61,6 +66,91 @@ export function parseSessionList(text: string): string[] {
     .map((line) => line.trim().split(/\s+/))
     .filter(([name, status]) => status === 'running' && SESSION_RE.test(name))
     .map(([name]) => name)
+}
+
+async function hc(args: string[]): Promise<string> {
+  try {
+    return (await execFileAsync('hc', args, { encoding: 'utf8', timeout: 3000 })).stdout
+  } catch (e) {
+    const err = e as { code?: string; stderr?: string; message?: string }
+    if (err.code === 'ENOENT') throw new HerdrError('hc is not installed', 'not_installed')
+    throw new HerdrError(String(err.stderr || err.message || 'hc failed').trim(), 'failed')
+  }
+}
+
+export interface HcTerminal {
+  address: string
+  name?: string
+  agent: string
+  status: string
+  cwd: string
+  where?: string
+}
+
+const HC_AGENT_KINDS = new Set(['claude-code', 'claude', 'codex', 'copilot', 'opencode', 'gemini', 'droid', 'amp', 'cursor-agent', 'pi', 'goose', 'aider', 'crush', 'qwen', 'kiro'])
+
+/** Live terminals running an agent, however started: it reports a status (OSC 7501) or hc names a known agent program. */
+export function parseHcList(json: string): HcTerminal[] {
+  let terminals: unknown
+  try {
+    terminals = JSON.parse(json)?.terminals
+  } catch {
+    return []
+  }
+  if (!Array.isArray(terminals)) return []
+  return terminals
+    .filter((t) => t && t.state === 'live' && /^t[0-9a-z]+$/.test(str(t.address)) && (str(t.status) || HC_AGENT_KINDS.has(str(t.agent))))
+    .map((t) => ({ address: t.address, name: str(t.name) || undefined, agent: str(t.agent), status: str(t.status) || 'unknown', cwd: str(t.cwd), where: str(t.where) || undefined }))
+}
+
+interface HcDetail {
+  labels?: Record<string, string>
+  foreground?: { cwd?: string }
+  title?: string
+}
+
+export function hcAgent(t: HcTerminal, detail: HcDetail, codenames: Palette): HerdrAgent {
+  const labels = detail.labels || {}
+  const codename = codenameOf(str(labels.codename) || str(labels.agent), t.name || '')
+  return {
+    session: HC_SESSION,
+    host: 'herdr-app',
+    display: 'Herdr app',
+    paneId: t.address,
+    workspaceId: str(labels['herdr.space']),
+    tabId: str(labels['herdr.tab']),
+    tabTitle: t.where,
+    agent: t.agent,
+    status: t.status,
+    title: str(detail.title),
+    cwd: str(detail.foreground?.cwd) || t.cwd,
+    name: t.name,
+    label: str(labels.agent) || undefined,
+    codename,
+    colour: colourOf(codename, codenames),
+    ticket: ticketOf(str(labels.ticket)) || undefined
+  }
+}
+
+/** herdr-core agents; skipped without a core socket so a stopped core is never started or waited on. */
+async function hcAgents(codenames: Palette): Promise<HerdrAgent[]> {
+  if (!fs.existsSync(HC_SOCKET)) return []
+  const terminals = parseHcList(await hc(['ls', '--json']))
+  const details = await Promise.all(terminals.map((t) => hc(['get', t.address, '--json']).then((s) => JSON.parse(s) as HcDetail, () => ({}))))
+  const agents = terminals.map((t, i) => hcAgent(t, details[i], codenames))
+  if (agents.some((a) => !a.codename)) adoptHcAgents()
+  return agents
+}
+
+let adopting = false
+
+/** snj-term owns codename picking: it labels unnamed agent terminals `codename=<name>`, read back on the next poll. */
+function adoptHcAgents(): void {
+  if (adopting) return
+  adopting = true
+  execFile(SNJ_TERM, ['hc-agents'], { timeout: 30_000 }, () => {
+    adopting = false
+  })
 }
 
 type RawAgent = Omit<HerdrAgent, 'session'>
@@ -164,21 +254,31 @@ async function sessionAgents(session: string, scope: Scope, codenames: Palette):
   }))
 }
 
+/** herdr TUI sessions plus herdr-core (Herdr app) agents as session `hc`; either source failing keeps its last agents. */
 async function loadSnapshot(): Promise<HerdrSnapshot> {
+  const { scopes: scopeMap, codenames } = projects()
+  const fromHc = hcAgents(codenames).catch((e) =>
+    e instanceof HerdrError && e.code === 'not_installed' ? [] : current.agents.filter((a) => a.session === HC_SESSION)
+  )
+  const snap = await loadHerdrSnapshot(scopeMap, codenames)
+  return { ...snap, agents: [...snap.agents, ...(await fromHc)] }
+}
+
+async function loadHerdrSnapshot(scopeMap: Record<string, Scope>, codenames: Palette): Promise<HerdrSnapshot> {
+  const previous = current.agents.filter((a) => a.session !== HC_SESSION)
   let sessions: string[]
   try {
     sessions = parseSessionList(await herdr(null, ['session', 'list']))
   } catch (e) {
     const missing = e instanceof HerdrError && e.code === 'not_installed'
-    return { at: Date.now(), ok: missing, sessions: missing ? [] : current.sessions, agents: missing ? [] : current.agents }
+    return { at: Date.now(), ok: missing, sessions: missing ? [] : current.sessions, agents: missing ? [] : previous }
   }
-  const { scopes: scopeMap, codenames } = projects()
   const results = await Promise.allSettled(sessions.map((s) => sessionAgents(s, scopeMap[s] || {}, codenames)))
   return {
     at: Date.now(),
     ok: results.every((r) => r.status === 'fulfilled'),
     sessions,
-    agents: results.flatMap((r, i) => (r.status === 'fulfilled' ? r.value : current.agents.filter((a) => a.session === sessions[i])))
+    agents: results.flatMap((r, i) => (r.status === 'fulfilled' ? r.value : previous.filter((a) => a.session === sessions[i])))
   }
 }
 
@@ -230,17 +330,26 @@ function checkTarget(session: string, target: string): void {
 export async function readHerdrAgent(session: string, target: string, lines = 200): Promise<string> {
   checkTarget(session, target)
   const n = Math.min(Math.max(Math.floor(lines) || 200, 1), 1000)
+  if (session === HC_SESSION) return hc(['read', target, '--lines', String(n)])
   return herdr(session, ['agent', 'read', target, '--source', 'recent', '--lines', String(n)])
 }
 
 /** Throws HerdrError with code `agent_blocked` when the agent is waiting on an approval or question. */
 export async function promptHerdrAgent(session: string, target: string, text: string): Promise<void> {
   checkTarget(session, target)
+  if (session === HC_SESSION) {
+    await hc(['send', target, text])
+    return
+  }
   await herdr(session, ['agent', 'prompt', target, text.startsWith('-') ? ` ${text}` : text])
 }
 
 export async function sendHerdrKeys(session: string, target: string, ...keys: string[]): Promise<void> {
   checkTarget(session, target)
+  if (session === HC_SESSION) {
+    await hc(['keys', target, ...keys.map((k) => k.toLowerCase())])
+    return
+  }
   await herdr(session, ['agent', 'send-keys', target, ...keys])
 }
 
@@ -311,7 +420,7 @@ function writeSidebar(agents: HerdrAgent[], sessions: string[]): void {
       sessions.map((session) => [
         session,
         {
-          display: scopeMap[session]?.display || session,
+          display: scopeMap[session]?.display || (session === HC_SESSION ? 'Herdr app' : session),
           cmuxWorkspaceId: scopeMap[session]?.workspaceId,
           agents: agents
             .filter((a) => a.session === session && !isController(a))
@@ -321,26 +430,53 @@ function writeSidebar(agents: HerdrAgent[], sessions: string[]): void {
       ])
     )
   }
+  writeAtomic(SIDEBAR_PATH, out)
+}
+
+function writeAtomic(file: string, data: unknown): void {
   fs.mkdirSync(HERDR_DIR, { recursive: true })
-  const tmp = `${SIDEBAR_PATH}.${process.pid}.tmp`
-  fs.writeFileSync(tmp, JSON.stringify(out, null, 2))
-  fs.renameSync(tmp, SIDEBAR_PATH)
+  const tmp = `${file}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(data, null, 2))
+  fs.renameSync(tmp, file)
+}
+
+/** Each running session as a generated house; same generator as the web /dex page. */
+export function buildHouses(agents: HerdrAgent[], sessions: string[], scopeMap: Record<string, Scope>): Record<string, unknown> {
+  return Object.fromEntries(
+    sessions.map((session) => {
+      const members = agents.filter((a) => a.session === session)
+      const { house, motto, colours } = houseOf(scopeMap[session]?.display || (session === HC_SESSION ? 'Herdr app' : session))
+      return [
+        session,
+        {
+          house,
+          motto,
+          colours,
+          cmuxWorkspaceId: scopeMap[session]?.workspaceId ?? null,
+          warden: members.find((a) => isWarden(a.name))?.codename ?? null,
+          creatures: members.filter((a) => !isWarden(a.name)).map((a) => ({ name: a.name ?? null, codename: a.codename ?? null, status: a.status }))
+        }
+      ]
+    })
+  )
 }
 
 let lastStatus = new Map<string, string>()
 
 /** Per poll: cmux pills, blocked/done alerts to the controller and cmux, and the sidebar data file. */
-export function herdrSideEffects(agents: HerdrAgent[], sessions: string[]): void {
-  for (const session of sessions) execFile(SNJ_TERM, ['pill', session], SIDE_EFFECT_TIMEOUT, ignore)
+export function herdrSideEffects(agents: HerdrAgent[], herdrSessions: string[]): void {
+  for (const session of herdrSessions) execFile(SNJ_TERM, ['pill', session], SIDE_EFFECT_TIMEOUT, ignore)
+  const sessions = agents.some((a) => a.session === HC_SESSION) ? [...herdrSessions, HC_SESSION] : herdrSessions
   const { alerts, next } = statusAlerts(lastStatus, agents)
   lastStatus = next
   for (const a of alerts) {
     const msg = alertMessage(a)
-    execFile(SNJ_TERM, ['send', a.session, `main-${a.session}`, msg], SIDE_EFFECT_TIMEOUT, ignore)
+    if (a.session !== HC_SESSION) execFile(SNJ_TERM, ['send', a.session, `main-${a.session}`, msg], SIDE_EFFECT_TIMEOUT, ignore)
     const where = a.cmuxWorkspaceId ? ['--workspace', a.cmuxWorkspaceId] : []
     execFile('cmux', ['notify', '--title', `herdr ${a.display || a.session}`, '--body', msg.replace(/^\[monitor\] /, ''), ...where], SIDE_EFFECT_TIMEOUT, ignore)
   }
   try {
     writeSidebar(agents, sessions)
+    writeAtomic(HOUSES_PATH, { updatedAt: new Date().toISOString(), houses: buildHouses(agents, sessions, scopes()) })
   } catch {}
 }

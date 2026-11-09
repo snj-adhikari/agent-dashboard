@@ -64,6 +64,9 @@ function world(on: On, env: Record<string, string>, failing: string[] = []) {
       stdout = JSON.stringify({ result: { tab: { tab_id: 'w1:t2' }, root_pane: { pane_id: 'w1:p2' } } })
     }
     if (argv[0] === 'herdr' && argv[1] === 'pane' && argv[2] === 'list') stdout = tree
+    if (argv[0] === 'hc' && argv[1] === 'get') stdout = JSON.stringify({ address: argv[2], labels: { 'herdr.space': 'sp1' } })
+    if (argv[0] === 'hc' && argv[1] === 'run') stdout = JSON.stringify({ address: 't9', state: 'live' })
+    if (argv[0] === 'hc' && argv[1] === 'ls') stdout = tree
     if (argv[0] === 'mem-low') [exitCode, stdout] = [1, 'RAM free 5%']
     if (argv[0] === 'namer') stdout = JSON.stringify({ codename: 'bond' })
     if (failing.includes(argv.slice(0, 3).join(' '))) [exitCode, stdout] = [1, '']
@@ -327,4 +330,83 @@ test('a herdr agent that fails to start closes its tab, drops the run and notifi
   expect(w.runs.some(r => r[0] === 'cmux' && r[1] === 'notify' && r[3] === '/review not started')).toBe(true)
   expect(w.runs.some(r => r[2] === 'prompt')).toBe(false)
   expect([...w.files.keys()].some(k => k.endsWith('meta.json'))).toBe(false)
+})
+
+const APP = { HC_TERMINAL_ID: 't3', HC_SCOPE: 'x' }
+const appMeta = JSON.stringify({ main: 'hc:t3', skill: '/review', child: 't9', session: 'hc', started: 0 })
+
+test('inside the Herdr app a skill opens an hc terminal as a tab in the caller space', async ($, on) => {
+  const w = world(on, APP)
+  const result = await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(2000)
+  expect(result.drop).toContain('t9')
+  expect(w.runs.some(r => r[0] === 'cmux' || r[0] === 'herdr')).toBe(false)
+  const run = w.runs.find(r => r[0] === 'hc' && r[1] === 'run') ?? []
+  const id = (run.join(' ').match(/AGENT_SUBTAB_ID=([0-9a-f]{8})/) ?? [])[1]
+  expect(id).toBeDefined()
+  expect(run).toEqual(['hc', 'run', '--bg', '--json', '--no-parent', '--name', `sub-${id}`, '--cwd', '/repo', '--label', `agent=sub-${id}`,
+    '--label', 'herdr.space=sp1', '--label', `herdr.tab=sub-${id}`, '--', 'env', `AGENT_SUBTAB_ID=${id}`, 'claude', '--permission-mode', 'default', '/review 12'])
+  expect(w.runs.find(r => r[0] === 'herdr-app')).toEqual(['herdr-app', 'do', 'tab.rename', JSON.stringify({ id: `sub-${id}`, name: '/review' })])
+  const meta = [...w.files.entries()].find(([k]) => k.endsWith('meta.json'))?.[1] ?? ''
+  expect(JSON.parse(meta)).toEqual(expect.objectContaining({ main: 'hc:t3', child: 't9', session: 'hc' }))
+})
+
+test('inside the Herdr app a namer codename names the terminal and tab', async ($, on) => {
+  const w = world(on, { ...APP, AGENT_SUBTAB_NAMER: 'namer codename' })
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(2000)
+  expect((w.runs.find(r => r[0] === 'namer') ?? []).slice(0, 4)).toEqual(['namer', 'codename', 'hc', '--seed'])
+  expect((w.runs.find(r => r[1] === 'run') ?? []).slice(5, 7)).toEqual(['--name', 'sub-bond'])
+  expect((w.runs.find(r => r[0] === 'herdr-app') ?? [])[3]).toContain('/review · bond')
+})
+
+test('herdr env wins over an hc terminal id', async ($, on) => {
+  const w = world(on, { ...HERDR, ...APP })
+  await $.prompt.submit(typed('/review 12'))
+  await w.clock.advance(500)
+  expect(w.runs.some(r => r[0] === 'hc')).toBe(false)
+  expect(w.runs.some(r => r[0] === 'herdr' && r[2] === 'create')).toBe(true)
+})
+
+test('a Herdr app reply goes through hc send with the [subtab] tag', async ($, on) => {
+  const w = world(on, APP)
+  await $.tool.call({ tool: 'mcp__agent-orchestration__subtab_reply', surface: 't9', text: 'yes,\nmain' } as never)
+  expect(w.runs.find(r => r[1] === 'send')).toEqual(['hc', 'send', 't9', '[subtab t9 reply] yes, main'])
+})
+
+test('a finished Herdr app run kills and removes its terminal', async ($, on) => {
+  const w = world(on, APP)
+  w.setTree(JSON.stringify({ terminals: [{ address: 't9' }] }))
+  w.files.set(`${STATE}/runs/abc/meta.json`, appMeta)
+  w.files.set(`${STATE}/runs/abc/done`, '')
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.runs.some(r => r.join(' ') === 'hc kill t9')).toBe(true)
+  expect(w.runs.some(r => r.join(' ') === 'hc rm t9')).toBe(true)
+  expect(w.submitted.some(t => t.startsWith('[subtab done]'))).toBe(true)
+})
+
+test('a Herdr app terminal gone from hc ls ends its run', async ($, on) => {
+  const w = world(on, APP)
+  w.setTree(JSON.stringify({ terminals: [{ address: 't4' }] }))
+  w.files.set(`${STATE}/runs/abc/meta.json`, appMeta)
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.files.has(`${STATE}/runs/abc/meta.json`)).toBe(false)
+  expect(w.submitted.some(t => t.includes('closed without a summary'))).toBe(true)
+})
+
+test('a failing hc ls keeps Herdr app runs alive', async ($, on) => {
+  const w = world(on, APP, ['hc ls --json'])
+  w.files.set(`${STATE}/runs/abc/meta.json`, appMeta)
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(3000)
+  expect(w.files.has(`${STATE}/runs/abc/meta.json`)).toBe(true)
+})
+
+test('killing a live Herdr app sub-tab with hc is refused', async ($, on) => {
+  const w = world(on, APP)
+  w.setTree(JSON.stringify({ terminals: [{ address: 't9' }] }))
+  w.files.set(`${STATE}/runs/abc/meta.json`, appMeta)
+  expect(JSON.stringify(await $.tool.call({ tool: 'Bash', command: 'hc kill t9' } as never))).toContain('still running')
 })

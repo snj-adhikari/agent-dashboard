@@ -43,7 +43,7 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
     try {
       const r = await api.herdrPrompt(agent.session, agent.paneId, prompt)
       if (r.ok) setPrompt('')
-      else setError(r.code === 'agent_blocked' ? 'Agent is waiting on a question or approval; answer it in herdr first' : String(r.error))
+      else setError(r.code === 'agent_blocked' ? `Agent is waiting on a question or approval; answer it in ${agent.host === 'herdr-app' ? 'the Herdr app' : 'herdr'} first` : String(r.error))
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -51,12 +51,14 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
     }
   }
 
+  const focusTarget = agent.name || (agent.host === 'herdr-app' ? agent.paneId : '')
+
   async function focus() {
-    if (!agent.name) return
+    if (!focusTarget) return
     setFocusing(true)
     setError(null)
     try {
-      const r = await api.herdrFocus(agent.session, agent.name)
+      const r = await api.herdrFocus(agent.session, focusTarget)
       if (!r.ok) setError(String(r.error))
     } catch (e) {
       setError((e as Error).message)
@@ -88,7 +90,7 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
         {agent.branch && <span className="mr-2 font-mono">{agent.branch}</span>}
         {agent.changedFiles !== undefined && <span className="mr-2">{agent.changedFiles} changed file(s)</span>}
         <span className="text-slate-500">
-          {agent.agent} · {agent.paneId}
+          {agent.host === 'herdr-app' ? 'Herdr app' : 'herdr'} · {agent.agent} · {agent.paneId}
           {agent.tabTitle ? ` · ${agent.tabTitle}` : ''}
         </span>
       </CardMeta>
@@ -96,7 +98,7 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
       <Button loading={loading} onClick={toggle}>
         {expanded ? 'Collapse output' : 'Read output'}
       </Button>
-      {agent.name && (
+      {focusTarget && (
         <Button loading={focusing} onClick={focus}>
           Focus
         </Button>
@@ -133,7 +135,7 @@ const scopeRank = (inScope: HerdrAgent[]): number => {
 }
 
 export function HerdrList({ agents }: { agents: HerdrAgent[] }) {
-  if (!agents.length) return <EmptyState label="No herdr session running" />
+  if (!agents.length) return <EmptyState label="No herdr session or Herdr app agent running" />
   const scopes = groupBy(agents, (a) => a.display || a.session).sort(([, a], [, b]) => scopeRank(a) - scopeRank(b))
   return (
     <>

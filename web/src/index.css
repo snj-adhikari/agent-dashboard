@@ -131,3 +131,26 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
+@keyframes dex-bob {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+@keyframes dex-flash {
+  50% {
+    opacity: 0.25;
+  }
+}
+.dex-bob {
+  animation: dex-bob 0.8s steps(2) infinite;
+}
+.dex-flash {
+  animation: dex-flash 0.6s steps(2) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dex-bob,
+  .dex-flash {
+    animation: none;
+  }
+}

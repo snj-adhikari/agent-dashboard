@@ -9,7 +9,8 @@ const RUNNING_ON = /^[A-Z][A-Z-]*:\s*(CONTINUE|WAIT)\b/
 const STAY_IN_MAIN = ['loop', 'update-config', 'keybindings-help', 'fewer-permission-prompts']
 const MODES = ['default', 'acceptEdits', 'bypassPermissions', 'plan', 'dontAsk', 'auto']
 
-const CLOSE_CMD = /\bcmux\s+close-(surface|workspace)\b|\bherdr\s+(tab|pane)\s+close\b/
+const CLOSE_CMD = /\bcmux\s+close-(surface|workspace)\b|\bherdr\s+(tab|pane)\s+close\b|\bhc\s+(kill|rm)\b/
+const HC_ID = /^t[0-9a-z]{1,16}$/
 
 const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod from a skill running in a sub-tab; the user did not type it.
 - "asks": the sub-tab is waiting for input. Act as the user: answer it with the ${REPLY_TOOL} tool (surface = the id in the brackets) from the mission, goal and context the user gave you in this tab, when the answer clearly follows from them. If it is a judgement call, or approves publishing, posting or merging, ask the user first and relay their answer.
@@ -18,12 +19,12 @@ const RELAY_CONTEXT = `This prompt was relayed by the agent-orchestration mod fr
 - "done": the sub-tab finished and closed. Give the user a short gist of the summary.`
 
 const approverContext = (cmd: string) =>
-  `- Approval helper: after the user approves a commit, push or PR for a herdr sub-tab, run \`${cmd} <session> <pane> <kinds> [branch]\` (pane = the surface id in the brackets, session = this tab's $HERDR_SESSION, kinds joined with +, e.g. commit+push+pr) before replying with ${REPLY_TOOL}, so the sub-tab's gate lets it retry once. Not for cmux sub-tabs.`
+  `- Approval helper: after the user approves a commit, push or PR for a herdr sub-tab, run \`${cmd} <session> <pane> <kinds> [branch]\` (pane = the surface id in the brackets, session = this tab's $HERDR_SESSION, or hc in the Herdr app, kinds joined with +, e.g. commit+push+pr) before replying with ${REPLY_TOOL}, so the sub-tab's gate lets it retry once. Not for cmux sub-tabs.`
 
 const childContext = (dir: string) =>
   `You are running in a sub-tab opened for one skill. When that skill is fully finished (including any gates or questions answered here), write a compact summary to ${dir}/summary.md: max 20 lines, no tables, line 1 = skill + outcome, then key results, file paths, PR/ticket links, and anything still needing the user. Then create the empty file ${dir}/done. That closes this tab and hands the summary to the main tab, so do it only once, at the very end. Until then, ask any question as plain text at the end of your reply, never with AskUserQuestion: the main tab's agent reads your last message and answers here with a prompt starting [subtab <id> reply].`
 
-type Env = { state: string; surface: string; self: string; runId: string; herdr: boolean; workspace: string; session: string }
+type Env = { state: string; surface: string; self: string; runId: string; herdr: boolean; app: boolean; workspace: string; session: string }
 type Meta = { main: string; skill: string; child: string; tab?: string; session?: string; started: number; notified?: boolean }
 type OpenArgs = { cwd: string; id: string; dir: string; mode: string; prompt: string; label: string }
 type Opened = { child: string; tab?: string; start?: () => Promise<unknown> }
@@ -38,12 +39,17 @@ type Ask = { surface: string; skill: string; text: string }
 async function readEnv($: Engine): Promise<Env> {
   const home = (await $.env.get('HOME')) ?? ''
   const herdr = (await $.env.get('HERDR_ENV')) === '1'
+  const runId = (await $.env.get('AGENT_SUBTAB_ID')) ?? ''
+  const state = `${home}/.claude/agent-orchestration`
+  const terminal = (await $.env.get('HC_TERMINAL_ID')) ?? ''
+  if (!herdr && HC_ID.test(terminal)) {
+    return { state, surface: `hc:${terminal}`, self: terminal, runId, herdr: false, app: true, workspace: '', session: 'hc' }
+  }
   const session = (await $.env.get('HERDR_SESSION')) ?? ''
   const self = (herdr ? await $.env.get('HERDR_PANE_ID') : await $.env.get('CMUX_SURFACE_ID')) ?? ''
   const surface = herdr && self ? `${session}:${self}` : self
-  const runId = (await $.env.get('AGENT_SUBTAB_ID')) ?? ''
   const workspace = (await $.env.get('HERDR_WORKSPACE_ID')) ?? ''
-  return { state: `${home}/.claude/agent-orchestration`, surface, self, runId, herdr, workspace, session }
+  return { state, surface, self, runId, herdr, app: false, workspace, session }
 }
 
 const cmuxDriver = ($: Engine): Driver => ({
@@ -132,9 +138,62 @@ const herdrDriver = ($: Engine, env: Env): Driver => {
   }
 }
 
-const driverFor = ($: Engine, env: Env): Driver => (env.herdr ? herdrDriver($, env) : cmuxDriver($))
+const parse = <T>(text: string): T | undefined => {
+  try {
+    return JSON.parse(text) as T
+  } catch {
+    return undefined
+  }
+}
 
-const notify = ($: Engine, title: string, body: string) => $.process.run(['cmux', 'notify', '--title', title, '--body', body])
+const herdrAppDriver = ($: Engine, env: Env): Driver => {
+  const hc = (argv: string[]) => $.process.run(['hc', ...argv])
+  return {
+    async open({ cwd, id, mode, prompt, label: skillLabel }) {
+      const code = await codename($, env.session, id)
+      const label = code ? `${skillLabel} · ${code}` : skillLabel
+      const me = parse<{ labels?: Record<string, string> }>((await hc(['get', env.self, '--json'])).stdout)
+      const space = me?.labels?.['herdr.space']
+      const tab = `sub-${id}`
+      const argv = ['run', '--bg', '--json', '--no-parent', '--name', `sub-${code ?? id}`, '--cwd', cwd, '--label', `agent=sub-${code ?? id}`]
+      if (space) argv.push('--label', `herdr.space=${space}`, '--label', `herdr.tab=${tab}`)
+      const made = await hc([...argv, '--', 'env', `AGENT_SUBTAB_ID=${id}`, 'claude', '--permission-mode', mode, prompt])
+      const child = parse<{ address?: string }>(made.stdout)?.address
+      if (made.exitCode !== 0 || !child) throw new Error(`hc run failed: ${made.stderr.trim()}`)
+      const start = async () => {
+        if (!space) return
+        await $.clock.sleep(1500)
+        await $.process.run(['herdr-app', 'do', 'tab.rename', JSON.stringify({ id: tab, name: label })])
+      }
+      return { child, start }
+    },
+    async send(target, text) {
+      const sent = await hc(['send', target, text])
+      return sent.exitCode === 0 ? '' : `hc send failed: ${sent.stderr.trim()}`
+    },
+    close: async meta => {
+      await hc(['kill', meta.child])
+      return hc(['rm', meta.child])
+    },
+    async live() {
+      const listed = await hc(['ls', '--json'])
+      const terminals = parse<{ terminals?: { address?: string }[] }>(listed.stdout)?.terminals
+      if (listed.exitCode !== 0 || !terminals) return () => true
+      const live = new Set(terminals.map(t => t.address))
+      return meta => live.has(meta.child)
+    },
+  }
+}
+
+const driverFor = ($: Engine, env: Env): Driver => (env.herdr ? herdrDriver($, env) : env.app ? herdrAppDriver($, env) : cmuxDriver($))
+
+const notify = async ($: Engine, title: string, body: string) => {
+  try {
+    return await $.process.run(['cmux', 'notify', '--title', title, '--body', body])
+  } catch {
+    return undefined
+  }
+}
 
 async function guardRefusal($: Engine): Promise<string | undefined> {
   const argv = ((await $.env.get('AGENT_SUBTAB_GUARD')) ?? '').trim().split(/\s+/).filter(Boolean)
@@ -178,7 +237,7 @@ async function openSubtab($: Engine, env: Env, skill: string, prompt: string): P
   const label = `/${skill.split(':').pop()}`
   const opened = await driverFor($, env).open({ cwd: await $.session.cwd(), id, dir, mode: await readMode($, env), prompt, label })
   const { child, tab, start } = opened
-  const meta: Meta = { main: env.surface, skill: `/${skill}`, child, ...(tab ? { tab } : {}), ...(env.herdr ? { session: env.session } : {}), started: await $.clock.now() }
+  const meta: Meta = { main: env.surface, skill: `/${skill}`, child, ...(tab ? { tab } : {}), ...(env.herdr || env.app ? { session: env.session } : {}), started: await $.clock.now() }
   await $.fs.write(`${dir}/meta.json`, JSON.stringify(meta))
   if (start) void start().catch(err => $.ui.log(`sub-tab start failed: ${String(err)}`, { to: 'debug' }))
   return child

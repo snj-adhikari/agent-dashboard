@@ -71,11 +71,11 @@ Match the style of the user's existing workspaces (`cmux list-workspaces`): `<Ki
 
 ```bash
 cmux new-workspace --cwd "$target" --name "$ws_name" \
-  --description "$repo_name · $branch${ticket_summary:+ · $ticket_summary}" \
+  --description "$(desc="$repo_name · $branch"; [ ${#desc} -gt 38 ] && desc="${desc:0:37}…"; echo "$desc")" \
   --command "claude" --focus true
 ```
 
-- `--description` carries repo, branch and the ticket summary when known. Fetch the summary only if an Atlassian (or other issue tracker) MCP is connected: one call, summary field only, skip on failure.
+- `--description` is one short line, `repo · branch`, cut to 38 characters with `…` so it never wraps in the cmux sidebar.
 - `--command "claude"` starts Claude Code in the worktree. `--focus` needs an explicit `true`/`false`; bare `--focus` errors.
 - Capture the workspace id from the output (`OK workspace:<n>`). If `--name` didn't stick:
   ```bash
