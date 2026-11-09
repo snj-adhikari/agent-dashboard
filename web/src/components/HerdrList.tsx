@@ -73,7 +73,7 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
       <div className="flex items-center gap-1.5">
         <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colour }} />
         <b className="text-base" style={{ color: colour }}>
-          {agent.label || agent.codename || agent.name || agent.paneId}
+          {agent.codename || agent.label || agent.name || agent.paneId}
         </b>
         {agent.name && <code className="rounded bg-slate-950 border border-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{agent.name}</code>}
         {agent.ticket && <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200">{agent.ticket}</span>}

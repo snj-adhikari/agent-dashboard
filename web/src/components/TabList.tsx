@@ -101,12 +101,15 @@ function TabCard({ tab, canSend, canRead }: { tab: CmuxTab; canSend: boolean; ca
   )
 }
 
+const PERMANENT_TITLES = ['Drive - PR Review', 'Drive - Generic']
+const permanentLast = (title: string): number => (PERMANENT_TITLES.includes(title) ? 1 : 0)
+
 export function TabList({ tabs }: { tabs: CmuxTab[] }) {
   const { canSend, canRead } = useTerminal()
   if (!tabs.length) return <EmptyState label="No terminal tabs open" />
   return (
     <>
-      {tabs.map((t) => (
+      {[...tabs].sort((a, b) => permanentLast(a.title) - permanentLast(b.title)).map((t) => (
         <TabCard key={t.ref} tab={t} canSend={canSend} canRead={canRead} />
       ))}
     </>

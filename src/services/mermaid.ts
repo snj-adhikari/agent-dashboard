@@ -3,6 +3,8 @@ import { activeCwds as activeCwdsOf, isActiveWorktree, sanitize } from '../utils
 import type { MonitorState } from '../types'
 
 /** The graph renders with securityLevel loose (click callbacks), so label text must not carry markup. */
+const PERMANENT_SESSIONS = ['drive-pr-review', 'drive-generic']
+
 export function mermaidText(s: string): string {
   return s.replace(/["\\]/g, '').replace(/&/g, '#amp;').replace(/</g, '#lt;').replace(/>/g, '#gt;').replace(/[\r\n]+/g, ' ')
 }
@@ -27,8 +29,10 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
     return `\u{1F33F} ${wt.branch || 'detached'}\\n\u{1F4C1} ${path.basename(wt.path)}`
   }
 
+  let lastRepoId = ''
   for (const repo of sortedRepos) {
     const repoId = `repo_${sanitize(repo.name)}`
+    lastRepoId = repoId
     nodes.push(`${repoId}(("${repo.name}")):::repo`)
     clicks.push(`click ${repoId} call handleRepoClick("${encodeURIComponent(repo.path)}") "New session"`)
 
@@ -78,16 +82,22 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
   const styles: string[] = []
   const bySession = new Map<string, MonitorState['herdr']>()
   for (const a of state.herdr) bySession.set(a.session, [...(bySession.get(a.session) || []), a])
-  for (const [session, agents] of bySession) {
-    nodes.push(`subgraph herdr_${sanitize(session)}["herdr ${mermaidText(agents[0].display || session)}"]`)
+  const permanentLast = (s: string): number => (PERMANENT_SESSIONS.includes(s) ? 1 : 0)
+  for (const [session, agents] of [...bySession].sort(([a], [b]) => permanentLast(a) - permanentLast(b))) {
+    let linked = false
+    nodes.push(`subgraph herdr_${sanitize(session)}["${mermaidText(agents[0].display || session)}"]`)
     for (const a of agents) {
       const id = `herdr_${sanitize(session)}_${sanitize(a.paneId)}`
-      nodes.push(`${id}(["${mermaidText([a.label || a.codename, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
+      nodes.push(`${id}(["${mermaidText([a.codename || a.label, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
       if (a.colour && /^#[0-9a-fA-F]{6}$/.test(a.colour)) styles.push(`style ${id} stroke:${a.colour},stroke-width:3px`)
       const wtId = a.worktree && `wt_${sanitize(a.worktree)}`
-      if (wtId && renderedWorktrees.has(wtId)) edges.push(`${wtId} -.-> ${id}`)
+      if (wtId && renderedWorktrees.has(wtId)) {
+        edges.push(`${wtId} -.-> ${id}`)
+        linked = true
+      }
     }
     nodes.push('end')
+    if (!linked && lastRepoId) edges.push(`${lastRepoId} ~~~ herdr_${sanitize(session)}`)
   }
 
   return `graph LR
