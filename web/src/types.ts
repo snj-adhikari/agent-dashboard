@@ -46,6 +46,7 @@ export interface HerdrAgent {
   cwd: string
   name?: string
   codename?: string
+  label?: string
   colour?: string
   ticket?: string
   worktree?: string

@@ -82,7 +82,7 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
     nodes.push(`subgraph herdr_${sanitize(session)}["herdr ${mermaidText(agents[0].display || session)}"]`)
     for (const a of agents) {
       const id = `herdr_${sanitize(session)}_${sanitize(a.paneId)}`
-      nodes.push(`${id}(["${mermaidText([a.codename, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
+      nodes.push(`${id}(["${mermaidText([a.label || a.codename, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
       if (a.colour && /^#[0-9a-fA-F]{6}$/.test(a.colour)) styles.push(`style ${id} stroke:${a.colour},stroke-width:3px`)
       const wtId = a.worktree && `wt_${sanitize(a.worktree)}`
       if (wtId && renderedWorktrees.has(wtId)) edges.push(`${wtId} -.-> ${id}`)

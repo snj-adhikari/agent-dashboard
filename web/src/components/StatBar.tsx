@@ -23,7 +23,7 @@ export function StatBar({ state }: { state: MonitorState }) {
         value={state.herdr.length}
         label="herdr agents"
         dot="bg-purple-500"
-        title={state.herdr.map((a) => [a.codename || a.name || a.paneId, a.ticket, a.status].filter(Boolean).join(' · ')).join('\n')}
+        title={state.herdr.map((a) => [a.label || a.codename || a.name || a.paneId, a.ticket, a.status].filter(Boolean).join(' · ')).join('\n')}
       />
       <Stat value={state.agents.length} label="bare agents" dot="bg-warn" />
     </div>

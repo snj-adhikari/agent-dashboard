@@ -87,6 +87,7 @@ export function parseAgentList(json: string): RawAgent[] {
       title: str(a.terminal_title_stripped) || str(a.terminal_title),
       cwd: str(a.foreground_cwd) || str(a.cwd),
       name: str(a.name) || undefined,
+      label: str(a.display_agent) || undefined,
       codename: codenameOf(str(a?.tokens?.codename) || str(a.display_agent), str(a.name))
     }))
 }

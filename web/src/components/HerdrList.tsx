@@ -73,7 +73,7 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
       <div className="flex items-center gap-1.5">
         <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: colour }} />
         <b className="text-base" style={{ color: colour }}>
-          {agent.codename || agent.name || agent.paneId}
+          {agent.label || agent.codename || agent.name || agent.paneId}
         </b>
         {agent.name && <code className="rounded bg-slate-950 border border-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{agent.name}</code>}
         {agent.ticket && <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200">{agent.ticket}</span>}
@@ -125,11 +125,19 @@ function groupBy<T>(items: T[], key: (item: T) => string): [string, T[]][] {
   return [...groups]
 }
 
+const LAST_SESSIONS = ['drive-pr-review', 'drive-generic']
+
+const scopeRank = (inScope: HerdrAgent[]): number => {
+  const i = LAST_SESSIONS.indexOf(inScope[0].session)
+  return i < 0 ? -1 : i
+}
+
 export function HerdrList({ agents }: { agents: HerdrAgent[] }) {
   if (!agents.length) return <EmptyState label="No herdr session running" />
+  const scopes = groupBy(agents, (a) => a.display || a.session).sort(([, a], [, b]) => scopeRank(a) - scopeRank(b))
   return (
     <>
-      {groupBy(agents, (a) => a.display || a.session).map(([scope, inScope]) => (
+      {scopes.map(([scope, inScope]) => (
         <div key={scope} className="mb-3">
           <div className="mb-1 text-[11px] font-semibold text-purple-300">{scope}</div>
           {groupBy(inScope, (a) => a.ticket || 'No ticket').map(([ticket, inTicket]) => (
