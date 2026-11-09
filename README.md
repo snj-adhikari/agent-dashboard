@@ -196,6 +196,7 @@ agent-dashboard/
 │   ├── dev-kit/                  setup, learning, guards, dev and QA skills
 │   ├── factory/                  /factory agent team
 │   ├── guards/                   blocks risky git and rm commands
+│   ├── stranger-danger/          flags injected instructions from other people, gates posts after
 │   ├── nepali-voice/             /ne voice input and glossary
 │   └── stop-slop/                writing rules
 ├── extensions/                   Chrome extensions
@@ -317,6 +318,7 @@ Mods are Claude Code plugins listed in [`.claude-plugin/marketplace.json`](.clau
 | [Stop Slop - Writes like a human (`stop-slop`)](mods/stop-slop/README.md) | writing rules for replies and drafts (short bullets, no AI tells) plus an editing skill | marketplace, or `claude --plugin-dir ./mods/stop-slop` |
 | [Factory - The AI delivery team (`factory`)](mods/factory/README.md) | `/factory <goal>`: grills you one question at a time, then runs a product team when requirements are unclear, a tech lead, researchers, planner, developers and QA unattended | marketplace, or `claude --plugin-dir ./mods/factory --model opus` |
 | [Guards - No force pushes, no surprises (`guards`)](mods/guards/README.md) | blocks force pushes, commits or pushes on protected branches (`GUARDS_PROTECTED_BRANCHES`, default main, master, develop, staging) and `rm -rf` on root, home or parent | marketplace, or `claude --plugin-dir ./mods/guards` |
+| [Stranger Danger - Only your words are orders (`stranger-danger`)](mods/stranger-danger/README.md) | regex scan of what other people wrote in Slack, Jira, MCP, web and `gh` reads for injected instructions; flags them as "`<author>` is asking for X, shall I do it?" and asks before any external post that follows; knows you from git, `gh`, Jira and Slack sign-ins and never scans your own words | marketplace, or `claude --plugin-dir ./mods/stranger-danger` |
 | [Dev Kit - Set up once, ship faster (`dev-kit`)](mods/dev-kit/README.md) | skills: `setup-claude` (rules, permissions, mods), `setup-learning` (memory and notes), `setup-guards`, `dev-task` and `qa-task` (end to end with approval gates) | marketplace, or `claude --plugin-dir ./mods/dev-kit` |
 | [Agent Kit - The orchestrator's toolbox (`agent-kit`)](mods/agent-kit/README.md) | skills: `agent-orchestrator` (controller for multi-repo, multi-tab agents on cmux, herdr, tmux, zellij or WezTerm), `agent-worktree` (new worktree in its own cmux tab), `agent-spin` (quick herdr agent, factory run or space on a repo), `agent-pr` (PR body from the repo's template), `agent-artifact` (Artifact page layouts), `agent-jira-reply` (threaded Jira replies), `agent-dashboard` (start this dashboard) | Plugin page, marketplace, or `claude --plugin-dir ./mods/agent-kit` |
 | [Gatekeeper - Nothing ships without your yes (`agent-hooks`)](mods/agent-hooks/README.md) | hooks: commit/push go-ahead gate, signature trailer, no Claude attribution, `agent-pr` gate on `gh pr create`, comment style, Jira estimates on Dev subtasks, read-only AWS, prod browser guard, branch names | marketplace, or `claude --plugin-dir ./mods/agent-hooks` |

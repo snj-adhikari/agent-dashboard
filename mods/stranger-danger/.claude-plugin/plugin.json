@@ -1,0 +1,28 @@
+{
+  "name": "stranger-danger",
+  "version": "0.1.0",
+  "author": {
+    "name": "S.N.J"
+  },
+  "description": "Stranger Danger: flags instructions hidden in other people's content (Slack, Jira, MCP, web, gh) and asks before any external post that follows; your own messages and Claude's text are never scanned.",
+  "userConfig": {
+    "self": {
+      "type": "string",
+      "title": "Your identities",
+      "description": "Extra comma-separated identities. Your git name and email, gh login, and the Jira and Slack accounts the MCP servers are signed in as are detected by themselves.",
+      "default": ""
+    },
+    "trustedServers": {
+      "type": "string",
+      "title": "Trusted MCP servers",
+      "description": "Comma-separated MCP server names whose output is never scanned.",
+      "default": "agent-orchestration,plugin-authoring,agent-more-like-you,context7"
+    },
+    "privateTerms": {
+      "type": "string",
+      "title": "Private terms",
+      "description": "Comma-separated strings that must never appear in an outbound post.",
+      "default": ""
+    }
+  }
+}
