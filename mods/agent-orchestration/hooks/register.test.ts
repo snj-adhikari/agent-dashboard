@@ -148,6 +148,25 @@ test('a sub-tab starts in the main tab permission mode, default when unknown', a
   expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode plan "')
 })
 
+test('AGENT_SUBTAB_MODE sets the mode when the main tab mode is unknown, and an invalid one is ignored', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_MODE: 'auto' })
+  await $.prompt.submit(typed('/review 4'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode auto "')
+  w.files.set(`${STATE}/mode-surface:1.json`, JSON.stringify({ mode: 'plan' }))
+  w.runs.length = 0
+  await $.prompt.submit(typed('/review 5'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode plan "')
+})
+
+test('an invalid AGENT_SUBTAB_MODE falls back to default', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1', AGENT_SUBTAB_MODE: 'auto; rm -rf /' })
+  await $.prompt.submit(typed('/review 6'))
+  await w.clock.advance(500)
+  expect((w.runs.find(r => r[1] === 'new-surface') ?? []).at(-1)).toContain('claude --permission-mode default "')
+})
+
 test('an unknown or injected mode never reaches the shell command', async ($, on) => {
   const w = world(on, { CMUX_SURFACE_ID: 'surface:1' })
   on('classic.UserPromptSubmit', (_$, e) => e as never)

@@ -212,11 +212,13 @@ const readMeta = async ($: Engine, dir: string): Promise<Meta | undefined> =>
 const modeFile = (env: Env) => `${env.state}/mode-${env.surface}.json`
 
 async function readMode($: Engine, env: Env): Promise<string> {
+  const preset = ((await $.env.get('AGENT_SUBTAB_MODE')) ?? '').trim()
+  const fallback = MODES.includes(preset) ? preset : 'default'
   try {
     const { mode } = JSON.parse(await $.fs.read(modeFile(env))) as { mode?: unknown }
-    return typeof mode === 'string' && MODES.includes(mode) ? mode : 'default'
+    return typeof mode === 'string' && MODES.includes(mode) ? mode : fallback
   } catch {
-    return 'default'
+    return fallback
   }
 }
 
