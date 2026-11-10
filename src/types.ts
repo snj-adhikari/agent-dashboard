@@ -56,6 +56,9 @@ export interface HerdrAgent {
   cmuxWorkspaceId?: string
   /** Terminal host: the herdr TUI (default) or the Herdr desktop app's herdr-core (session `hc`). */
   host?: 'herdr' | 'herdr-app'
+  /** The house the Herdr app gave this agent's space, so the Dex matches its sidebar. */
+  house?: string
+  houseColours?: [string, string]
 }
 
 export interface MonitorState {

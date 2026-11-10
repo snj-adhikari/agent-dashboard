@@ -85,7 +85,7 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
   const permanentLast = (s: string): number => (PERMANENT_SESSIONS.includes(s) ? 1 : 0)
   for (const [session, agents] of [...bySession].sort(([a], [b]) => permanentLast(a) - permanentLast(b))) {
     let linked = false
-    nodes.push(`subgraph herdr_${sanitize(session)}["${mermaidText(agents[0].display || session)}"]`)
+    nodes.push(`subgraph herdr_${sanitize(session)}["${mermaidText(agents[0].host === 'herdr-app' ? 'Herdr app' : agents[0].display || session)}"]`)
     for (const a of agents) {
       const id = `herdr_${sanitize(session)}_${sanitize(a.paneId)}`
       nodes.push(`${id}(["${mermaidText([a.codename || a.label, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)

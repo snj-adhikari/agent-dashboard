@@ -21,6 +21,11 @@ const STATUS_RANK: Record<string, number> = { blocked: 0, working: 1, done: 2, i
 
 export const HC_SESSION = 'hc'
 const HC_SOCKET = path.join(os.homedir(), '.local', 'state', 'herdr-core', 'default', 'default.sock')
+const HC_LOCAL = path.join(os.homedir(), '.local', 'bin', 'hc')
+const HC_BIN = fs.existsSync(HC_LOCAL) ? HC_LOCAL : 'hc'
+const HERDR_APP_LOCAL = path.join(os.homedir(), '.local', 'bin', 'herdr-app')
+const HERDR_APP_BIN = fs.existsSync(HERDR_APP_LOCAL) ? HERDR_APP_LOCAL : 'herdr-app'
+const HERDR_APP_SHARED = path.join(os.homedir(), '.config', 'herdr-app', 'shared.json')
 
 export class HerdrError extends Error {
   constructor(message: string, readonly code: string) {
@@ -70,7 +75,7 @@ export function parseSessionList(text: string): string[] {
 
 async function hc(args: string[]): Promise<string> {
   try {
-    return (await execFileAsync('hc', args, { encoding: 'utf8', timeout: 3000 })).stdout
+    return (await execFileAsync(HC_BIN, args, { encoding: 'utf8', timeout: 3000 })).stdout
   } catch (e) {
     const err = e as { code?: string; stderr?: string; message?: string }
     if (err.code === 'ENOENT') throw new HerdrError('hc is not installed', 'not_installed')
@@ -109,13 +114,25 @@ interface HcDetail {
   title?: string
 }
 
-export function hcAgent(t: HcTerminal, detail: HcDetail, codenames: Palette): HerdrAgent {
+/** hc's `where` reads "<space>[ · branch] / <tab>"; the space names the house. */
+const spaceOf = (where?: string): string => where?.split(' / ')[0].split(' · ')[0].trim() || 'Herdr app'
+
+export interface SpaceInfo {
+  name?: string
+  house?: string
+  colours?: [string, string]
+}
+
+export function hcAgent(t: HcTerminal, detail: HcDetail, codenames: Palette, spaces: Record<string, SpaceInfo> = {}): HerdrAgent {
   const labels = detail.labels || {}
   const codename = codenameOf(str(labels.codename) || str(labels.agent), t.name || '')
+  const space = spaces[str(labels['herdr.space'])] || {}
   return {
     session: HC_SESSION,
     host: 'herdr-app',
-    display: 'Herdr app',
+    display: space.name || spaceOf(t.where),
+    house: space.house,
+    houseColours: space.colours,
     paneId: t.address,
     workspaceId: str(labels['herdr.space']),
     tabId: str(labels['herdr.tab']),
@@ -137,9 +154,31 @@ async function hcAgents(codenames: Palette): Promise<HerdrAgent[]> {
   if (!fs.existsSync(HC_SOCKET)) return []
   const terminals = parseHcList(await hc(['ls', '--json']))
   const details = await Promise.all(terminals.map((t) => hc(['get', t.address, '--json']).then((s) => JSON.parse(s) as HcDetail, () => ({}))))
-  const agents = terminals.map((t, i) => hcAgent(t, details[i], codenames))
+  const spaces = await herdrAppSpaces()
+  const agents = terminals.map((t, i) => hcAgent(t, details[i], codenames, spaces))
   if (agents.some((a) => !a.codename)) adoptHcAgents()
   return agents
+}
+
+const readJson = (file: string): unknown => {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+/** Live space names from the Herdr app window plus the house it gave each space, keyed by space id. */
+async function herdrAppSpaces(): Promise<Record<string, SpaceInfo>> {
+  const houses = ((readJson(HERDR_APP_SHARED) as Record<string, unknown> | null)?.['warden.houses'] || {}) as Record<string, SpaceInfo>
+  let names: { id: string; name: string }[] = []
+  try {
+    names = JSON.parse((await execFileAsync(HERDR_APP_BIN, ['ls'], { encoding: 'utf8', timeout: 3000 })).stdout)?.spaces || []
+  } catch {
+    names = []
+  }
+  const ids = new Set([...Object.keys(houses), ...names.map((s) => s.id)])
+  return Object.fromEntries([...ids].map((id) => [id, { ...houses[id], name: names.find((s) => s.id === id)?.name }]))
 }
 
 let adopting = false

@@ -128,6 +128,11 @@ assert.deepStrictEqual(
   'hc terminals become herdr-app agents in session hc'
 )
 assert.strictEqual(hcAgent(hcList[0], {}, {}).tabTitle, 'Drive / Claude Code')
+assert.strictEqual(hcAgent(hcList[0], {}, {}).display, 'Drive', 'the Herdr app space before " / " names the house')
+assert.strictEqual(hcAgent({ ...hcList[0], where: 'warden-desk · tech/x / newton' }, {}, {}).display, 'warden-desk', 'a branch suffix on the space is dropped')
+assert.strictEqual(hcAgent({ ...hcList[0], where: undefined }, {}, {}).display, 'Herdr app')
+const spaced = hcAgent(hcList[0], { labels: { 'herdr.space': 'sp9' } }, {}, { sp9: { name: 'agent-monitor', house: 'House Laex of Agent-monitor', colours: ['#15803d', '#e2e8f0'] } })
+assert.deepStrictEqual([spaced.display, spaced.house, spaced.houseColours], ['agent-monitor', 'House Laex of Agent-monitor', ['#15803d', '#e2e8f0']], 'the Herdr app space id picks the live space name and its house over the stale where label')
 const prev = new Map([['grille/w1:p2', 'working'], ['grille/w1:p3', 'working']])
 const { alerts, next } = statusAlerts(prev, [
   herdrAgent({ status: 'blocked', ticket: 'MC-1', codename: 'bond', title: 'a\nlast line' }),

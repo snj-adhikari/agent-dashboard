@@ -16,6 +16,10 @@ const STATUS: Record<string, { label: string; className: string }> = {
 }
 const UNKNOWN = { label: 'Wandering', className: 'bg-slate-700/30 text-slate-400 border-slate-600/40' }
 const SPOILS_CAP = 20
+const REALMS = [
+  { host: 'herdr', title: 'cmux' },
+  { host: 'herdr-app', title: 'Herdr app' }
+] as const
 
 const short = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s)
 const spriteKey = (a: HerdrAgent): string => a.codename || a.name || a.paneId
@@ -95,7 +99,7 @@ function HouseSection({ house, maxSpoils, onFocus }: { house: DexHouse; maxSpoil
             Warden: {warden ? <span style={{ color: warden.colour || GREY }}>{warden.codename || warden.name}</span> : <span className="text-slate-600">none</span>}
             {warden && <span className="text-slate-500"> · {STATUS[warden.status]?.label || UNKNOWN.label}</span>}
             <span className="text-slate-600"> · {house.creatures.length} sworn</span>
-            <span className="text-slate-600"> · {house.host === 'herdr-app' ? 'Herdr app' : 'herdr'}</span>
+            <span className="text-slate-600"> · {house.host === 'herdr-app' ? 'Herdr app' : 'cmux'}</span>
           </p>
         </div>
       </header>
@@ -114,10 +118,13 @@ export function DexPage() {
   const [agents, setAgents] = useState<HerdrAgent[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [showScene, setShowScene] = useState(true)
+  const [updated, setUpdated] = useState<string | null>(null)
 
   const poll = useCallback(async () => {
     try {
-      setAgents((await api.graph()).state.herdr)
+      const g = await api.graph()
+      setAgents(g.state.herdr)
+      setUpdated(g.ts)
       setError(null)
     } catch (e) {
       setError((e as Error).message)
@@ -146,6 +153,10 @@ export function DexPage() {
         <span>
           {houses.length} houses · {houses.reduce((n, h) => n + h.creatures.length, 0)} creatures
         </span>
+        <span className="flex items-center gap-1.5 text-slate-500">
+          <span className={`inline-block h-2 w-2 rounded-full ${error ? 'bg-danger' : 'bg-ok animate-pulse'}`} />
+          {updated ? `updated ${updated}` : 'loading…'}
+        </span>
         <button type="button" onClick={() => setShowScene((v) => !v)} className="ml-auto rounded border border-slate-700 px-2 py-1 hover:bg-slate-800">
           {showScene ? 'Hide map' : 'Show map'}
         </button>
@@ -162,7 +173,17 @@ export function DexPage() {
               <DexScene houses={houses} onFocus={onFocus} />
             </div>
           )}
-          {houses.map((h) => <HouseSection key={h.session} house={h} maxSpoils={maxSpoils} onFocus={onFocus} />)}
+          {REALMS.map(({ host, title }) => {
+            const realm = houses.filter((h) => h.host === host)
+            return realm.length ? (
+              <section key={host} className="space-y-3">
+                <h2 className="border-b border-slate-800 pb-1 text-sm font-bold uppercase tracking-widest text-amber-300">
+                  {title} <span className="text-xs font-normal normal-case tracking-normal text-slate-500">· {realm.length} houses</span>
+                </h2>
+                {realm.map((h) => <HouseSection key={h.session} house={h} maxSpoils={maxSpoils} onFocus={onFocus} />)}
+              </section>
+            ) : null
+          })}
         </>
       )}
     </div>

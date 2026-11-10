@@ -11,15 +11,20 @@ export interface DexHouse extends House {
 
 const RANK: Record<string, number> = { blocked: 0, working: 1, done: 2, idle: 3 }
 
-/** Groups herdr agents into one house per session, warden first, creatures by urgency then codename. */
+/** Herdr app agents share one hc session, so each Herdr app space gets its own house. */
+const houseKey = (a: HerdrAgent): string => (a.host === 'herdr-app' ? `${a.session}:${a.workspaceId || a.display || ''}` : a.session)
+
+/** Groups agents into one house per herdr session or Herdr app space, warden first, creatures by urgency then codename. */
 export function housesOf(agents: HerdrAgent[]): DexHouse[] {
-  const sessions = [...new Set(agents.map((a) => a.session))].sort()
-  return sessions.map((session) => {
-    const members = agents.filter((a) => a.session === session)
-    const title = members.find((a) => a.display)?.display || session
+  const keys = [...new Set(agents.map(houseKey))].sort()
+  return keys.map((key) => {
+    const members = agents.filter((a) => houseKey(a) === key)
+    const title = members.find((a) => a.display)?.display || key
+    const given = members.find((a) => a.house)
     return {
       ...houseOf(title),
-      session,
+      ...(given && { house: given.house as string, colours: given.houseColours || houseOf(title).colours }),
+      session: key,
       title,
       host: members[0]?.host || 'herdr',
       warden: members.find((a) => isWarden(a.name)),
