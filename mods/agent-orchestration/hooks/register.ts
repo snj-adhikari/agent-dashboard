@@ -4,6 +4,12 @@ const POLL_MS = 3000
 const STALE_MS = 12 * 60 * 60 * 1000
 const REPLY_TOOL = 'subtab_reply'
 const REPLY_TOOL_FULL = 'mcp__agent-orchestration__subtab_reply'
+const SEND_TOOL = 'agent_send'
+const MAIN_TOOL = 'agent_main'
+const WATCH_MS = 10000
+const RELEASE = /\b(release|drop|give up|stop being)\b[^.?!\n]{0,20}\bmain\b|\bnot (the )?main\b/i
+const CLAIM = /\b(claim|you are|you're|be|become)\b[^.?!\n]{0,20}\bmain\b/i
+const MENTIONS_AGENTS = /\bagents?\b/i
 const FINISH_TEXT = 'Finished: write the summary and hand off now.'
 const RUNNING_ON = /^[A-Z][A-Z-]*:\s*(CONTINUE|WAIT)\b/
 const STAY_IN_MAIN = ['loop', 'update-config', 'keybindings-help', 'fewer-permission-prompts']
@@ -35,6 +41,8 @@ type Driver = {
   live: () => Promise<(meta: Meta) => boolean>
 }
 type Ask = { surface: string; skill: string; text: string }
+type Peer = { id: string; name: string; status: string; aka?: string }
+type Claim = { surface: string; at: number }
 
 async function readEnv($: Engine): Promise<Env> {
   const home = (await $.env.get('HOME')) ?? ''
@@ -245,6 +253,122 @@ async function openSubtab($: Engine, env: Env, skill: string, prompt: string): P
   return child
 }
 
+
+async function scopeOf($: Engine, env: Env): Promise<string | undefined> {
+  if (env.app) {
+    const space = parse<{ labels?: Record<string, string> }>((await $.process.run(['hc', 'get', env.self, '--json'])).stdout)?.labels?.['herdr.space']
+    return space ? `hc:${space}` : undefined
+  }
+  if (env.herdr) return env.workspace ? `herdr:${env.session}:${env.workspace}` : undefined
+  const ws = (await $.env.get('CMUX_WORKSPACE_ID')) ?? ''
+  return ws ? `cmux:${ws}` : undefined
+}
+
+/** Every other terminal in the main tab's Herdr space, herdr workspace or cmux workspace; undefined when the host can't be read. */
+async function listPeers($: Engine, env: Env, scope: string): Promise<Peer[] | undefined> {
+  const [host, ...rest] = scope.split(':')
+  if (host === 'hc') {
+    const r = await $.process.run(['hc', 'ls', '--label', `herdr.space=${rest.join(':')}`, '--json'])
+    const terminals = parse<{ terminals?: { address?: string; name?: string; where?: string; status?: string; state?: string }[] }>(r.stdout)?.terminals
+    if (r.exitCode !== 0 || !terminals) return undefined
+    return terminals
+      .filter(t => t.address && t.address !== env.self)
+      .map(t => ({ id: t.address as string, name: t.name || t.where?.split(' / ').pop() || (t.address as string), status: t.status || t.state || 'unknown' }))
+  }
+  if (host === 'herdr') {
+    const r = await $.process.run(['herdr', 'agent', 'list'], { env: { HERDR_SESSION: env.session } })
+    const agents = parse<{ result?: { agents?: Record<string, unknown>[] } }>(r.stdout)?.result?.agents
+    if (r.exitCode !== 0 || !agents) return undefined
+    return agents
+      .filter(a => a.workspace_id === env.workspace && typeof a.pane_id === 'string' && a.pane_id !== env.self)
+      .map(a => ({ id: a.pane_id as string, name: String(a.display_agent || a.name || a.pane_id), status: String(a.agent_status || 'unknown') }))
+  }
+  const ws = rest.join(':')
+  const panes = parse<{ panes?: { ref: string }[] }>((await $.process.run(['cmux', '--json', 'list-panes', '--workspace', ws])).stdout)?.panes
+  if (!panes) return undefined
+  const peers: Peer[] = []
+  for (const pane of panes) {
+    const listed = parse<{ surfaces?: { ref: string; id?: string; type?: string; title?: string }[] }>(
+      (await $.process.run(['cmux', '--json', 'list-pane-surfaces', '--workspace', ws, '--pane', pane.ref])).stdout,
+    )
+    for (const s of listed?.surfaces ?? []) {
+      if (s.type === 'terminal' && s.ref !== env.self && s.id !== env.self) peers.push({ id: s.ref, name: s.title || s.ref, status: 'unknown', ...(s.id ? { aka: s.id } : {}) })
+    }
+  }
+  return peers
+}
+
+const approverCmd = async ($: Engine) => ((await $.env.get('AGENT_SUBTAB_APPROVER')) ?? '').trim()
+
+const is = (p: Peer, id: string) => p.id === id || p.aka === id
+
+const claimFile = (env: Env, scope: string) => `${env.state}/main/${scope.replace(/[^\w.-]/g, '_')}.json`
+
+async function readClaim($: Engine, env: Env, scope: string): Promise<Claim | undefined> {
+  try {
+    return JSON.parse(await $.fs.read(claimFile(env, scope))) as Claim
+  } catch {
+    return undefined
+  }
+}
+
+async function writeClaim($: Engine, env: Env, scope: string): Promise<void> {
+  await $.process.run(['mkdir', '-p', `${env.state}/main`])
+  await $.fs.write(claimFile(env, scope), JSON.stringify({ surface: env.self, at: await $.clock.now() }))
+}
+
+const peerTable = (peers: Peer[]) => (peers.length ? peers.map(p => `- ${p.name} (${p.id}): ${p.status}`).join('\n') : '- none')
+
+const mainContext = (scope: string, peers: Peer[], approver = '') => `You are the main agent for ${scope}: the user claimed this tab and refers only to it. Other terminals there now:
+${peerTable(peers)}
+- Report terse per-agent status. Steer an agent with ${SEND_TOOL} (target = id or name, text is typed into its tab; close: true ends it). Read more with the host CLI or skills such as snj-pane-controller.
+- Validate an agent's work when it reports done: read its diff, run the repo's checks, confirm it meets what the user asked. Send fixes back with ${SEND_TOOL} until it passes.
+- Once validated, send the commit, push or PR instruction only if the user already asked for that in this session (say which message); otherwise ask the user first. Never for main, master, develop or staging, never a force push. Ask the user before merges, external posts, and closing an agent with unfinished work.${approver ? `\n- Commit/push gates don't count ${SEND_TOOL} text as the user's words: before sending an approved commit, push or PR step, run \`${approver} <session> <terminal> <kinds> [branch]\` (session = $HERDR_SESSION, or hc in the Herdr app; kinds joined with +).` : ''}`
+
+const WATCH_CONTEXT = `This prompt was relayed by the agent-orchestration main-agent monitor; the user did not type it. Tell the user in one line per agent. For a finished agent, validate its work before reporting it done, then send the commit/push/PR step only if the user already asked for it in this session. Answer what follows from the user's goal here with ${SEND_TOOL}, and ask the user for judgement calls, approvals and anything that publishes.`
+
+/** One relay line per change worth the main agent's attention; the first snapshot only sets the baseline. */
+export function changes(prev: Map<string, Peer> | undefined, now: Peer[], skip: Set<string>): string[] {
+  if (!prev) return []
+  const lines: string[] = []
+  for (const p of now) {
+    if (skip.has(p.id)) continue
+    const before = prev.get(p.id)?.status
+    if (p.status === before) continue
+    if (p.status === 'blocked') lines.push(`- ${p.name} (${p.id}) is blocked, waiting for input`)
+    else if (before === 'working' && (p.status === 'done' || p.status === 'idle')) lines.push(`- ${p.name} (${p.id}) finished its turn`)
+  }
+  const ids = new Set(now.map(p => p.id))
+  for (const p of prev.values()) if (!ids.has(p.id) && !skip.has(p.id)) lines.push(`- ${p.name} (${p.id}) closed`)
+  return lines
+}
+
+
+/** Context for a typed prompt in a main-tab candidate: claim or release the workspace, or a live agent report when it mentions agents. */
+async function mainPrompt($: Engine, env: Env, text: string): Promise<string | undefined> {
+  const wantsRelease = RELEASE.test(text)
+  const wantsClaim = !wantsRelease && CLAIM.test(text)
+  if (!wantsRelease && !wantsClaim && !MENTIONS_AGENTS.test(text)) return undefined
+  const scope = await scopeOf($, env)
+  if (!scope) return undefined
+  const claim = await readClaim($, env, scope)
+  const peers = (await listPeers($, env, scope)) ?? []
+  if (wantsRelease) {
+    if (claim?.surface === env.self) await $.process.run(['rm', '-f', claimFile(env, scope)])
+    return `This tab is no longer the main agent for ${scope}.`
+  }
+  const other = claim && claim.surface !== env.self && peers.some(p => is(p, claim.surface)) ? claim.surface : undefined
+  if (wantsClaim && other) {
+    const name = peers.find(p => is(p, other))?.name ?? other
+    return `${name} (${other}) is already the main agent for ${scope}. Ask the user with AskUserQuestion whether to switch the main agent to this tab ("Switch to this tab (Recommended)" / "Keep ${name}"). On yes call ${MAIN_TOOL} with action claim; that disables ${name} as main.`
+  }
+  if (wantsClaim) {
+    await writeClaim($, env, scope)
+    return mainContext(scope, peers, await approverCmd($))
+  }
+  return claim?.surface === env.self ? mainContext(scope, peers, await approverCmd($)) : undefined
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const started = await next(e)
@@ -266,7 +390,54 @@ export const register: Register = on => {
       isDeferred: false,
     })
 
+    await $.tool.register({
+      name: SEND_TOOL,
+      description: 'Main agent only: type a steering message into another agent tab in this workspace, or close it with close: true.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          target: { type: 'string', description: 'The agent id (hc terminal, herdr pane or cmux surface) or its name.' },
+          text: { type: 'string', description: 'The message to type into that tab.' },
+          close: { type: 'boolean', description: 'True to end that agent and close its tab instead.' },
+        },
+        required: ['target'],
+      },
+      isDeferred: false,
+    })
+    await $.tool.register({
+      name: MAIN_TOOL,
+      description: 'Make this tab the main agent of its workspace (action claim, taking over from any current main) or stop being it (release). Claim over another main only after the user said yes.',
+      inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['claim', 'release'] } }, required: ['action'] },
+      isDeferred: false,
+    })
+
     const driver = driverFor($, env)
+    let baseline: Map<string, Peer> | undefined
+    let wasMain = false
+    const watch = async () => {
+      const scope = await scopeOf($, env)
+      if (!scope) return
+      const claim = await readClaim($, env, scope)
+      const isMain = claim?.surface === env.self
+      if (wasMain && !isMain) void $.prompt.submit({ text: `[agents] Main agent for ${scope} moved to ${claim?.surface ?? 'nobody'}; this tab no longer steers it.` })
+      wasMain = isMain
+      if (!isMain) return void (baseline = undefined)
+      const peers = await listPeers($, env, scope)
+      if (!peers) return
+      const subtabs = new Set<string>()
+      const runs = `${env.state}/runs`
+      if (await $.fs.exists(runs)) {
+        for (const run of await $.fs.list(runs)) {
+          const meta = await readMeta($, `${runs}/${run.name}`)
+          if (meta?.main === env.surface) subtabs.add(meta.child)
+        }
+      }
+      const lines = changes(baseline, peers, subtabs)
+      baseline = new Map(peers.map(p => [p.id, p]))
+      if (lines.length) void $.prompt.submit({ text: `[agents]\n${lines.join('\n')}` })
+    }
+    $.clock.every(WATCH_MS, () => void watch().catch(err => $.ui.log(`agent watch failed: ${String(err)}`, { to: 'debug' })))
+
     const finishRun = async (dir: string, meta: Meta, summary: string) => {
       await $.process.run(['rm', '-rf', dir])
       await driver.close(meta)
@@ -315,12 +486,17 @@ export const register: Register = on => {
 
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind === 'plugin' && e.origin.name === $.plugin.name) {
+      if (e.text.startsWith('[agents]')) return next({ ...e, context: [...(e.context ?? []), WATCH_CONTEXT] })
       const approver = ((await $.env.get('AGENT_SUBTAB_APPROVER')) ?? '').trim()
       return next({ ...e, context: [...(e.context ?? []), RELAY_CONTEXT, ...(approver ? [approverContext(approver)] : [])] })
     }
     const env = await readEnv($)
     if (env.runId) {
       return next({ ...e, context: [...(e.context ?? []), childContext(`${env.state}/runs/${env.runId}`)] })
+    }
+    if (env.surface && !e.command) {
+      const added = await mainPrompt($, env, e.text)
+      if (added) return next({ ...e, context: [...(e.context ?? []), added] })
     }
     if (!env.surface || !e.command || (await $.env.get('AGENT_SUBTAB_OFF')) === '1' || !(await isSkill($, e.command.name))) {
       return next(e)
@@ -337,6 +513,42 @@ export const register: Register = on => {
     const flat = (finish ? FINISH_TEXT : text).replace(/\s*\n\s*/g, ' ').trim()
     const failed = await driverFor($, await readEnv($)).send(surface, `[subtab ${surface} reply] ${flat}`)
     return failed ? { deny: failed } : { result: `Sent to ${surface}.` }
+  })
+
+  on('tool.call', { tool: `mcp__agent-orchestration__${MAIN_TOOL}` }, async ($, call) => {
+    const e = call as unknown as { action?: string }
+    const env = await readEnv($)
+    const scope = env.surface && !env.runId ? await scopeOf($, env) : undefined
+    if (!scope) return { deny: 'Not in a herdr, Herdr app or cmux workspace this mod can read.' }
+    if (e.action === 'release') {
+      if ((await readClaim($, env, scope))?.surface === env.self) await $.process.run(['rm', '-f', claimFile(env, scope)])
+      return { result: `Released ${scope}.` }
+    }
+    await writeClaim($, env, scope)
+    return { result: mainContext(scope, (await listPeers($, env, scope)) ?? [], await approverCmd($)) }
+  })
+
+  on('tool.call', { tool: `mcp__agent-orchestration__${SEND_TOOL}` }, async ($, call) => {
+    const e = call as unknown as { target: string; text?: string; close?: boolean }
+    const env = await readEnv($)
+    const scope = env.surface && !env.runId ? await scopeOf($, env) : undefined
+    if (!scope || (await readClaim($, env, scope))?.surface !== env.self) return { deny: 'This tab is not the main agent; the user has to claim it first.' }
+    const peers = (await listPeers($, env, scope)) ?? []
+    const peer = peers.find(p => is(p, e.target)) ?? peers.find(p => p.name === e.target)
+    if (!peer) return { deny: `${e.target} is not a terminal in ${scope}. Known: ${peers.map(p => `${p.name} (${p.id})`).join(', ') || 'none'}` }
+    if (e.close) {
+      const [host] = scope.split(':')
+      const r = host === 'hc'
+        ? await $.process.run(['hc', 'kill', peer.id]).then(() => $.process.run(['hc', 'rm', peer.id]))
+        : host === 'herdr'
+          ? await $.process.run(['herdr', 'pane', 'close', peer.id], { env: { HERDR_SESSION: env.session } })
+          : await $.process.run(['cmux', 'close-surface', '--surface', peer.id])
+      return r.exitCode === 0 ? { result: `Closed ${peer.name} (${peer.id}).` } : { deny: `close failed: ${r.stderr.trim()}` }
+    }
+    const flat = (e.text ?? '').replace(/\s*\n\s*/g, ' ').trim()
+    if (!flat) return { deny: 'Nothing to send: pass text or close: true.' }
+    const failed = await driverFor($, env).send(peer.id, `[main ${env.self}] ${flat}`)
+    return failed ? { deny: failed } : { result: `Sent to ${peer.name} (${peer.id}).` }
   })
 
   on('tool.call', async ($, e, next) => {

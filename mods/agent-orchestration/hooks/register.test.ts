@@ -436,3 +436,88 @@ test('killing a live Herdr app sub-tab with hc is refused', async ($, on) => {
   w.files.set(`${STATE}/runs/abc/meta.json`, appMeta)
   expect(JSON.stringify(await $.tool.call({ tool: 'Bash', command: 'hc kill t9' } as never))).toContain('still running')
 })
+
+const MAIN_APP = { HC_TERMINAL_ID: 't1' }
+const MAIN_FILE = `${STATE}/main/hc_sp1.json`
+const peersJson = (rows: [string, string][]) =>
+  JSON.stringify({ terminals: rows.map(([address, status]) => ({ address, status, where: `agent-monitor / ${address}-name` })) })
+const said = (text: string) => ({ text, wait: false, origin: { kind: 'user' } }) as never
+
+test('claiming main with nobody holding it takes the space and reports its agents', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t1', 'working'], ['t2', 'blocked']]))
+  const r = await $.prompt.submit(said('you are the main agent here'))
+  expect(JSON.parse(w.files.get(MAIN_FILE) ?? '{}').surface).toBe('t1')
+  const ctx = r.context?.join('\n') ?? ''
+  expect(ctx).toContain('t2-name (t2): blocked')
+  expect(ctx).not.toContain('(t1)')
+  expect(ctx).toContain('Validate')
+})
+
+test('claiming over a live main asks the user instead of switching', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 0 }))
+  const r = await $.prompt.submit(said('be main'))
+  expect(r.context?.join('\n')).toContain('AskUserQuestion')
+  expect(JSON.parse(w.files.get(MAIN_FILE) ?? '{}').surface).toBe('t2')
+})
+
+test('a claim held by a terminal that is gone is taken over without asking', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t3', 'idle']]))
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't9', at: 0 }))
+  await $.prompt.submit(said('claim main'))
+  expect(JSON.parse(w.files.get(MAIN_FILE) ?? '{}').surface).toBe('t1')
+})
+
+test('mentioning agents adds the report only in the main tab', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  expect((await $.prompt.submit(said('how are the agents'))).context).toBe(undefined)
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  expect((await $.prompt.submit(said('how are the agents'))).context?.join('\n')).toContain('t2-name (t2): idle')
+})
+
+test('the main tab is told when an agent blocks, finishes or closes, and the old main when it loses the claim', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  w.setTree(peersJson([['t2', 'working'], ['t3', 'working'], ['t4', 'idle']]))
+  await $.session.start({ source: 'startup', cwd: '/repo' } as never)
+  await w.clock.advance(10000)
+  expect(w.submitted.filter(t => t.startsWith('[agents]'))).toHaveLength(0)
+  w.setTree(peersJson([['t2', 'blocked'], ['t3', 'done']]))
+  await w.clock.advance(10000)
+  const relay = w.submitted.find(t => t.startsWith('[agents]')) ?? ''
+  expect(relay).toContain('(t2) is blocked')
+  expect(relay).toContain('(t3) finished its turn')
+  expect(relay).toContain('(t4) closed')
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 1 }))
+  await w.clock.advance(10000)
+  expect(w.submitted.at(-1)).toContain('moved to t2')
+})
+
+test('agent_send steers a peer with a tag and refuses when this tab is not main', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  const send = { tool: 'mcp__agent-orchestration__agent_send', target: 't2-name', text: 'run the checks' } as never
+  expect(JSON.stringify(await $.tool.call(send))).toContain('claim it first')
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  await $.tool.call(send)
+  expect(w.runs.some(r => r.join(' ') === 'hc send t2 [main t1] run the checks')).toBe(true)
+})
+
+test('the approval helper is named in the main context when set', async ($, on) => {
+  const w = world(on, { ...MAIN_APP, AGENT_SUBTAB_APPROVER: 'approve-cmd' })
+  w.setTree(peersJson([]))
+  const r = await $.prompt.submit(said('you are main'))
+  expect(r.context?.join('\n')).toContain('run `approve-cmd <session> <terminal>')
+})
+
+test('releasing main removes this tab\'s claim', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([]))
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  await $.prompt.submit(said('release main'))
+  expect(w.runs.some(r => r[0] === 'rm' && r[2] === MAIN_FILE)).toBe(true)
+})

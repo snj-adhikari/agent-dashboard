@@ -34,6 +34,16 @@ sequenceDiagram
   Main->>You: [subtab done] gist
 ```
 
+## Main agent
+
+- Tell any tab "you are the main agent" (or "claim main", "be main") and it becomes the main agent of its workspace: the Herdr app space, herdr workspace or cmux workspace. You then talk only to that tab.
+- If another live tab already holds it, the agent asks you whether to switch first. On yes it calls `agent_main` claim, and the old main tab is told it no longer steers. A claim held by a closed tab is taken over without asking. "Release main" gives it up.
+- Every 10 s the main tab checks the other terminals in its workspace and relays `[agents]` lines when one blocks, finishes a turn or closes. Sub-tab runs are left to the sub-tab relay.
+- Any prompt to the main tab that mentions "agent" or "agents" gets a live status table.
+- The main agent steers with `agent_send`: text is typed into the target tab tagged `[main <id>]`, and `close: true` ends it.
+- It validates an agent's work before calling it done. It sends the commit, push or PR step only when you already asked for it in the session, and runs `AGENT_SUBTAB_APPROVER` first so your commit/push gate allows it. Merges, external posts and protected branches always go back to you.
+- Claims live in `~/.claude/agent-orchestration/main/<scope>.json`. Herdr status comes from `hc ls` / `herdr agent list`. cmux has no agent status, so there only closed tabs are relayed.
+
 ## Hooks
 
 Registered in `hooks/register.ts`, tested by `hooks/register.test.ts`.
@@ -46,6 +56,8 @@ Registered in `hooks/register.ts`, tested by `hooks/register.test.ts`.
 | `session.start` (main tab) | Registers `subtab_reply` and polls every 3 s: relays questions and summaries, closes finished sub-tabs, cleans up tabs closed by hand, notifies once after 12 h without a handoff. |
 | `classic.UserPromptSubmit` (main tab) | Records the permission mode for new sub-tabs. |
 | `turn.complete` (sub-tab) | Files the sub-tab's last message as a question for the main tab. |
+| `prompt.submit` (main candidate) | Claims or releases main (asks first when another live tab holds it), and adds the agent status table when the prompt mentions agents. |
+| `session.start` (watch) | Every 10 s, if this tab holds the claim, relays agents that blocked, finished or closed; tells a tab that lost the claim. |
 | `tool.call` Bash | Refuses `cmux close-surface` / `close-workspace`, `herdr tab close` / `pane close` and `hc kill` / `rm` while a sub-tab run is live, so the summary is never skipped. |
 
 ## Skills
@@ -61,6 +73,8 @@ None.
 | Tool | Parameters | Does |
 | --- | --- | --- |
 | `subtab_reply` (`mcp__agent-orchestration__subtab_reply`) | `surface` (id from the relayed prompt), `text` (the answer), `finish` (`true` to make the sub-tab write its summary and close) | Sends the answer or the finish request into the sub-tab. |
+| `agent_send` (`mcp__agent-orchestration__agent_send`) | `target` (id or name), `text`, `close` | Main agent only: types a `[main <id>]` message into another tab in the workspace, or closes it. |
+| `agent_main` (`mcp__agent-orchestration__agent_main`) | `action` (`claim` or `release`) | Takes the main-agent claim (after the user agreed to switch) or gives it up. |
 
 ## Settings
 
@@ -70,7 +84,7 @@ None.
 | `AGENT_SUBTAB_STAY` | unset | Comma-separated skill names that always run in the main tab, on top of `loop`, `update-config`, `keybindings-help`, `fewer-permission-prompts`. A trailing `*` matches a prefix (`ponytail*`) |
 | `AGENT_SUBTAB_GUARD` | unset | Command run before opening a sub-tab (split on spaces, no shell). Non-zero exit drops the prompt with the command's stdout as the reason |
 | `AGENT_SUBTAB_NAMER` | unset | herdr and Herdr app. Command run as `<command> <HERDR_SESSION or hc> --seed <run id>`, printing `{"codename": "..."}`. The agent (or hc terminal name) becomes `sub-<codename>`, the tab `/<skill> · <codename>`, and in herdr the pane reports it with `herdr pane report-metadata --display-agent <codename> --token codename=<codename>` |
-| `AGENT_SUBTAB_APPROVER` | unset | herdr and Herdr app. Command the main agent runs after you approve a sub-tab's commit, push or PR, as `<command> <HERDR_SESSION or hc> <sub-tab pane or hc terminal id> <kinds> [branch]` (kinds joined with `+`, e.g. `commit+push+pr`), before replying. Use it to issue a one-shot grant your own commit/push gate honours, since relayed replies don't count as your words |
+| `AGENT_SUBTAB_APPROVER` | unset | herdr and Herdr app. Command the main agent runs after you approve a sub-tab's (or a steered agent's) commit, push or PR, as `<command> <HERDR_SESSION or hc> <sub-tab pane or hc terminal id> <kinds> [branch]` (kinds joined with `+`, e.g. `commit+push+pr`), before replying. Use it to issue a one-shot grant your own commit/push gate honours, since relayed replies don't count as your words |
 | `AGENT_SUBTAB_SHOW` | unset | herdr only. Command run after the agent starts as `<command> <HERDR_SESSION> <agent name> --title "/<skill> · <codename>"`, e.g. to show the agent in a cmux tab. Failures go to the debug log |
 
 Set them in the `env` block of `~/.claude/settings.json`. Run state lives in `~/.claude/agent-orchestration/runs/<id>/` and is removed when a run finishes.
