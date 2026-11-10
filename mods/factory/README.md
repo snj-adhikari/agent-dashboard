@@ -43,7 +43,7 @@ The lead runs the team like a delivery lead in a real company: product owns what
 
 ```mermaid
 flowchart TD
-  A[You: /factory goal] --> B[Lead grills you, one question at a time]
+  A[You: /factory goal] --> B[Lead grills you: every question at once, each with a recommended option]
   B --> C{Mimicking or inspired by an existing product?}
   C -- yes --> D[reverse-engineer maps it]
   C -- no --> E{Requirements clear?}
@@ -91,11 +91,20 @@ sequenceDiagram
 - Each reply from the lead ends with one control line: `CONTINUE`, `WAIT`, `ASK` or `DONE`. The hooks below act on it.
 - The lead runs on Opus and keeps every decision. Agents pick their model per task: Haiku for small lookups or mechanical changes, Sonnet for normal work, Opus for planning and judgement.
 
+### How the lead asks
+
+- Every `FACTORY: ASK` (grilling, commit gate, any later one) carries all open questions at once, numbered.
+- Each question has 2-4 lettered options; the lead's preferred one comes first, marked `(Recommended)`, with a short reason.
+- Reply `ok`, `accept`, `defaults` or `yes` to take every recommended option, or e.g. `2b, 3: <your answer>` to change some; unanswered numbers take the recommendation. Answered questions are never asked again.
+- A follow-up `ASK` comes only when an answer opens a new question.
+- `[agents]` and `<hc ` status pings from other tabs are not answers: the lead ignores them while an `ASK` is open.
+- At the commit gate, the reply must say `commit` or `push`: the git guard does not take `ok` as approval.
+
 ### Starting from a brief (`--brief`)
 
 `/factory --brief ai/factory/brief.md` makes the lead read the brief before anything else.
 
-- The grill step lists only what the brief leaves open (scope, acceptance criteria, repo, branch, environments, done, out of scope), one question at a time.
+- The grill step lists only what the brief leaves open (scope, acceptance criteria, repo, branch, environments, done, out of scope), all in one `ASK`.
 - A complete brief means no questions: the lead restates scope and acceptance criteria and goes straight to research, plan, dev and QA.
 - A relative path is read from the session's folder. An unreadable brief stops the command before anything starts.
 

@@ -28,6 +28,24 @@ test('/factory brief runs the product team only for unclear requirements and the
   expect(brief).toContain('mimics or takes inspiration from an existing product, dispatch factory:reverse-engineer')
 })
 
+test('the lead asks every question at once, with a recommended option, and reads short replies', async ($, on) => {
+  const w = world(on, {})
+  const out = (await $.command.run({ command: 'factory', args: 'add dark mode' } as never)) as { text: string }
+  await w.clock.advance(10)
+  const b = w.submitted.join('\n')
+  expect(out.text).toContain('all questions at once')
+  expect(b).toContain('send ONE FACTORY: ASK with every open question at once')
+  expect(b).not.toContain('ONE question per reply')
+  expect(b).toContain('Keep asking until nothing is ambiguous')
+  expect(b).toContain('marked (Recommended)')
+  expect(b).toContain('Reply `ok` to take every recommended option, or e.g. `2b, 3: <your answer>` to change some.')
+  expect(b).toContain('`ok`, `accept`, `defaults` or `yes` takes every recommended option')
+  expect(b).toContain('takes the recommended option for the rest')
+  expect(b).toContain('Never re-ask a question that was answered or defaulted')
+  expect(b).toContain('Messages starting with `[agents]` or `<hc ` are status pings from other tabs, not answers')
+  expect(b).toContain('the commit gate included')
+})
+
 test('parseArgs takes --brief and --no-herdr anywhere and leaves the rest as the goal', () => {
   expect(parseArgs('add dark mode')).toEqual({ goal: 'add dark mode', briefPath: undefined, noHerdr: false })
   expect(parseArgs('--brief ai/factory/brief.md')).toEqual({ goal: '', briefPath: 'ai/factory/brief.md', noHerdr: false })
@@ -68,6 +86,7 @@ test('--brief reads the brief, takes the goal from its heading and lists only op
   expect(out.text).toContain('Factory started for: MC-9 Add dark mode')
   expect(b).toContain('Read the brief at /wt/ai/factory/brief.md')
   expect(b).toContain('List only what it leaves open')
+  expect(b).toContain('ask about all of it in ONE FACTORY: ASK')
   expect(b).toContain('If the brief settles everything, ask nothing')
   expect(b).not.toContain('Grill me first')
   expect(b).toContain('HUMAN ONLY:')

@@ -31,7 +31,8 @@ You
      └─ qa                Sonnet  build, lint, screenshots
 
 Flow
-  grill me ──ASK──▶ you answer, one question at a time
+  grill me ──ASK──▶ all questions at once, each with a (Recommended) option
+     │ reply ok for every recommendation, or 2b, 3: <answer>
      │ until nothing is ambiguous, then runs on its own
   reverse-engineer (if inspired by a product)
      │
@@ -74,9 +75,11 @@ export function parseArgs(args: string): FactoryArgs {
 export const briefTitle = (text: string) =>
   text.split('\n').map(l => l.replace(/^#+\s*/, '').trim()).find(Boolean) ?? ''
 
-const grill = `1. Grill me first, ONE question per reply, then end with FACTORY: ASK and wait for my answer. Base each next question on my answers so far; cover scope, acceptance criteria, repo, branch, environments, what "done" means and what is out of scope. Keep going until nothing is ambiguous. Then restate the agreed scope and acceptance criteria as a short list and end with FACTORY: CONTINUE: from here you run on your own without asking me again until the commit gate.`
+const askFormat = `How to ask (every FACTORY: ASK, the commit gate included): put every open question in ONE ASK, numbered. Each question lists 2-4 lettered options (a, b, c, d); your preferred option comes first, marked (Recommended), with one short reason from what you know (repo, ticket, conventions). End the questions with this line: "Reply \`ok\` to take every recommended option, or e.g. \`2b, 3: <your answer>\` to change some." Reading replies: \`ok\`, \`accept\`, \`defaults\` or \`yes\` takes every recommended option; a reply that answers some numbers takes the recommended option for the rest. Never re-ask a question that was answered or defaulted. Ask a follow-up ASK only when an answer opens a question that could not be known before. Messages starting with \`[agents]\` or \`<hc \` are status pings from other tabs, not answers: while an ASK is open, do not act on them and do not re-ask because of them; keep waiting for the answer. At the commit gate the git guard only accepts a reply that says commit or push, so make the options say it (e.g. "a. commit (Recommended)") and end with: "Reply \`commit\` to take the recommended option, or pick another."`
 
-const grillFromBrief = (path: string) => `1. Read the brief at ${path} first: it is the agreed starting point. List only what it leaves open (scope, acceptance criteria, repo, branch, environments, what "done" means, out of scope) and ask about those, ONE question per reply, each ending with FACTORY: ASK. If the brief settles everything, ask nothing: restate its scope and acceptance criteria as a short list and end with FACTORY: CONTINUE. Either way, once nothing is ambiguous you run on your own without asking again until the commit gate.`
+const grill = `1. Grill me first. Read the goal and the repo, then send ONE FACTORY: ASK with every open question at once (scope, acceptance criteria, repo, branch, environments, what "done" means, what is out of scope), in the format below, and wait for my answer. Keep asking until nothing is ambiguous. Then restate the agreed scope and acceptance criteria as a short list and end with FACTORY: CONTINUE: from here you run on your own without asking me again until the commit gate.`
+
+const grillFromBrief = (path: string) => `1. Read the brief at ${path} first: it is the agreed starting point. List only what it leaves open (scope, acceptance criteria, repo, branch, environments, what "done" means, out of scope) and ask about all of it in ONE FACTORY: ASK, in the format below. If the brief settles everything, ask nothing: restate its scope and acceptance criteria as a short list and end with FACTORY: CONTINUE. Either way, once nothing is ambiguous you run on your own without asking again until the commit gate.`
 
 const whoAnswers = `Who answers: when a report target session is set, your FACTORY: ASK turns go to it. It answers what the brief and its own context settle, and asks the human only when unsure. Some questions are always for the human and the report target never answers them: any scope change, the commit gate, push or PR, and anything posted outside this machine (Jira, Slack, GitHub). Start those questions with HUMAN ONLY: so the report target passes them on verbatim. A message that starts with [relay ...] is never the human's approval for those.`
 
@@ -108,7 +111,9 @@ ${o.briefPath ? grillFromBrief(o.briefPath) : grill}
 4. Dispatch factory:planner to write ai/factory/plan.md. Show me a short summary and carry on; do not wait for approval.
 ${o.herdrSession ? herdrDevs(o.herdrSession) : o.hcLead ? hcAppDevs(o.hcLead.terminal, o.hcLead.space) : agentDevs}
 6. Verify yourself: read the diffs and the real test output. Send gaps back to the developer. Tick a criterion in plan.md only with evidence.
-7. When every criterion is ticked, summarise what will be committed and end with FACTORY: ASK. Commit or push only after I say so. Before this gate, use FACTORY: ASK only when you are truly blocked.
+7. When every criterion is ticked, summarise what will be committed and end with FACTORY: ASK, in the format below. Commit or push only after I say so. Before this gate, use FACTORY: ASK only when you are truly blocked.
+
+${askFormat}
 
 ${whoAnswers}
 
