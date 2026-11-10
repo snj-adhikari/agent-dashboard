@@ -166,3 +166,67 @@ test('messages to the report target start with a relay tag', async ($, on) => {
   await w.clock.advance(10)
   expect(sent[0]).toStartWith('[relay factory] factory "add dark mode": ASK')
 })
+
+function office(on: On, live: { id: string; type: string; description: string; status: string }[]) {
+  const files = new Map<string, string>()
+  const runs: string[][] = []
+  const w = world(on, { HOME: '/h', HC_TERMINAL_ID: 't1f' })
+  on('fs.write', (_$, e) => (files.set(e.path, e.text), { value: undefined }))
+  on('agent.list', () => ({ value: live }) as never)
+  on('agent.spawn', () => ({ model: 'sonnet', agentId: 'a1' }) as never)
+  on('ui.notify', () => ({ value: undefined }) as never)
+  on('turn.complete', () => ({ text: '' }) as never)
+  on('process.run', (_$, e) => {
+    const argv = [...e.argv]
+    runs.push(argv)
+    let stdout = ''
+    if (argv[0] === 'mv') files.set(argv[3], files.get(argv[2]) ?? '')
+    if (argv.slice(0, 3).join(' ') === 'hc get t1f') stdout = JSON.stringify({ address: 't1f', labels: { codename: 'newton', 'herdr.space': 'sp1' } })
+    if (argv[0] === 'hc' && argv[1] === 'ls') stdout = JSON.stringify({ terminals: [{ address: 't30', state: 'live', status: 'working' }] })
+    if (argv.slice(0, 3).join(' ') === 'hc get t30') stdout = JSON.stringify({ address: 't30', labels: { codename: 'kepler', 'factory.task': 'pricing card spacing' }, status: { state: 'working' } })
+    return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  const file = () => JSON.parse(files.get('/h/.cache/factory/t1f.json') ?? 'null')
+  return { ...w, files, runs, file }
+}
+
+test('in the Herdr app the run file tracks the lead, subagents and hc developers, and ends on stop', async ($, on) => {
+  const live = [{ id: 'a1', type: 'factory:tech-lead', description: 'risks for dark mode', status: 'running' }]
+  const w = office(on, live)
+  await $.command.run({ command: 'factory', args: 'MC-1 add dark mode' } as never)
+  await w.clock.advance(10)
+  expect(w.file()).toMatchObject({ goal: 'MC-1 add dark mode', round: 0, ended: false, lead: { terminal: 't1f', codename: 'newton' } })
+  expect(w.runs.some(r => r[0] === 'mv')).toBe(true)
+
+  await $.agent.spawn({ prompt: 'x', description: 'risks for dark mode', subagentType: 'factory:tech-lead' } as never)
+  expect(w.file().agents).toEqual([
+    { id: 'a1', team: 'tech', role: 'factory:tech-lead', task: 'risks for dark mode', status: 'working', codename: null, terminal: null },
+    { id: 't30', team: 'dev', role: 'factory:developer', task: 'pricing card spacing', status: 'working', codename: 'kepler', terminal: 't30' },
+  ])
+
+  await $.turn.complete({ reason: 'answer', answer: 'risks', agentId: 'a1' } as never)
+  expect(w.file().agents[0].status).toBe('done')
+
+  await $.turn.complete({ reason: 'answer', answer: 'Which repo?\nFACTORY: ASK' } as never)
+  expect(w.file().lead.status).toBe('blocked')
+
+  await $.command.run({ command: 'factory-stop', args: '' } as never)
+  expect(w.file().ended).toBe(true)
+})
+
+test('in the Herdr app developers run as background hc terminals in the lead space', async ($, on) => {
+  const w = office(on, [])
+  await $.command.run({ command: 'factory', args: 'add dark mode' } as never)
+  await w.clock.advance(10)
+  const b = w.submitted.join('\n')
+  expect(b).toContain('hc run --bg --keep --outlive-parent --json --cwd <ticket worktree>-dev<n> --label herdr.space=sp1')
+  expect(b).toContain('--label factory.lead=t1f --label factory.team=dev')
+  expect(b).toContain('snj-term codename hc --seed "<KEY>-dev<n>"')
+  expect(b).toContain('hc send <address> "[relay factory-lead] Read ai/factory/task.md and do it."')
+  expect(b).toContain('at most 4 developer terminals')
+  expect(b).not.toContain('herdr tab create')
+
+  await $.command.run({ command: 'factory', args: '--no-herdr add dark mode' } as never)
+  await w.clock.advance(10)
+  expect(w.submitted[1]).not.toContain('hc run --bg')
+})

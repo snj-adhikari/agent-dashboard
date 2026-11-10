@@ -18,10 +18,10 @@ Plugin id: `factory`.
 
 | Command | What it does |
 | --- | --- |
-| `/factory [--brief <path>] [--no-herdr] <goal or ticket key>` | Starts a run: prints the agent map and sends the lead brief. Flags go anywhere; with `--brief` the goal may be left out and is taken from the brief's first heading or line. |
+| `/factory [--brief <path>] [--no-herdr] <goal or ticket key>` | Starts a run: prints the agent map and sends the lead brief. Flags go anywhere; with `--brief` the goal may be left out and is taken from the brief's first heading or line. `--no-herdr` keeps developers as subagents in herdr and the Herdr app. |
 | `/factory-show` | Agent map, current round and live `factory:*` agents. |
 | `/factory-report <session name \| off>` | Sends ASK, DONE and stop updates to another (lead) session, which answers the lead's questions (see below). No argument shows the current target. |
-| `/factory-stop` | Ends the run. |
+| `/factory-stop` | Ends the run and marks its run file ended. |
 
 ## Agents
 
@@ -119,6 +119,24 @@ When the session runs inside herdr (`HERDR_ENV=1` with `HERDR_SESSION` set) deve
 - The lead tracks tabs with `herdr agent wait --until idle --until blocked` and `herdr agent read`. Every prompt it types into another session starts with `[relay factory-lead]`.
 - QA stays a `factory:qa` subagent. After QA passes the lead copies each developer's working-tree changes into the ticket worktree and closes the tab. Developer worktrees stay for you to clear.
 
+### Developers in Herdr app terminals (default in the Herdr app)
+
+When `HC_TERMINAL_ID` is set and the session is not inside herdr, developers run as background `hc` terminals in the lead's Herdr app space. `--no-herdr` opts out.
+
+- Same steps as the herdr path (mem guard, dev worktree, `task.md`, at most 4 at once), then `hc run --bg --keep --outlive-parent --json` with labels `herdr.space=<lead's space>`, `herdr.tab=tb<hex>`, `factory.lead=<lead terminal>`, `factory.team=dev`, `factory.task=<task>` and `codename=<codename>`, running `env FACTORY_DEV=1 claude`.
+- Codename from `snj-term codename hc --seed <KEY>-dev<n>` when it exists.
+- The lead sends the fixed prompt with `hc send <address> "[relay factory-lead] Read ai/factory/task.md and do it."`, tracks with `hc wait` and `hc read`, and ends with `hc kill`. It never selects or focuses the terminal.
+
+### Run file (office view)
+
+Factory writes its run to `~/.cache/factory/<lead>.json` so other tools (the warden-desk office view) can draw every agent. Factory does not depend on them.
+
+- `<lead>` is `HC_TERMINAL_ID` in the Herdr app, else `<HERDR_SESSION>-<HERDR_PANE_ID>` in herdr. Elsewhere no file is written.
+- Shape: `goal`, `round`, `ended`, `updatedAt`, `lead` (`terminal`, `codename`, `status`) and `agents` (`id`, `team`, `role`, `task`, `status`, `codename`, `terminal`). Teams come from the role: product, tech, research, dev or qa.
+- Written atomically (temp file and `mv`) on start, each round, each lead turn, each `factory:*` subagent start and finish, and at `/factory-stop`, `DONE` or the round cap, where `ended` is `true`.
+- Status: `working` while running, `blocked` when the lead waits on you (`ASK`) or a subagent waits, `idle` while the lead waits on agents (`WAIT`), `done` when finished. Herdr app developers are read from `hc ls --label factory.lead=<lead>` with their `terminal` address.
+- A failed write never stops the run; the file just goes stale.
+
 ### Driving factory from agent-orchestration
 
 With the `agent-orchestration` mod, an agent can drive factory for you. Give the main tab your context and mission (the goal, constraints, what done means), then type `/factory <goal>`. Factory opens in a sub-tab; the main tab's agent answers the lead's grilling as you would, from that mission.
@@ -150,8 +168,9 @@ Registered in `hooks/register.ts`.
 
 | Event | What it does |
 | --- | --- |
-| `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. With a report target, `ASK` is tagged human-only when the lead wrote `HUMAN ONLY:`. |
-| `prompt.submit` | Records your latest message for the git gate; relayed prompts (`[relay ...]`, `[monitor]`, `[subtab ...]`) clear it instead. |
+| `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. Updates the run file, including when a subagent finishes. With a report target, `ASK` is tagged human-only when the lead wrote `HUMAN ONLY:`. |
+| `prompt.submit` | Records your latest message for the git gate; relayed prompts (`[relay ...]`, `[monitor]`, `[subtab ...]`) clear it instead. Marks the lead working in the run file. |
+| `agent.spawn` | Updates the run file when a `factory:*` subagent starts. |
 | `tool.call` Bash | During a run, denies `git commit` and `git push` unless your latest message says commit or push without a negation ("don't", "do not", "never", "no", "without", "not yet" a few words before). In a developer session (`FACTORY_DEV=1`) always denies them. |
 
 ## Skills

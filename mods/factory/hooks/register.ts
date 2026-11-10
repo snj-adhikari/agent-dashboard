@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface as Engine, Register } from 'claude-code'
 
-import type { FactoryRun } from '../types'
+import type { FactoryRun, OfficeStatus } from '../types'
+import { hcDevs, leadOf, mergeAgents, writeAtomic } from './office'
 
 const run = atom({ plugin: 'factory', key: 'run' } as const, null as FactoryRun)
 const reportTo = atom({ plugin: 'factory', key: 'reportTo' } as const, null as string | null)
@@ -88,7 +89,14 @@ const herdrDevs = (session: string) => `5. Developers run in visible herdr tabs.
    d. \`herdr agent start <name> --kind claude --pane <pane> -- -n <name>\` with no prompt argument, then \`herdr agent prompt <name> "[relay factory-lead] Read ai/factory/task.md and do it."\`. With a codename, run \`herdr pane report-metadata <pane> --source factory --display-agent <codename> --token codename=<codename>\`.
    Never put brief or follow-up text into a shell command: for a follow-up, append it to that task.md and send the fixed prompt \`herdr agent prompt <name> "[relay factory-lead] Read the latest update at the end of ai/factory/task.md."\`. Every prompt you type into another session starts with [relay factory-lead]. Track each with \`herdr agent wait <name> --until idle --until blocked --timeout <ms>\` and \`herdr agent read <name> --source recent --lines 80\`. herdr tabs do not wake you: poll them and end with FACTORY: CONTINUE, not WAIT, while only herdr developers are running. Stop and re-brief a tab still running well past its budget. QA stays factory:qa via the Agent tool, against the developers' worktrees, in small parallel batches. After QA passes, bring each developer's changes into the ticket worktree (developers never commit, so copy the working tree, not a branch: \`git -C <dev worktree> add -N . && git -C <dev worktree> diff HEAD --binary -- . ':!ai/factory/task.md' | git -C <ticket worktree> apply\`), touching only that task's files, then \`herdr tab close <tab>\`. Leave the developer worktrees for me to clear.`
 
-type BriefOpts = { briefPath?: string; herdrSession?: string }
+const hcAppDevs = (lead: string, space: string) => `5. Developers run in visible Herdr app terminals in my space, never focused. Per independent dev task, with at most ${DEV_TAB_CAP} developer terminals open at once for this ticket (queue the rest and open the next when one finishes). Use the ticket key for <KEY> (a short slug of the goal when there is none) and n = 1, 2, 3...:
+   a. Run \`~/.claude/hooks/snj/snj-mem-guard.sh check\`; if free RAM is below 12%, queue the task and open nothing. Then pick the codename: if \`~/.claude/hooks/snj/snj-term\` exists, run \`~/.claude/hooks/snj/snj-term codename hc --seed "<KEY>-dev<n>"\` and take codename from its JSON; without it, or if it fails, there is no codename.
+   b. \`git -C <ticket worktree> worktree add -b <ticket-branch>-dev<n> <ticket worktree>-dev<n> <ticket-branch>\`, then write the task brief to \`<ticket worktree>-dev<n>/ai/factory/task.md\`: the files, the acceptance criteria, the tests to run, a time budget (about 20 minutes), the report format (files changed, real test output, open issues) and never commit.
+   c. \`hc run --bg --keep --outlive-parent --json --cwd <ticket worktree>-dev<n> --label herdr.space=${space} --label herdr.tab=tb<16 random hex chars> --label factory.lead=${lead} --label factory.team=dev --label "factory.task=<task, under 40 chars>" [--label codename=<codename>] -- env FACTORY_DEV=1 claude\` and keep the terminal address from its JSON. FACTORY_DEV=1 makes the factory git guard deny every git commit and push in that session. Never select, focus or attach the new terminal or switch the space, tab or layout.
+   d. \`hc wait <address> --timeout 30\` until Claude is ready, then \`hc send <address> "[relay factory-lead] Read ai/factory/task.md and do it."\`.
+   Never put brief or follow-up text into a shell command: for a follow-up, append it to that task.md and send the fixed prompt \`hc send <address> "[relay factory-lead] Read the latest update at the end of ai/factory/task.md."\`. Every prompt you type into another session starts with [relay factory-lead]. Track each with \`hc wait <address> --timeout <s>\` and \`hc read <address>\`. These terminals do not wake you: poll them and end with FACTORY: CONTINUE, not WAIT, while only these developers are running. Stop and re-brief one still running well past its budget. QA stays factory:qa via the Agent tool, against the developers' worktrees, in small parallel batches. After QA passes, bring each developer's changes into the ticket worktree (developers never commit, so copy the working tree, not a branch: \`git -C <dev worktree> add -N . && git -C <dev worktree> diff HEAD --binary -- . ':!ai/factory/task.md' | git -C <ticket worktree> apply\`), touching only that task's files, then \`hc kill <address>\`. Leave the developer worktrees for me to clear.`
+
+type BriefOpts = { briefPath?: string; herdrSession?: string; hcLead?: { terminal: string; space: string } }
 
 const brief = (goal: string, o: BriefOpts = {}) => `You are the factory LEAD for: ${goal}
 
@@ -98,7 +106,7 @@ ${o.briefPath ? grillFromBrief(o.briefPath) : grill}
 2. If the goal mimics or takes inspiration from an existing product, dispatch factory:reverse-engineer on it first (only targets I own or may study); its map of structure, behaviour and data flow feeds both the product team and the tech lead. Then decide whether the requirements are clear. Clear means the problem, users, acceptance criteria and expected UI are settled. If they are clear, skip the product team: the tech lead and dev team deliver. If they are not, or the idea needs analysis or prioritisation, dispatch the product team in parallel: factory:product-analyst (data and priority), factory:design-lead (guidance from the project's design system, for UI work) and factory:product-consultant (product frameworks, alternatives, riskiest assumption). When an idea is easier to judge by seeing it, have the product team shape a prototype with the dev team: one factory:developer builds a throwaway prototype in isolation: worktree from the design lead's guidance, then the product team reviews it. Either way, dispatch factory:tech-lead on the requirements for technical risks and edge cases. The product team and the tech lead consult each other through you: pass each product agent's questions for the tech lead to factory:tech-lead, and the tech lead's product decisions needed to the product agent that owns them, then fold both answers into the agreed scope and acceptance criteria. Keep it to two exchanges, and ask me with FACTORY: ASK only if the answers change scope.
 3. Dispatch factory:researcher agents (in parallel where independent) and summarise their findings. Researchers serve both sides: dispatch them for the product team's questions (market, competitors, docs, tickets) as well as the dev team's, at any step. Pick each researcher's model by the question: model: haiku for quick lookups (find a file, read one doc, check a version), the default Sonnet for normal codebase or docs research, model: opus only for deep or ambiguous research (architecture trade-offs, conflicting sources, many systems).
 4. Dispatch factory:planner to write ai/factory/plan.md. Show me a short summary and carry on; do not wait for approval.
-${o.herdrSession ? herdrDevs(o.herdrSession) : agentDevs}
+${o.herdrSession ? herdrDevs(o.herdrSession) : o.hcLead ? hcAppDevs(o.hcLead.terminal, o.hcLead.space) : agentDevs}
 6. Verify yourself: read the diffs and the real test output. Send gaps back to the developer. Tick a criterion in plan.md only with evidence.
 7. When every criterion is ticked, summarise what will be committed and end with FACTORY: ASK. Commit or push only after I say so. Before this gate, use FACTORY: ASK only when you are truly blocked.
 
@@ -120,6 +128,23 @@ async function deliver($: Engine, lead: string, text: string): Promise<void> {
     if (sent.exitCode === 0) return
   }
   await $.session.send({ to: lead, text })
+}
+
+/** Writes the run file the office view reads; it never breaks the run. */
+async function publish($: Engine, o: { ended?: boolean; lead?: OfficeStatus; finished?: string } = {}): Promise<void> {
+  try {
+    const r = await read($, run)
+    if (!r?.file || !r.lead) return
+    const subagents = mergeAgents(r.agents ?? [], await $.agent.list()).filter(a => !a.terminal).map(a => (a.id === o.finished ? { ...a, status: 'done' as const } : a))
+    const devs = (await $.env.get('HC_TERMINAL_ID')) ? await hcDevs($, r.lead.terminal) : []
+    const agents = [...subagents, ...devs]
+    const leadStatus = o.lead ?? r.leadStatus ?? 'working'
+    await update($, run, x => (x ? { ...x, agents, leadStatus } : x))
+    const file = { goal: r.goal, round: r.round, ended: !!o.ended, updatedAt: new Date(await $.clock.now()).toISOString(), lead: { ...r.lead, status: o.ended ? 'done' : leadStatus }, agents }
+    await writeAtomic($, r.file, `${JSON.stringify(file, null, 2)}\n`)
+  } catch {
+    // ponytail: office view is best effort, a failed write only leaves it stale
+  }
 }
 
 export const register: Register = on => {
@@ -145,10 +170,13 @@ export const register: Register = on => {
     if (!goal) return { text: 'Usage: /factory [--brief <path>] [--no-herdr] <goal or Jira key>' }
     const session = (await $.env.get('HERDR_ENV')) === '1' ? await $.env.get('HERDR_SESSION') : undefined
     const herdrSession = a.noHerdr ? undefined : session || undefined
-    await update($, run, () => ({ goal, round: 0, lastPrompt: '' }))
+    const office = await leadOf($).catch(() => null)
+    const hcLead = !a.noHerdr && !herdrSession && office?.space && (await $.env.get('HC_TERMINAL_ID')) ? { terminal: office.lead.terminal, space: office.space } : undefined
+    await update($, run, () => ({ goal, round: 0, lastPrompt: '', agents: [], lead: office?.lead, leadStatus: 'working' as const, file: office?.path }))
+    await publish($)
     $.ui.status(`factory: ${goal.slice(0, 40)}`)
-    $.clock.after(0, () => void $.prompt.submit({ text: brief(goal, { briefPath: a.briefPath, herdrSession }) }))
-    const mode = herdrSession ? `developers in herdr tabs (${herdrSession})` : 'developers as subagents'
+    $.clock.after(0, () => void $.prompt.submit({ text: brief(goal, { briefPath: a.briefPath, herdrSession, hcLead }) }))
+    const mode = herdrSession ? `developers in herdr tabs (${herdrSession})` : hcLead ? `developers in Herdr app terminals (${hcLead.space})` : 'developers as subagents'
     return { text: `${MAP}\n\nFactory started for: ${goal}\n${a.briefPath ? `Brief: ${a.briefPath}\n` : ''}Mode: ${mode}` }
   })
 
@@ -170,6 +198,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'factory-stop' }, async $ => {
+    await publish($, { ended: true })
     await update($, run, () => null)
     $.ui.status(undefined)
     return { text: 'Factory stopped.' }
@@ -178,7 +207,10 @@ export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     if (e.origin.kind === 'composer') {
       const r = await update($, run, x => (x ? { ...x, lastPrompt: RELAYED.test(e.text) ? '' : e.text } : x))
-      if (r) $.ui.status(`factory: running (round ${r.round})`)
+      if (r) {
+        $.ui.status(`factory: running (round ${r.round})`)
+        await publish($, { lead: 'working' })
+      }
     }
     return next(e)
   })
@@ -186,7 +218,12 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     const r = await read($, run)
-    if (!r || e.agentId !== undefined || e.reason !== 'answer') return done
+    if (!r) return done
+    if (e.agentId !== undefined) {
+      await publish($, { finished: e.agentId })
+      return done
+    }
+    if (e.reason !== 'answer') return done
 
     const signal = e.answer.match(/FACTORY:\s*(CONTINUE|WAIT|ASK|DONE)/)?.[1]
     const lead = await read($, reportTo)
@@ -197,6 +234,9 @@ export const register: Register = on => {
       const text = `[relay factory] factory "${r.goal}": ${tag} (round ${r.round})\n${e.answer.slice(-1500)}`
       $.clock.after(0, () => void deliver($, lead, text))
     }
+    const ends = signal === 'DONE' || (signal === 'CONTINUE' && r.round >= MAX_ROUNDS)
+    const leadStatus: OfficeStatus = signal === 'DONE' ? 'done' : signal === 'WAIT' ? 'idle' : signal === 'CONTINUE' ? 'working' : 'blocked'
+    await publish($, { ended: ends, lead: leadStatus })
     if (signal === 'WAIT') {
       $.ui.status(`factory: waiting on agents (round ${r.round})`)
     } else if (signal === 'DONE') {
@@ -211,10 +251,17 @@ export const register: Register = on => {
       $.ui.status(`factory: stopped at ${MAX_ROUNDS} rounds`)
     } else {
       await update($, run, x => (x ? { ...x, round: x.round + 1 } : x))
+      await publish($)
       $.ui.status(`factory: round ${r.round + 1}`)
       $.clock.after(0, () => void $.prompt.submit({ text: 'Continue the factory run from where you stopped. If you are only waiting on background agents, end with FACTORY: WAIT. Otherwise end with a FACTORY: line.' }))
     }
     return done
+  })
+
+  on('agent.spawn', async ($, e, next) => {
+    const started = await next(e)
+    if (e.subagentType.startsWith('factory:')) await publish($)
+    return started
   })
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
