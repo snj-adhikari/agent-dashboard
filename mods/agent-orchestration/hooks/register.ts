@@ -10,6 +10,7 @@ const WATCH_MS = 10000
 const RELEASE = /\b(release|drop|give up|stop being)\b[^.?!\n]{0,20}\bmain\b|\bnot (the )?main\b/i
 const CLAIM = /\b(claim|you are|you're|be|become)\b[^.?!\n]{0,20}\bmain\b/i
 const MENTIONS_AGENTS = /\bagents?\b/i
+const KEEP_EYE = /\b(keep (an? )?(eye|aye|watch) on|keep watching|watch over|monitor|track)\b/i
 const FINISH_TEXT = 'Finished: write the summary and hand off now.'
 const RUNNING_ON = /^[A-Z][A-Z-]*:\s*(CONTINUE|WAIT)\b/
 const STAY_IN_MAIN = ['loop', 'update-config', 'keybindings-help', 'fewer-permission-prompts']
@@ -42,7 +43,7 @@ type Driver = {
 }
 type Ask = { surface: string; skill: string; text: string }
 type Peer = { id: string; name: string; status: string; aka?: string }
-type Claim = { surface: string; at: number }
+type Claim = { surface: string; at: number; focus?: string[] }
 
 async function readEnv($: Engine): Promise<Env> {
   const home = (await $.env.get('HOME')) ?? ''
@@ -312,9 +313,18 @@ async function readClaim($: Engine, env: Env, scope: string): Promise<Claim | un
   }
 }
 
-async function writeClaim($: Engine, env: Env, scope: string): Promise<void> {
+async function writeClaim($: Engine, env: Env, scope: string, focus: string[] = []): Promise<void> {
+  const held = await readClaim($, env, scope)
+  const kept = held?.surface === env.self ? (held.focus ?? []) : []
   await $.process.run(['mkdir', '-p', `${env.state}/main`])
-  await $.fs.write(claimFile(env, scope), JSON.stringify({ surface: env.self, at: await $.clock.now() }))
+  await $.fs.write(claimFile(env, scope), JSON.stringify({ surface: env.self, at: await $.clock.now(), focus: [...new Set([...kept, ...focus])] }))
+}
+
+/** Peers named in the text by id or name; "all"/"everyone"/"agents" means every peer. */
+export function named(text: string, peers: Peer[]): string[] {
+  if (/(all|every(one|body)?|agents)\b/i.test(text)) return peers.map(p => p.id)
+  const has = (word: string) => new RegExp(`(^|[^\\w-])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}($|[^\\w-])`, 'i').test(text)
+  return peers.filter(p => has(p.id) || has(p.name)).map(p => p.id)
 }
 
 const peerTable = (peers: Peer[]) => (peers.length ? peers.map(p => `- ${p.name} (${p.id}): ${p.status}`).join('\n') : '- none')
@@ -328,7 +338,7 @@ ${peerTable(peers)}
 const WATCH_CONTEXT = `This prompt was relayed by the agent-orchestration main-agent monitor; the user did not type it. Tell the user in one line per agent. For a finished agent, validate its work before reporting it done, then send the commit/push/PR step only if the user already asked for it in this session. Answer what follows from the user's goal here with ${SEND_TOOL}, and ask the user for judgement calls, approvals and anything that publishes.`
 
 /** One relay line per change worth the main agent's attention; the first snapshot only sets the baseline. */
-export function changes(prev: Map<string, Peer> | undefined, now: Peer[], skip: Set<string>): string[] {
+export function changes(prev: Map<string, Peer> | undefined, now: Peer[], skip: Set<string>, focus: Set<string> = new Set()): string[] {
   if (!prev) return []
   const lines: string[] = []
   for (const p of now) {
@@ -337,6 +347,7 @@ export function changes(prev: Map<string, Peer> | undefined, now: Peer[], skip: 
     if (p.status === before) continue
     if (p.status === 'blocked') lines.push(`- ${p.name} (${p.id}) is blocked, waiting for input`)
     else if (before === 'working' && (p.status === 'done' || p.status === 'idle')) lines.push(`- ${p.name} (${p.id}) finished its turn`)
+    else if (focus.has(p.id)) lines.push(`- ${p.name} (${p.id}) is now ${p.status}${before ? ` (was ${before})` : ''}`)
   }
   const ids = new Set(now.map(p => p.id))
   for (const p of prev.values()) if (!ids.has(p.id) && !skip.has(p.id)) lines.push(`- ${p.name} (${p.id}) closed`)
@@ -347,7 +358,8 @@ export function changes(prev: Map<string, Peer> | undefined, now: Peer[], skip: 
 /** Context for a typed prompt in a main-tab candidate: claim or release the workspace, or a live agent report when it mentions agents. */
 async function mainPrompt($: Engine, env: Env, text: string): Promise<string | undefined> {
   const wantsRelease = RELEASE.test(text)
-  const wantsClaim = !wantsRelease && CLAIM.test(text)
+  const keepEye = !wantsRelease && KEEP_EYE.test(text)
+  const wantsClaim = !wantsRelease && (keepEye || CLAIM.test(text))
   if (!wantsRelease && !wantsClaim && !MENTIONS_AGENTS.test(text)) return undefined
   const scope = await scopeOf($, env)
   if (!scope) return undefined
@@ -363,8 +375,11 @@ async function mainPrompt($: Engine, env: Env, text: string): Promise<string | u
     return `${name} (${other}) is already the main agent for ${scope}. Ask the user with AskUserQuestion whether to switch the main agent to this tab ("Switch to this tab (Recommended)" / "Keep ${name}"). On yes call ${MAIN_TOOL} with action claim; that disables ${name} as main.`
   }
   if (wantsClaim) {
-    await writeClaim($, env, scope)
-    return mainContext(scope, peers, await approverCmd($))
+    const focus = keepEye ? named(text, peers) : []
+    await writeClaim($, env, scope, focus)
+    const watching = peers.filter(p => focus.includes(p.id)).map(p => `${p.name} (${p.id})`).join(', ')
+    const eye = keepEye ? `\n- Keeping an eye on ${watching || 'every agent (no name matched)'}: every status change of theirs is relayed here; check on them and validate their work when they finish.` : ''
+    return mainContext(scope, peers, await approverCmd($)) + eye
   }
   return claim?.surface === env.self ? mainContext(scope, peers, await approverCmd($)) : undefined
 }
@@ -432,7 +447,7 @@ export const register: Register = on => {
           if (meta?.main === env.surface) subtabs.add(meta.child)
         }
       }
-      const lines = changes(baseline, peers, subtabs)
+      const lines = changes(baseline, peers, subtabs, new Set(claim?.focus ?? []))
       baseline = new Map(peers.map(p => [p.id, p]))
       if (lines.length) void $.prompt.submit({ text: `[agents]\n${lines.join('\n')}` })
     }

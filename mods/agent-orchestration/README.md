@@ -38,6 +38,7 @@ sequenceDiagram
 
 - Tell any tab "you are the main agent" (or "claim main", "be main") and it becomes the main agent of its workspace: the Herdr app space, herdr workspace or cmux workspace. You then talk only to that tab.
 - If another live tab already holds it, the agent asks you whether to switch first. On yes it calls `agent_main` claim, and the old main tab is told it no longer steers. A claim held by a closed tab is taken over without asking. "Release main" gives it up.
+- "Keep an eye on <agent>" (or "monitor/track <agent>", "keep an eye on all") claims main the same way and follows that agent: every status change of theirs is relayed, not just blocked/finished/closed.
 - Every 10 s the main tab checks the other terminals in its workspace and relays `[agents]` lines when one blocks, finishes a turn or closes. Sub-tab runs are left to the sub-tab relay.
 - Any prompt to the main tab that mentions "agent" or "agents" gets a live status table.
 - The main agent steers with `agent_send`: text is typed into the target tab tagged `[main <id>]`, and `close: true` ends it.
