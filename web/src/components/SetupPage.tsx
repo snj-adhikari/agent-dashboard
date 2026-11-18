@@ -30,7 +30,7 @@ const withDefaults = (s: Partial<Settings>, d: ServiceSettings): Settings => ({
   terminalOpenWindow: s.terminalOpenWindow ?? true,
   vaultPath: s.vaultPath ?? '',
   usageStatePath: s.usageStatePath ?? '',
-  profile: { displayName: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...s.profile },
+  profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...s.profile },
   atlassian: { siteUrl: '', repositoryFieldId: '', workIssueTypes: [], subtaskIssueType: '', extraInstructions: '', ...s.atlassian },
   hooks: { ...DEFAULT_HOOKS, ...s.hooks, gate: { ...DEFAULT_HOOKS.gate, ...s.hooks?.gate } },
   service: {
@@ -267,6 +267,9 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
         >
           <Field label="Display name">
             <TextInput value={s.profile.displayName} onChange={(v) => upd({ profile: { ...s.profile, displayName: v } })} placeholder="Your name" />
+          </Field>
+          <Field label="Nickname" hint="Optional. Agents call you this and treat it as meaning you. Saved with your name to ~/.config/agent-monitor/user.json for mods.">
+            <TextInput value={s.profile.nickname} onChange={(v) => upd({ profile: { ...s.profile, nickname: v } })} placeholder="Sam" />
           </Field>
           <Field label="GitHub handle">
             <TextInput value={s.profile.githubHandle} onChange={(v) => upd({ profile: { ...s.profile, githubHandle: v } })} placeholder="octocat" />

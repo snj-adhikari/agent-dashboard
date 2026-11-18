@@ -86,6 +86,7 @@ export interface SessionSummary {
   cwd: string
   title: string
   sessionId?: string
+  host?: 'cmux' | 'herdr-app'
   branches: string[]
   firstSeen: string
   lastSeen: string
@@ -95,6 +96,8 @@ export interface TimelinePoint {
   ts: string
   tabs: number
   agents: number
+  herdr: number
+  herdrApp: number
   worktrees: number
 }
 
@@ -151,6 +154,20 @@ export interface HookStatusResponse {
   queue: QueueItem[]
   sessions: HookSession[]
   maxConcurrent: number
+  inbox?: InboxItem[]
+  inboxWatch?: { ok: boolean; error: string | null }
+}
+
+export type InboxVerdict = 'pr-review' | 'pr-review-check' | 'risky' | 'heavy' | 'other'
+
+export interface InboxItem {
+  at: string
+  source: string
+  title: string
+  verdict: InboxVerdict
+  reasons: string[]
+  urls: string[]
+  action: string
 }
 
 export interface BaseBranchRule {
@@ -179,6 +196,7 @@ export interface HooksConfig {
 
 export interface ProfileSettings {
   displayName: string
+  nickname: string
   githubHandle: string
   createPrSkill: string
   prReviewSkill: string

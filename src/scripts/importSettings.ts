@@ -6,7 +6,7 @@ import { loadSettings, saveSettings, SETUP_STEPS } from '../services/settings'
 import type { Settings, SetupStep } from '../services/settings'
 
 const FLAGS = [
-  'repo-dirs', 'vault', 'plist', 'blocker-sites', 'blocker-name', 'display-name', 'github', 'create-pr-skill',
+  'repo-dirs', 'vault', 'plist', 'blocker-sites', 'blocker-name', 'display-name', 'nickname', 'github', 'create-pr-skill',
   'pr-review-skill', 'atlassian-site', 'repository-field', 'work-types', 'subtask-type', 'extra-instructions-file',
   'usage-state', 'hooks-config'
 ]
@@ -62,9 +62,10 @@ function buildSeed(a: Record<string, string | boolean>): { seed: Partial<Setting
     seed.blocker = { name: str('blocker-name') || '', sites: list(str('blocker-sites') || '') }
     done('blocker')
   }
-  if (str('display-name') || str('github') || str('create-pr-skill') || str('pr-review-skill')) {
+  if (str('display-name') || str('nickname') || str('github') || str('create-pr-skill') || str('pr-review-skill')) {
     seed.profile = {
       displayName: str('display-name') || '',
+      nickname: str('nickname') || '',
       githubHandle: str('github') || '',
       createPrSkill: str('create-pr-skill') || '',
       prReviewSkill: str('pr-review-skill') || ''

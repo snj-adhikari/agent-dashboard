@@ -1,15 +1,18 @@
 import { expect, mock, test } from 'claude-code/testing'
-import type { On } from 'claude-code'
+import type { EngineInterface as Engine, On } from 'claude-code'
+
+import { greeted, keystrokes, normalise, sha256 } from './register'
 
 const STATE = '/h/.claude/agent-orchestration'
 
-function world(on: On, env: Record<string, string>, failing: string[] = []) {
+function world(on: On, env: Record<string, string>, failing: string[] = [], gh = '[]') {
   const files = new Map<string, string>()
   const runs: string[][] = []
   const sessions: (string | undefined)[] = []
   const fills: string[] = []
   const submitted: string[] = []
   let tree = ''
+  const titles = new Map<string, string>()
   const under = (p: string) => [...files.keys()].filter(k => k.startsWith(`${p}/`))
 
   mock.env(on, { HOME: '/h', ...env })
@@ -18,6 +21,7 @@ function world(on: On, env: Record<string, string>, failing: string[] = []) {
   on('command.list', () => ({
     value: [
       { name: 'review', description: '', source: 'plugin' },
+      { name: 'user-inline-pr-review', description: '', source: 'plugin' },
       { name: 'loop', description: '', source: 'plugin' },
       { name: 'compact', description: '', source: 'builtin' },
       { name: 'SNJ-work-on-new-worktree', description: '', source: 'plugin' },
@@ -64,15 +68,25 @@ function world(on: On, env: Record<string, string>, failing: string[] = []) {
       stdout = JSON.stringify({ result: { tab: { tab_id: 'w1:t2' }, root_pane: { pane_id: 'w1:p2' } } })
     }
     if (argv[0] === 'herdr' && argv[1] === 'pane' && argv[2] === 'list') stdout = tree
-    if (argv[0] === 'hc' && argv[1] === 'get') stdout = JSON.stringify({ address: argv[2], labels: { 'herdr.space': 'sp1' } })
+    if (argv[0] === 'herdr' && argv[1] === 'agent' && argv[2] === 'list') stdout = tree
+    if (argv[0] === 'hc' && argv[1] === 'get') {
+      stdout = JSON.stringify({ address: argv[2], labels: { 'herdr.space': 'sp1', 'herdr.tab': `tab-${argv[2]}`, where: `space / ${titles.get(argv[2]) ?? `${argv[2]}-name`}` } })
+    }
+    if (argv[0] === 'herdr-app' && argv[2] === 'tab.rename') {
+      const { id, name } = JSON.parse(argv[3]) as { id: string; name: string }
+      titles.set(id.replace(/^tab-/, ''), name)
+    }
+    if (argv[0] === 'herdr' && argv[1] === 'pane' && argv[2] === 'get') stdout = JSON.stringify({ result: { pane: { tab_id: `${argv[3]}-tab` } } })
+    if (argv[0] === 'herdr' && argv[1] === 'tab' && argv[2] === 'get') stdout = JSON.stringify({ result: { tab: { label: titles.get(argv[3]) ?? 'main · curie' } } })
     if (argv[0] === 'hc' && argv[1] === 'run') stdout = JSON.stringify({ address: 't9', state: 'live' })
     if (argv[0] === 'hc' && argv[1] === 'ls') stdout = tree
     if (argv[0] === 'mem-low') [exitCode, stdout] = [1, 'RAM free 5%']
     if (argv[0] === 'namer') stdout = JSON.stringify({ codename: 'bond' })
+    if (argv[0] === 'gh') stdout = gh
     if (failing.includes(argv.slice(0, 3).join(' '))) [exitCode, stdout] = [1, '']
     return { value: { exitCode, stdout, stderr: failing.length ? 'boom' : '' } }
   })
-  return { files, runs, sessions, fills, submitted, clock, setTree: (t: string) => (tree = t) }
+  return { files, runs, sessions, fills, submitted, clock, titles, setTree: (t: string) => (tree = t) }
 }
 
 const typed = (text: string) => {
@@ -301,6 +315,61 @@ test('a herdr reply carries the [subtab] tag', async ($, on) => {
   const w = world(on, HERDR)
   await $.tool.call({ tool: 'mcp__agent-orchestration__subtab_reply', surface: 'w1:p2', text: 'yes,\nmain' } as never)
   expect(w.runs.find(r => r[2] === 'prompt')).toEqual(['herdr', 'agent', 'prompt', 'w1:p2', '[subtab w1:p2 reply] yes, main'])
+  expect(w.runs.find(r => r[0] === 'sh')?.at(-1)).toBe('grille-w1:p2')
+})
+
+test('a reply is marked as the main agent\'s only from the tab that opened a sub-tab', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1' })
+  const reply = { tool: 'mcp__agent-orchestration__subtab_reply', surface: 'surface:9', text: 'yes' } as never
+  const lastLog = () => JSON.parse(w.runs.filter(r => r[0] === 'sh').at(-1)?.[5] ?? '{}') as { main?: boolean }
+  let call = $.tool.call(reply)
+  await w.clock.advance(500)
+  await call
+  expect(lastLog().main).toBeUndefined()
+  seedRun(w.files, 'r1')
+  call = $.tool.call(reply)
+  await w.clock.advance(500)
+  await call
+  expect(lastLog().main).toBe(true)
+})
+
+const JIRA = 'https://example.atlassian.net/browse/MC-1032'
+const SLACK = 'https://drive.slack.com/archives/C0123ABCD/p1700000000123456'
+const PR_URL = 'https://github.com/example-org/example-repo/pull/7084'
+
+/** Types a review with `link` in cmux; `gh search prs` returns `prs`, the Slack thread returns `thread`. */
+const reviewWith = async ($: Engine, on: On, link: string, prs: unknown[], thread = '') => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:1' }, [], JSON.stringify(prs))
+  const slackCalls: unknown[] = []
+  on('tool.list', () => ({ value: [{ name: 'mcp__claude_ai_Slack__slack_read_thread' }] }) as never)
+  on('tool.call', (_$, e) => {
+    slackCalls.push(e)
+    return { result: {}, text: thread }
+  })
+  const result = await $.prompt.submit(typed(`/user-inline-pr-review ${link} deep dive`))
+  await w.clock.advance(500)
+  const prompt = [...w.files.entries()].find(([k]) => k.endsWith('prompt.txt'))?.[1] ?? ''
+  const seedLog = w.runs.find(r => r[0] === 'sh' && /^sub-/.test(r.at(-1) ?? ''))
+  return { drop: result.drop ?? '', prompt, seedLog, slackCalls }
+}
+
+test('a Jira link resolves to its one open PR and the sub-tab is seeded with the PR URL, logged as the main agent\'s', async ($, on) => {
+  const r = await reviewWith($, on, JIRA, [{ url: PR_URL, state: 'open' }, { url: 'https://github.com/example-org/example-repo/pull/7000', state: 'merged' }])
+  expect(r.prompt).toBe(`/user-inline-pr-review ${PR_URL} deep dive`)
+  expect(r.drop).toContain(`Seeded with ${PR_URL}`)
+  expect(JSON.parse(r.seedLog?.[5] ?? '{}')).toEqual({ ts: expect.any(Number), from: 'surface:1', sha256: await sha256(r.prompt), main: true })
+})
+
+test('a Slack link resolves to the PR URL in its thread', async ($, on) => {
+  const r = await reviewWith($, on, SLACK, [], `alex: please review ${PR_URL} when you can`)
+  expect(r.slackCalls).toEqual([expect.objectContaining({ channel_id: 'C0123ABCD', message_ts: '1700000000.123456' })])
+  expect(r.prompt).toBe(`/user-inline-pr-review ${PR_URL} deep dive`)
+})
+
+test('an unresolved or ambiguous link is passed on as typed, and says so', async ($, on) => {
+  const r = await reviewWith($, on, JIRA, [{ url: PR_URL, state: 'open' }, { url: `${PR_URL}1`, state: 'open' }])
+  expect(r.prompt).toBe(`/user-inline-pr-review ${JIRA} deep dive`)
+  expect(r.drop).toContain('No PR URL found')
 })
 
 test('a cmux reply and a finish request are tagged too', async ($, on) => {
@@ -485,26 +554,67 @@ test('the main tab is told when an agent blocks, finishes or closes, and the old
   w.setTree(peersJson([['t2', 'working'], ['t3', 'working'], ['t4', 'idle']]))
   await $.session.start({ source: 'startup', cwd: '/repo' } as never)
   await w.clock.advance(10000)
-  expect(w.submitted.filter(t => t.startsWith('[agents]'))).toHaveLength(0)
+  expect(w.submitted).toHaveLength(0)
   w.setTree(peersJson([['t2', 'blocked'], ['t3', 'done']]))
   await w.clock.advance(10000)
-  const relay = w.submitted.find(t => t.startsWith('[agents]')) ?? ''
-  expect(relay).toContain('(t2) is blocked')
-  expect(relay).toContain('(t3) finished its turn')
-  expect(relay).toContain('(t4) closed')
+  expect(w.submitted[0]).toBe('t2-name is waiting for input.\nt3-name finished its turn.\nt4-name closed.')
   w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 1 }))
   await w.clock.advance(10000)
-  expect(w.submitted.at(-1)).toContain('moved to t2')
+  expect(w.submitted.at(-1)).toBe('t2-name is the main agent now, so this tab no longer steers the workspace.')
+  expect(w.submitted.join('\n')).not.toMatch(/\[|\(t[0-9]\)/)
 })
 
-test('agent_send steers a peer with a tag and refuses when this tab is not main', async ($, on) => {
+const typedInto = (runs: string[][], t: string) =>
+  runs.filter(r => r[0] === 'hc' && r[2] === t && (r[1] === 'keys' || r[1] === 'send')).map(r => r.slice(3))
+
+test('agent_send logs the relay, then types "Hey <name>, ..." key by key and presses Enter; refused when not main', async ($, on) => {
   const w = world(on, MAIN_APP)
   w.setTree(peersJson([['t2', 'idle']]))
-  const send = { tool: 'mcp__agent-orchestration__agent_send', target: 't2-name', text: 'run the checks' } as never
+  const send = { tool: 'mcp__agent-orchestration__agent_send', target: 't2-name', text: 'Run the checks' } as never
   expect(JSON.stringify(await $.tool.call(send))).toContain('claim it first')
   w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
-  await $.tool.call(send)
-  expect(w.runs.some(r => r.join(' ') === 'hc send t2 [main t1] run the checks')).toBe(true)
+  const call = $.tool.call(send)
+  await w.clock.advance(5000)
+  await call
+  const keys = typedInto(w.runs, 't2')
+  expect(keys.slice(0, 4)).toEqual([['shift+h'], ['e'], ['y'], ['space']])
+  expect(keys.at(-1)).toEqual(['enter'])
+  expect(keys.slice(0, -1).flat()).toHaveLength('Hey t2-name, run the checks'.length)
+  expect(w.runs.some(r => r[1] === 'send')).toBe(false)
+  const logged = w.runs.findIndex(r => r[0] === 'sh' && r.at(-1) === 't2')
+  expect(logged).toBeGreaterThan(-1)
+  expect(logged).toBeLessThan(w.runs.findIndex(r => r[0] === 'hc' && r[1] === 'keys'))
+  const log = w.runs[logged]
+  expect(log[4]).toBe('/h/.claude/agent-relays')
+  expect(JSON.parse(log[5])).toEqual({ ts: expect.any(Number), from: 't1', sha256: await sha256('Hey t2-name,  run the checks\n'), main: true })
+  expect(log[2]).toContain('umask 077')
+  expect(log[2]).toContain('>> "$1/$3.jsonl"')
+})
+
+test('agent_send types slash commands raw, and pastes the rest with hc send from the first key hc cannot type', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  const call = $.tool.call({ tool: 'mcp__agent-orchestration__agent_send', target: 't2', text: '/factory-report t1x: now' } as never)
+  await w.clock.advance(5000)
+  await call
+  const keys = typedInto(w.runs, 't2')
+  expect(keys.slice(0, -1).flat().join('')).toBe('/factory-reportspacet1x')
+  expect(keys.at(-1)).toEqual([': now'])
+  expect(w.runs.find(r => r[1] === 'send')).toEqual(['hc', 'send', 't2', ': now'])
+})
+
+test('in herdr agent_send types with pane send-text and logs under <session>-<pane>', async ($, on) => {
+  const w = world(on, HERDR)
+  w.setTree(JSON.stringify({ result: { agents: [{ pane_id: 'w1:p2', workspace_id: 'w1', name: 'bond', agent_status: 'idle' }] } }))
+  w.files.set(`${STATE}/main/herdr_grille_w1.json`, JSON.stringify({ surface: 'w1:p1', at: 0 }))
+  const call = $.tool.call({ tool: 'mcp__agent-orchestration__agent_send', target: 'bond', text: 'ship it?' } as never)
+  await w.clock.advance(5000)
+  await call
+  const typed = w.runs.filter(r => r[0] === 'herdr' && r[2] === 'send-text').map(r => r[4]).join('')
+  expect(typed).toBe('Hey bond, ship it?')
+  expect(w.runs.at(-1)).toEqual(['herdr', 'pane', 'send-keys', 'w1:p2', 'enter'])
+  expect(w.runs.find(r => r[0] === 'sh')?.at(-1)).toBe('grille-w1:p2')
 })
 
 test('the approval helper is named in the main context when set', async ($, on) => {
@@ -536,9 +646,9 @@ test('"keep an eye on <name>" claims main and relays every status change of that
   await w.clock.advance(10000)
   w.setTree(peersJson([['t2', 'working'], ['t3', 'working']]))
   await w.clock.advance(10000)
-  const relays = w.submitted.filter(t => t.startsWith('[agents]')).join('\n')
-  expect(relays).toContain('t2-name (t2) is now working (was idle)')
-  expect(relays).not.toContain('t3-name (t3) is now working')
+  const relays = w.submitted.join('\n')
+  expect(relays).toContain('t2-name is now working (was idle).')
+  expect(relays).not.toContain('t3-name is now working')
 })
 
 test('keep an eye on over another live main asks before switching', async ($, on) => {
@@ -546,4 +656,125 @@ test('keep an eye on over another live main asks before switching', async ($, on
   w.setTree(peersJson([['t2', 'idle']]))
   w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 0 }))
   expect((await $.prompt.submit(said('keep an eye on t2'))).context?.join('\n')).toContain('AskUserQuestion')
+})
+
+const renames = (runs: string[][]) => runs.filter(r => r[0] === 'herdr-app' && r[2] === 'tab.rename').map(r => JSON.parse(r[3]) as { id: string; name: string })
+
+test('claiming main marks this tab MAIN once, a takeover moves the mark and a release removes it', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  w.titles.set('t2', 'MAIN · t2-name')
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 0 }))
+  await $.tool.call({ tool: 'mcp__agent-orchestration__agent_main', action: 'claim' } as never)
+  expect(renames(w.runs)).toEqual([{ id: 'tab-t2', name: 't2-name' }, { id: 'tab-t1', name: '⚑ MAIN · t1-name' }])
+  await $.prompt.submit(said('you are main'))
+  expect(renames(w.runs)).toHaveLength(2)
+  await $.prompt.submit(said('release main'))
+  expect(renames(w.runs).at(-1)).toEqual({ id: 'tab-t1', name: 't1-name' })
+})
+
+test('releasing an unnamed tab gives it back its number', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([]))
+  w.titles.set('t1', '⚑ MAIN · 2')
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't1', at: 0 }))
+  await $.tool.call({ tool: 'mcp__agent-orchestration__agent_main', action: 'release' } as never)
+  expect(renames(w.runs)).toEqual([{ id: 'tab-t1', name: '' }])
+})
+
+test('a claim on a tab with the old MAIN mark swaps it for the flag mark once', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([]))
+  w.titles.set('t1', 'MAIN · MAIN · t1-name')
+  await $.tool.call({ tool: 'mcp__agent-orchestration__agent_main', action: 'claim' } as never)
+  expect(renames(w.runs)).toEqual([{ id: 'tab-t1', name: '⚑ MAIN · t1-name' }])
+})
+
+test('in herdr a claim renames the pane tab with the MAIN mark', async ($, on) => {
+  const w = world(on, HERDR)
+  w.setTree(JSON.stringify({ result: { agents: [] } }))
+  await $.prompt.submit(said('claim main'))
+  expect(w.runs.find(r => r[0] === 'herdr' && r[2] === 'rename')).toEqual(['herdr', 'tab', 'rename', 'w1:p1-tab', '⚑ MAIN · main · curie'])
+})
+
+test('a worktree handoff naming agent-monitor paths or saying not to claim main never claims or offers to switch', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  w.files.set(MAIN_FILE, JSON.stringify({ surface: 't2', at: 0 }))
+  for (const text of [
+    'Read and implement the brief at /Users/x/Drive/agent-monitor/ai/brief-main-agent-badge.md',
+    'This worktree (/x/agent-monitor-worktrees/tech-main-agent-badge, branch tech/main-agent-badge) was just created. The main agent is eon.',
+    "Do item 1 in this worktree. Don't open extra tabs or claim main.",
+  ]) {
+    expect((await $.prompt.submit(said(text))).context?.join('\n') ?? '').not.toContain('AskUserQuestion')
+  }
+  expect(JSON.parse(w.files.get(MAIN_FILE) ?? '{}').surface).toBe('t2')
+  expect((await $.prompt.submit(said('monitor t2'))).context?.join('\n')).toContain('AskUserQuestion')
+})
+
+test('relay hashes are sha256 of the whitespace-normalised text', async () => {
+  expect(normalise('  Hey bond,\n\tread  it. ')).toBe('Hey bond, read it.')
+  expect(await sha256('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+  expect(await sha256(' abc\n')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
+})
+
+test('greeted adds "Hey <name>," unless the text already greets', () => {
+  expect(greeted('bond', 'Run the checks.')).toBe('Hey bond, run the checks.')
+  expect(greeted('bond', 'Hey bond, Alex approved commit on fix/mc-1. Go ahead.')).toBe('Hey bond, Alex approved commit on fix/mc-1. Go ahead.')
+  expect(greeted('bond', '/review-pr 7088')).toBe('/review-pr 7088')
+})
+
+test('keystrokes splits into at most 120 parts', () => {
+  expect(keystrokes('abc')).toEqual(['a', 'b', 'c'])
+  expect(keystrokes('x'.repeat(300)).length).toBeLessThanOrEqual(120)
+  expect(keystrokes('x'.repeat(300)).join('')).toBe('x'.repeat(300))
+})
+
+const USER_FILE = '/h/.config/agent-monitor/user.json'
+const USER_LINE = 'The user is Alex Doe; AJ is their nickname, and either means them.'
+
+test('with a user file the approval relay uses the nickname and every injected context names the user', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.files.set(USER_FILE, JSON.stringify({ name: 'Alex Doe', nickname: 'AJ' }))
+  w.setTree(peersJson([['t2', 'idle']]))
+  const main = (await $.prompt.submit(said('you are the main agent here'))).context?.join('\n') ?? ''
+  expect(main).toContain('"AJ approved commit and push on <branch>. Go ahead."')
+  expect(main).toContain(USER_LINE)
+  expect((await $.prompt.submit(relayedAsk)).context?.join('\n')).toContain(USER_LINE)
+})
+
+test('a sub-tab gets the user line too', async ($, on) => {
+  const w = world(on, { CMUX_SURFACE_ID: 'surface:9', AGENT_SUBTAB_ID: 'abc' })
+  w.files.set(USER_FILE, JSON.stringify({ name: 'Alex Doe', nickname: 'AJ' }))
+  expect((await $.prompt.submit(typed('/review 12'))).context?.join('\n')).toContain(USER_LINE)
+})
+
+test('without a user file the old approval wording stays and no user line is added', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.setTree(peersJson([['t2', 'idle']]))
+  const main = (await $.prompt.submit(said('you are the main agent here'))).context?.join('\n') ?? ''
+  expect(main).toContain(`"<the user's name> approved commit and push on <branch>. Go ahead."`)
+  expect(main).not.toContain('The user is')
+})
+
+test('a user file with only a name uses the name and a broken file is ignored', async ($, on) => {
+  const w = world(on, MAIN_APP)
+  w.files.set(USER_FILE, JSON.stringify({ name: 'Alex Doe', nickname: '' }))
+  w.setTree(peersJson([['t2', 'idle']]))
+  const main = (await $.prompt.submit(said('you are the main agent here'))).context?.join('\n') ?? ''
+  expect(main).toContain('"Alex Doe approved commit and push')
+  expect(main).toContain('The user is Alex Doe.')
+  w.files.set(USER_FILE, '{not json')
+  expect((await $.prompt.submit(relayedAsk)).context?.join('\n')).not.toContain('The user is')
+})
+
+test('every session gets the user line as a session-scope system prompt section, none without a user file', async ($, on) => {
+  const w = world(on, {})
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'base', scope: 'shared' as const }] }))
+  const input = { model: 'm', promptModel: 'm', surfaces: [], tools: [], outputStyle: null, traits: [] }
+  expect((await $.prompt.compose(input)).sections.map(s => s.id)).toEqual(['intro'])
+  w.files.set(USER_FILE, JSON.stringify({ name: '', nickname: '' }))
+  expect((await $.prompt.compose(input)).sections.map(s => s.id)).toEqual(['intro'])
+  w.files.set(USER_FILE, JSON.stringify({ name: 'Alex Doe', nickname: 'AJ' }))
+  expect((await $.prompt.compose(input)).sections.at(-1)).toEqual({ id: 'agent-orchestration:user', text: USER_LINE, scope: 'session' })
 })

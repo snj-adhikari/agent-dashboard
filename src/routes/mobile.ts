@@ -6,6 +6,8 @@ import { terminalBackend, terminalTabs } from '../services/terminal'
 import { browserAction, browserScreenshot, closeSurface, closeWorkspace, isSurfaceRef, isWorkspaceRef, renameWorkspace, workspaceSurfaces } from '../services/cmuxControl'
 import type { BrowserAction } from '../services/cmuxControl'
 import { liveSessions } from '../services/hooks/sessions'
+import { herdrAgents } from '../services/herdr'
+import { agentTitle } from '../services/history'
 import { addSubscription, notify, removeSubscription, vapidPublicKey } from '../services/push'
 
 const MOBILE_PAGE = path.join(__dirname, '..', '..', 'web', 'dist', 'm', 'index.html')
@@ -19,13 +21,22 @@ export function handlePulse(res: ServerResponse): void {
   sendJson(res, { ok: true, at: new Date().toISOString(), backend: terminalBackend(), build })
 }
 
-/** Terminal tabs with the phase their Claude session last reported, waiting ones first. */
+/**
+ * Terminal tabs and Herdr app agents with the phase their Claude session last reported, waiting ones first.
+ * Herdr TUI agents are left out since they already show inside their cmux tab.
+ */
 export function handleMobileSessions(res: ServerResponse): void {
   const live = liveSessions().reverse()
-  const sessions = terminalTabs().map((tab) => {
+  type Session = { ref: string; id: string; title: string; cwd: string; lastActive: string | null; phase: string; herdr?: { session: string; target: string } }
+  const sessions: Session[] = terminalTabs().map((tab) => {
     const s = live.find((x) => x.workspace && x.workspace === tab.id) || live.find((x) => x.cwd === tab.cwd)
     return { ref: tab.ref, id: tab.id || '', title: s?.ticket || tab.title || path.basename(tab.cwd), cwd: tab.cwd, lastActive: tab.lastActive, phase: s?.phase || '' }
   })
+  for (const a of herdrAgents().filter((x) => x.host === 'herdr-app')) {
+    const s = live.find((x) => x.cwd === a.cwd)
+    const title = agentTitle(a.codename || a.name, a.tabTitle) || a.paneId
+    sessions.push({ ref: `${a.session}:${a.paneId}`, id: '', title, cwd: a.cwd, lastActive: null, phase: s?.phase || (a.status === 'blocked' ? 'awaiting-you' : ''), herdr: { session: a.session, target: a.paneId } })
+  }
   sendJson(res, { ok: true, sessions: sessions.sort((a, b) => Number(b.phase === 'awaiting-you') - Number(a.phase === 'awaiting-you')) })
 }
 

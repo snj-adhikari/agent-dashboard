@@ -27,6 +27,14 @@ type Range = 'day' | 'week' | 'month'
 
 const PAGE_SIZE = 50
 
+const HOST_ORDER = ['herdr-app', 'cmux', 'bare']
+
+const HOST_BADGE: Record<string, { label: string; className: string }> = {
+  'herdr-app': { label: 'Herdr app', className: 'border-violet-800 bg-violet-950/60 text-violet-300' },
+  cmux: { label: 'cmux', className: 'border-emerald-800 bg-emerald-950/60 text-emerald-300' },
+  bare: { label: 'bare process', className: 'border-slate-700 bg-slate-900 text-slate-400' }
+}
+
 export function HistoryPage() {
   const [range, setRange] = useState<Range>('day')
   const [data, setData] = useState<HistoryData | null>(null)
@@ -87,6 +95,8 @@ export function HistoryPage() {
       time: new Date(s.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
       tabs: s.tabs,
       agents: s.agents,
+      herdr: s.herdr ?? 0,
+      herdrApp: s.herdrApp ?? 0,
       worktrees: s.worktrees
     })) || []
 
@@ -111,6 +121,11 @@ export function HistoryPage() {
     if (!rest.length) return top
     return [...top, { name: `Other (${rest.length} repos)`, value: rest.reduce((n, r) => n + r.value, 0), branchCount: 0 }]
   }, [repoDistribution])
+
+  const sessions = useMemo(
+    () => [...(data?.sessions || [])].sort((a, b) => HOST_ORDER.indexOf(a.host || 'bare') - HOST_ORDER.indexOf(b.host || 'bare')),
+    [data]
+  )
 
   const sessionsPerDay = useMemo(() => {
     if (!data) return []
@@ -176,8 +191,10 @@ export function HistoryPage() {
                 <YAxis stroke="#94a3b8" tick={{ fontSize: 10 }} allowDecimals={false} />
                 <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Line type="monotone" dataKey="tabs" stroke="#22c55e" name="terminal tabs" dot={false} />
+                <Line type="monotone" dataKey="tabs" stroke="#22c55e" name="cmux tabs" dot={false} />
                 <Line type="monotone" dataKey="agents" stroke="#f59e0b" name="bare agents" dot={false} />
+                <Line type="monotone" dataKey="herdr" stroke="#a78bfa" name="cmux herdr agents" dot={false} />
+                <Line type="monotone" dataKey="herdrApp" stroke="#f472b6" name="Herdr app agents" dot={false} />
                 <Line type="monotone" dataKey="worktrees" stroke="#3b82f6" name="worktrees" dot={false} />
               </LineChart>
             </ResponsiveContainer>
@@ -239,8 +256,16 @@ export function HistoryPage() {
             "Switch" only works if the terminal tab is still open — closed sessions are read-only history.
           </p>
           {data.sessions.length ? (
-            data.sessions.slice(0, shown).map((s) => (
-              <Card key={s.ref}>
+            sessions.slice(0, shown).map((s, i) => {
+              const host = s.host || 'bare'
+              const badge = HOST_BADGE[host]
+              return (
+              <div key={s.ref}>
+              {host !== (sessions[i - 1]?.host || 'bare') || i === 0 ? (
+                <h3 className="mb-2 mt-4 text-xs font-semibold uppercase tracking-wide text-slate-500">{badge.label}</h3>
+              ) : null}
+              <Card>
+                <span className={`mr-2 inline-block rounded border px-1.5 py-0.5 align-middle text-[10px] ${badge.className}`}>{badge.label}</span>
                 <b className="text-slate-100">{s.ref}</b> — {s.title || '(no title)'}
                 <CardPath>{s.cwd}</CardPath>
                 <CardMeta>
@@ -259,7 +284,9 @@ export function HistoryPage() {
                   </CardMeta>
                 )}
               </Card>
-            ))
+              </div>
+              )
+            })
           ) : (
             <EmptyState label="No sessions in this range" />
           )}

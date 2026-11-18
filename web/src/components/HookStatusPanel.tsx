@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { POLL_MS, usePolling } from '../usePolling'
-import type { HookStatus, HookStatusResponse, QueueItem } from '../types'
+import type { HookStatus, HookStatusResponse, InboxItem, InboxVerdict, QueueItem } from '../types'
 import { api } from '../api'
 import { Card, CardMeta, Button } from './Card'
 
-function timeAgo(iso: string | null): string | null {
+export function timeAgo(iso: string | null): string | null {
   if (!iso) return null
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
   if (mins < 1) return 'just now'
@@ -208,6 +208,45 @@ function QueueCard({ queue, onChange }: { queue: QueueItem[]; onChange: () => vo
   )
 }
 
+const VERDICT_CHIP: Record<InboxVerdict, string> = {
+  'pr-review': 'bg-emerald-950 text-emerald-300',
+  'pr-review-check': 'bg-sky-950 text-sky-300',
+  risky: 'bg-red-950 text-red-300',
+  heavy: 'bg-amber-950 text-amber-300',
+  other: 'bg-slate-800 text-slate-400'
+}
+
+export function InboxRow({ item }: { item: InboxItem }) {
+  return (
+    <div className="border-t border-slate-800/70 py-1 text-[11px] first:border-t-0">
+      <div className="truncate text-slate-200">
+        <span className={`mr-1 rounded px-1 ${VERDICT_CHIP[item.verdict]}`}>{item.verdict}</span>
+        <span className="text-slate-500">{timeAgo(item.at)} · </span>
+        {item.title}
+      </div>
+      {(item.reasons.length > 0 || item.verdict !== 'other') && (
+        <div className="line-clamp-2 text-slate-500">{[...item.reasons, item.action].filter(Boolean).join(' · ')}</div>
+      )}
+    </div>
+  )
+}
+
+function InboxCard({ items, watch }: { items: InboxItem[]; watch?: HookStatusResponse['inboxWatch'] }) {
+  return (
+    <div id="inbox" className="scroll-mt-4">
+      <Card accent="blue">
+        <div className="mb-1 text-[11px] font-medium text-slate-300">
+          Inbox — {watch?.ok ? 'watching Slack notifications' : 'timed polls only'}
+        </div>
+        {watch?.error && <CardMeta><span className="text-amber-300">{watch.error}</span></CardMeta>}
+        {items.map((item) => (
+          <InboxRow key={item.at + item.title} item={item} />
+        ))}
+      </Card>
+    </div>
+  )
+}
+
 function StartTicket({ onStarted }: { onStarted: () => void }) {
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -269,6 +308,7 @@ export function HookStatusPanel() {
         <HookCard key={h.name} hook={h} onChange={poll} />
       ))}
       {data.queue.length > 0 && <QueueCard queue={data.queue} onChange={poll} />}
+      {(data.inbox?.length || data.inboxWatch?.error) && <InboxCard items={data.inbox || []} watch={data.inboxWatch} />}
       {data.sessions.length > 0 && (
         <Card accent="green">
           <div className="mb-1 text-[11px] font-medium text-slate-300">Sessions reporting via mod</div>

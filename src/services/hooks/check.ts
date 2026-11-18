@@ -25,7 +25,7 @@ import type { MentionComment } from './jiraMentionPrHook'
 
 overrideHookSettings({
   atlassian: { siteUrl: 'example.atlassian.net', repositoryFieldId: '', workIssueTypes: ['Bug', 'Defect subtask', 'Dev subtask'], subtaskIssueType: 'Dev subtask', extraInstructions: '' },
-  profile: { displayName: '', githubHandle: '', createPrSkill: '', prReviewSkill: 'pr-review' }
+  profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: 'pr-review' }
 })
 
 function req(headers: Record<string, string>, method = 'GET'): IncomingMessage {
@@ -181,7 +181,7 @@ assert.ok(pr, 'repo resolves via the injected resolver')
 assert.strictEqual(pr.repoHint, '/repos/web-app')
 assert.strictEqual(pr.id, 'jira:PROJ-1300:10042:https://github.com/acme/web-app/pull/42')
 assert.strictEqual(pr.context, '/pr-review https://github.com/acme/web-app/pull/42')
-overrideHookSettings({ profile: { displayName: '', githubHandle: '', createPrSkill: '', prReviewSkill: '' } })
+overrideHookSettings({ profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '' } })
 assert.ok(!mapped()[0].context.startsWith('/'), 'blank skill falls back to a plain instruction')
 overrideHookSettings(null)
 assert.strictEqual(pr.action, 'session-command')

@@ -97,7 +97,7 @@ sequenceDiagram
 - Each question has 2-4 lettered options; the lead's preferred one comes first, marked `(Recommended)`, with a short reason.
 - Reply `ok`, `accept`, `defaults` or `yes` to take every recommended option, or e.g. `2b, 3: <your answer>` to change some; unanswered numbers take the recommendation. Answered questions are never asked again.
 - A follow-up `ASK` comes only when an answer opens a new question.
-- `[agents]` and `<hc ` status pings from other tabs are not answers: the lead ignores them while an `ASK` is open.
+- Status lines from other tabs (`bond finished its turn.`) and agent messages (`Hey <name>, ...`, `<name> here: ...`) are not answers: the lead ignores them while an `ASK` is open.
 - At the commit gate, the reply must say `commit` or `push`: the git guard does not take `ok` as approval.
 
 ### Starting from a brief (`--brief`)
@@ -110,31 +110,33 @@ sequenceDiagram
 
 ### Who answers the lead's questions
 
-- With a report target set (`/factory-report <session>`), `ASK` turns go to that session, tagged `[relay factory] factory "<goal>": ASK ...` so they never count as your approval there. It answers from the brief and its own context, and asks you only when unsure.
+- With a report target set (`/factory-report <session>`), `ASK` turns go to that session as `factory lead here: "<goal>" ASK ...`. Inside herdr they are logged to the relay log first, then typed key by key into the target's pane (found with `herdr agent list`), so they never count as your approval there; elsewhere, or if that fails, they go through `$.session.send`. It answers from the brief and its own context, and asks you only when unsure.
 - Always yours, never answered by the report target: scope changes, the commit gate, push or PR, and anything posted externally. The lead marks these `HUMAN ONLY:` and the report target passes them on verbatim.
-- Prompts that start with `[relay ...]`, `[monitor]` or `[subtab ...]` never count as your approval for the git guard.
+- Prompts that start with `[relay ...]`, `[monitor]` or `[subtab ...]`, and prompts whose hash is in this terminal's relay log (`~/.claude/agent-relays/<HC_TERMINAL_ID or HERDR_SESSION-HERDR_PANE_ID>.jsonl`, matched on sha256 alone, any age; see the agent-orchestration README) never count as your approval for the git guard.
+- The one exception is a signed grant the main agent issues with `snj-term approve` after your yes: the guard asks warden-desk's push gate (`~/.claude/hooks/snj/snj-push-gate.py --check`) and allows the git write when a grant for this pane covers it. Without the gate, or with no grant, the guard denies as above.
 
 ### Developers in herdr tabs (default inside herdr)
 
 When the session runs inside herdr (`HERDR_ENV=1` with `HERDR_SESSION` set) developers open as visible herdr tabs instead of subagents. `--no-herdr` opts out; outside herdr the Agent-tool developers are used as before.
 
 - The lead first checks `herdr session list` shows the session as running, else falls back to subagents.
-- Per dev task: `snj-mem-guard.sh check` (queue when free RAM is below 12%), `git worktree add` branched from the ticket branch (`<ticket-branch>-dev<n>`, worktree `<ticket worktree>-dev<n>`), the task brief written to `ai/factory/task.md` in that worktree, `herdr tab create --env FACTORY_DEV=1` titled `<KEY> · <codename> · dev <n> · <task>`, `herdr agent start <key-lower>-<codename> --kind claude` with no prompt, then the fixed prompt `[relay factory-lead] Read ai/factory/task.md and do it.`
-- The lead never puts brief text in a shell command: follow-ups are appended to `task.md` and announced with a fixed prompt.
+- Per dev task: `snj-mem-guard.sh check` (queue when free RAM is below 12%), `git worktree add` branched from the ticket branch (`<ticket-branch>-dev<n>`, worktree `<ticket worktree>-dev<n>`), the task brief written to `ai/factory/task.md` in that worktree, `herdr tab create --env FACTORY_DEV=1` titled `<KEY> · <codename> · dev <n> · <task>`, `herdr agent start <key-lower>-<codename> --kind claude` with no prompt, then `bin/relay.sh <pane> "Hey <codename>, read ai/factory/task.md and do it."`
+- The lead never puts brief text in a shell command: follow-ups are appended to `task.md` and announced with a fixed message.
+- `bin/relay.sh <target> <message>` (shipped in this mod) is the only way the lead types into another session: it writes the relay-log line, then types the message key by key and presses Enter (`herdr pane send-text` inside herdr, `hc keys` in the Herdr app, pasting the rest with `hc send` from the first character `hc keys` cannot type). Messages greet by codename (`Hey <codename>, ...`); a skill or command is sent raw (`/review-pr 7088`). Developers report back starting `<codename> here:`.
 - `FACTORY_DEV=1` makes this mod deny every `git commit` and `git push` in a developer session.
 - Each developer tab gets its own codename and colour from `snj-term codename <session> --seed <KEY>-dev<n>`, shown in the herdr sidebar via `herdr pane report-metadata --display-agent <codename> --token codename=<codename>`. Without `snj-term` the agent is named `<key-lower>-dev<n>`.
 - Developer agents live in herdr only; watch one with `herdr agent attach <name>` when needed.
 - At most 4 developer tabs per ticket at once; the rest queue.
-- The lead tracks tabs with `herdr agent wait --until idle --until blocked` and `herdr agent read`. Every prompt it types into another session starts with `[relay factory-lead]`.
+- The lead tracks tabs with `herdr agent wait --until idle --until blocked` and `herdr agent read`.
 - QA stays a `factory:qa` subagent. After QA passes the lead copies each developer's working-tree changes into the ticket worktree and closes the tab. Developer worktrees stay for you to clear.
 
 ### Developers in Herdr app terminals (default in the Herdr app)
 
 When `HC_TERMINAL_ID` is set and the session is not inside herdr, developers run as background `hc` terminals in the lead's Herdr app space. `--no-herdr` opts out.
 
-- Same steps as the herdr path (mem guard, dev worktree, `task.md`, at most 4 at once), then `hc run --bg --keep --outlive-parent --json` with labels `herdr.space=<lead's space>`, `herdr.tab=tb<hex>`, `factory.lead=<lead terminal>`, `factory.team=dev`, `factory.task=<task>` and `codename=<codename>`, running `env FACTORY_DEV=1 claude`.
-- Codename from `snj-term codename hc --seed <KEY>-dev<n>` when it exists.
-- The lead sends the fixed prompt with `hc send <address> "[relay factory-lead] Read ai/factory/task.md and do it."`, tracks with `hc wait` and `hc read`, and ends with `hc kill`. It never selects or focuses the terminal.
+- Same steps as the herdr path (mem guard, dev worktree, `task.md`, at most 4 at once), then `hc run --bg --keep --outlive-parent --json` with labels `herdr.space=<lead's space>`, `herdr.tab=tb<hex>`, `factory.lead=<lead terminal>`, `factory.team=dev`, `factory.task=<task>`, `codename=<codename>` and `autotab=<codename>`, running `env FACTORY_DEV=1 claude`, then `herdr-app do tab.rename` names the tab after the codename, so tab title, codename label and office desk match.
+- Codename from `snj-term codename hc --seed <KEY>-dev<n>` when it exists, picked one developer at a time after the previous launch and re-seeded (`-2`, `-3`) if this run already gave it out. A running developer's codename is never relabelled.
+- The lead sends `bin/relay.sh <address> "Hey <codename>, read ai/factory/task.md and do it."`, tracks with `hc wait` and `hc read`, and ends with `hc kill`. It never selects or focuses the terminal.
 
 ### Run file (office view)
 
@@ -144,6 +146,7 @@ Factory writes its run to `~/.cache/factory/<lead>.json` so other tools (the war
 - Shape: `goal`, `round`, `ended`, `updatedAt`, `lead` (`terminal`, `codename`, `status`) and `agents` (`id`, `team`, `role`, `task`, `status`, `codename`, `terminal`). Teams come from the role: product, tech, research, dev or qa.
 - Written atomically (temp file and `mv`) on start, each round, each lead turn, each `factory:*` subagent start and finish, and at `/factory-stop`, `DONE` or the round cap, where `ended` is `true`.
 - Status: `working` while running, `blocked` when the lead waits on you (`ASK`) or a subagent waits, `idle` while the lead waits on agents (`WAIT`), `done` when finished. Herdr app developers are read from `hc ls --label factory.lead=<lead>` with their `terminal` address.
+- `agents` keeps every agent seen in the run: one that leaves the live list (a finished subagent, or a developer terminal the lead killed or closed) stays as `done`. When the run ends, every agent and the lead are `done`, so the office can show the whole team resting.
 - A failed write never stops the run; the file just goes stale.
 
 ### Driving factory from agent-orchestration
@@ -178,7 +181,7 @@ Registered in `hooks/register.ts`.
 | Event | What it does |
 | --- | --- |
 | `turn.complete` | Reads the lead's last line: `FACTORY: CONTINUE` starts the next round, `WAIT` waits for background agents, `ASK` notifies you, `DONE` ends the run. Stops after 30 rounds. Updates the run file, including when a subagent finishes. With a report target, `ASK` is tagged human-only when the lead wrote `HUMAN ONLY:`. |
-| `prompt.submit` | Records your latest message for the git gate; relayed prompts (`[relay ...]`, `[monitor]`, `[subtab ...]`) clear it instead. Marks the lead working in the run file. |
+| `prompt.submit` | Records your latest message for the git gate; relayed prompts (`[relay ...]`, `[monitor]`, `[subtab ...]`, or found in the relay log) clear it instead. Marks the lead working in the run file. |
 | `agent.spawn` | Updates the run file when a `factory:*` subagent starts. |
 | `tool.call` Bash | During a run, denies `git commit` and `git push` unless your latest message says commit or push without a negation ("don't", "do not", "never", "no", "without", "not yet" a few words before). In a developer session (`FACTORY_DEV=1`) always denies them. |
 

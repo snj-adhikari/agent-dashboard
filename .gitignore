@@ -8,3 +8,6 @@ hooks-state.json
 hooks.config.json
 mods/*/tsconfig.json
 push-state.json
+.build/
+target/
+apps/agent-cuckoo/dist/

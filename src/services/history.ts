@@ -1,6 +1,7 @@
 import { getDb } from './db'
 import { collectState } from './state'
 import { sh } from '../utils'
+import type { HerdrAgent } from '../types'
 
 const LOG_INTERVAL_MS = 5 * 60_000
 const CLIENT_IDLE_MS = 4 * 60_000
@@ -24,7 +25,18 @@ export interface Snapshot {
   worktreeCount: number
   tabs: { ref: string; cwd: string; title: string; sessionId?: string; branch?: string }[]
   agents: { pid: string; cmd: string; cwd: string; sessionId?: string; branch?: string }[]
+  /** Missing on snapshots written before herdr agents were logged. */
+  herdr?: { session: string; paneId: string; name?: string; codename?: string; host: SessionHost; cwd: string; branch?: string; tabTitle?: string; status: string }[]
 }
+
+/** Herdr TUI sessions run inside cmux, so only the Herdr desktop app counts as its own host. */
+export type SessionHost = 'cmux' | 'herdr-app'
+
+/** Herdr app tab titles usually carry the codename already. */
+export const agentTitle = (who: string | undefined, tabTitle: string | undefined): string =>
+  who && tabTitle?.includes(who) ? tabTitle : [who, tabTitle].filter(Boolean).join(' · ')
+
+export const hostOf = (a: Pick<HerdrAgent, 'host'>): SessionHost => (a.host === 'herdr-app' ? 'herdr-app' : 'cmux')
 
 export function clientRecentlySeen(): boolean {
   return Date.now() - lastClientAt <= CLIENT_IDLE_MS
@@ -41,7 +53,18 @@ export function startHistoryLogging(): void {
         repoCount: state.repos.length,
         worktreeCount: state.repos.reduce((n, r) => n + r.worktrees.length, 0),
         tabs: state.tabs.map((t) => ({ ref: t.ref, cwd: t.cwd, title: t.title, sessionId: t.sessionId, branch: currentBranch(t.cwd) })),
-        agents: state.agents.map((a) => ({ pid: a.pid, cmd: a.cmd, cwd: a.cwd, sessionId: a.sessionId, branch: currentBranch(a.cwd) }))
+        agents: state.agents.map((a) => ({ pid: a.pid, cmd: a.cmd, cwd: a.cwd, sessionId: a.sessionId, branch: currentBranch(a.cwd) })),
+        herdr: state.herdr.map((a) => ({
+          session: a.session,
+          paneId: a.paneId,
+          name: a.name,
+          codename: a.codename,
+          host: hostOf(a),
+          cwd: a.cwd,
+          branch: a.branch || currentBranch(a.cwd),
+          tabTitle: a.tabTitle,
+          status: a.status
+        }))
       }
       await db.collection('snapshots').insertOne(snapshot)
       if (logFailing) console.log('history logging recovered')
@@ -59,6 +82,9 @@ export interface TimelinePoint {
   ts: Date
   tabs: number
   agents: number
+  /** herdr TUI agents inside cmux; Herdr app agents are counted apart in herdrApp. */
+  herdr: number
+  herdrApp: number
   worktrees: number
 }
 
@@ -67,6 +93,8 @@ export interface SessionSummary {
   cwd: string
   title: string
   sessionId?: string
+  /** Unset for bare agent processes, which run outside any terminal host the dashboard knows. */
+  host?: SessionHost
   branches: string[]
   firstSeen: Date
   lastSeen: Date
@@ -90,7 +118,7 @@ export function downsample<T>(items: T[], max: number): T[] {
 
 export function summarise(timeline: Snapshot[]): HistoryData {
   const byRef = new Map<string, SessionSummary & { branchSet: Set<string> }>()
-  function touch(ref: string, cwd: string, title: string, sessionId: string | undefined, branch: string | undefined, ts: Date) {
+  function touch(ref: string, cwd: string, title: string, sessionId: string | undefined, branch: string | undefined, ts: Date, host?: SessionHost) {
     const existing = byRef.get(ref)
     if (existing) {
       existing.lastSeen = ts
@@ -99,19 +127,23 @@ export function summarise(timeline: Snapshot[]): HistoryData {
     } else {
       const branchSet = new Set<string>()
       if (branch) branchSet.add(branch)
-      byRef.set(ref, { ref, cwd, title, sessionId, branches: [], branchSet, firstSeen: ts, lastSeen: ts })
+      byRef.set(ref, { ref, cwd, title, sessionId, host, branches: [], branchSet, firstSeen: ts, lastSeen: ts })
     }
   }
   for (const snap of timeline) {
-    for (const t of snap.tabs) touch(t.ref, t.cwd, t.title, t.sessionId, t.branch, snap.ts)
+    for (const t of snap.tabs) touch(t.ref, t.cwd, t.title, t.sessionId, t.branch, snap.ts, 'cmux')
     for (const a of snap.agents) touch(`agent_${a.pid}`, a.cwd, a.cmd, a.sessionId, a.branch, snap.ts)
+    for (const h of snap.herdr || []) {
+      const title = agentTitle(h.codename || h.name, h.tabTitle) || h.paneId
+      touch(`herdr_${h.session}_${h.paneId}`, h.cwd, title, undefined, h.branch, snap.ts, h.host)
+    }
   }
 
   const sessions = [...byRef.values()]
     .map(({ branchSet, ...rest }) => ({ ...rest, branches: [...branchSet] }))
     .sort((a, b) => b.lastSeen.getTime() - a.lastSeen.getTime())
 
-  const points = timeline.map((s) => ({ ts: s.ts, tabs: s.tabs.length, agents: s.agents.length, worktrees: s.worktreeCount }))
+  const points = timeline.map((s) => ({ ts: s.ts, tabs: s.tabs.length, agents: s.agents.length, herdr: (s.herdr || []).filter((h) => h.host !== 'herdr-app').length, herdrApp: (s.herdr || []).filter((h) => h.host === 'herdr-app').length, worktrees: s.worktreeCount }))
   return { timeline: downsample(points, MAX_POINTS), sessions }
 }
 

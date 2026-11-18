@@ -61,6 +61,18 @@ export function enqueue(hook: string, event: TriggerEvent): void {
   write({ ...state, seen, queue: [...state.queue, { hook, event, queuedAt: new Date().toISOString() }] })
 }
 
+export const PR_REVIEW_HOOKS = ['slack-pr-review', 'jira-mention-pr']
+
+/** A PR URL already queued, or seen by either PR-review hook (id is the URL or ends in `:<url>`). */
+export function prSeenIn(state: { seen: Record<string, string[]>; queue: QueuedEvent[] }, url: string): boolean {
+  const hit = (id: string) => id === url || id.endsWith(`:${url}`)
+  return state.queue.some((q) => hit(q.event.id) || q.event.details?.url === url) || PR_REVIEW_HOOKS.some((h) => (state.seen[h] || []).some(hit))
+}
+
+export function seenPr(url: string): boolean {
+  return prSeenIn(read(), url)
+}
+
 export const SESSION_COMMAND_TTL_MS = 24 * 60 * 60 * 1000
 
 export function expired(item: QueuedEvent, now: number): boolean {

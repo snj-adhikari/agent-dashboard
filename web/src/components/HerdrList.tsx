@@ -134,8 +134,8 @@ const scopeRank = (inScope: HerdrAgent[]): number => {
   return i < 0 ? -1 : i
 }
 
-export function HerdrList({ agents }: { agents: HerdrAgent[] }) {
-  if (!agents.length) return <EmptyState label="No herdr session or Herdr app agent running" />
+export function HerdrList({ agents, empty }: { agents: HerdrAgent[]; empty: string }) {
+  if (!agents.length) return <EmptyState label={empty} />
   const scopes = groupBy(agents, (a) => a.display || a.session).sort(([, a], [, b]) => scopeRank(a) - scopeRank(b))
   return (
     <>

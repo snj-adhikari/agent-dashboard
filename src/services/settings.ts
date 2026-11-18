@@ -1,8 +1,11 @@
 import { getDb } from './db'
 import type { HooksConfig } from './hooks/config'
+import { readNewerUserFile, writeUserFile, USER_FILE } from './userFile'
+import fs from 'fs'
 
 export interface ProfileSettings {
   displayName: string
+  nickname: string
   githubHandle: string
   createPrSkill: string
   prReviewSkill: string
@@ -44,6 +47,8 @@ export interface Settings {
   blocker: BlockerSettings
   completedSteps: SetupStep[]
   onboardedAt?: string
+  /** mtime of `~/.config/agent-monitor/user.json` at the last mirror, so a later hand edit is picked up at startup. */
+  userFileSyncedAt?: number
 }
 
 export const SETUP_STEPS = ['mongo', 'repos', 'profile', 'vault', 'atlassian', 'service', 'tailscale', 'blocker'] as const
@@ -78,5 +83,20 @@ export async function loadSettings(): Promise<Partial<Settings>> {
 export async function saveSettings(patch: Partial<Settings>): Promise<Partial<Settings>> {
   const db = await getDb()
   await db.collection<{ _id: string }>(COLLECTION).updateOne({ _id: DOC_ID }, { $set: patch }, { upsert: true })
+  if (patch.profile) {
+    const userFileSyncedAt = writeUserFile({ name: patch.profile.displayName ?? '', nickname: patch.profile.nickname ?? '' })
+    await db.collection<{ _id: string }>(COLLECTION).updateOne({ _id: DOC_ID }, { $set: { userFileSyncedAt } })
+  }
   return loadSettings()
+}
+
+/** Startup: a user file edited after the last mirror wins; a missing one is written from the stored profile. */
+export async function syncUserFile(): Promise<void> {
+  const profile = { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...cache.profile }
+  if (!fs.existsSync(USER_FILE)) {
+    if (profile.displayName || profile.nickname) await saveSettings({ profile })
+    return
+  }
+  const edited = readNewerUserFile(cache.userFileSyncedAt)
+  if (edited) await saveSettings({ profile: { ...profile, displayName: edited.name || profile.displayName, nickname: edited.nickname } })
 }

@@ -52,6 +52,7 @@ export const api = {
   learning: (gran: LearningGran): Promise<LearningResponse> => fetch('/api/learning?gran=' + gran).then((r) => r.json()),
   learningRefresh: () => postJson('/api/learning/refresh', {}),
   hookStatus: (): Promise<HookStatusResponse> => fetch('/api/hook-status').then((r) => r.json()),
+  inbox: (): Promise<Pick<HookStatusResponse, 'inbox' | 'inboxWatch'>> => fetch('/api/inbox').then((r) => r.json()),
   startJiraTicket: (key: string) =>
     postJson<ApiResult & { queued?: boolean; reason?: string }>('/api/hooks/jira/start', { key }),
   importPlugin: (name: string) => postJson<ApiResult & { path?: string }>('/api/plugin/import', { name }),

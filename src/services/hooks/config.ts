@@ -76,7 +76,7 @@ export function atlassianSettings(): AtlassianSettings {
 }
 
 export function profileSettings(): ProfileSettings {
-  return { displayName: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...hookSettings().profile }
+  return { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...hookSettings().profile }
 }
 
 export function loadConfig(): HooksConfig {

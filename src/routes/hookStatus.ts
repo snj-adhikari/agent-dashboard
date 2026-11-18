@@ -7,9 +7,23 @@ import { setHookEnabled, setHookInterval } from '../services/hooks/state'
 import { loadConfig, validInterval } from '../services/hooks/config'
 import { readJsonBody, sendJson } from '../http'
 import { notify } from '../services/push'
+import { inboxItems, ingest } from '../services/inbox'
+import { inboxWatch } from '../services/inbox/health'
 
 export function handleHookStatus(res: ServerResponse): void {
-  sendJson(res, { ok: true, hooks: getStatuses(), queue: queueItems(), sessions: hookSessions(), maxConcurrent: loadConfig().maxConcurrent })
+  sendJson(res, { ok: true, hooks: getStatuses(), queue: queueItems(), sessions: hookSessions(), maxConcurrent: loadConfig().maxConcurrent, inbox: inboxItems(), inboxWatch: inboxWatch() })
+}
+
+export function handleInboxList(res: ServerResponse): void {
+  sendJson(res, { ok: true, inbox: inboxItems(), inboxWatch: inboxWatch() })
+}
+
+export async function handleInbox(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const { source, title, body } = await readJsonBody(req)
+  if (typeof title !== 'string' || typeof body !== 'string' || (source !== undefined && typeof source !== 'string')) {
+    return sendError(res, 400, 'title and body must be strings')
+  }
+  sendJson(res, { ok: true, item: await ingest({ source: source || 'api', title, body }) })
 }
 
 export async function handleHookSession(req: IncomingMessage, res: ServerResponse): Promise<void> {

@@ -1,6 +1,6 @@
 {
   "name": "stranger-danger",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "author": {
     "name": "S.N.J"
   },
@@ -17,6 +17,12 @@
       "title": "Trusted MCP servers",
       "description": "Comma-separated MCP server names whose output is never scanned.",
       "default": "agent-orchestration,plugin-authoring,agent-more-like-you,context7"
+    },
+    "trustedPaths": {
+      "type": "string",
+      "title": "Trusted paths",
+      "description": "Comma-separated folders of your own notes; Bash reads there (cat, rg) are never scanned.",
+      "default": ""
     },
     "privateTerms": {
       "type": "string",

@@ -20,7 +20,8 @@ Node/TypeScript server for Agent Dashboard. Compiled by `tsc` to `dist/` (Common
 | `services/mermaid.ts` | Mermaid graph for the Home page. |
 | `services/newSession.ts` | New worktree plus terminal session. |
 | `services/db.ts` | MongoDB connection (`MONGO_URL`, `MONGO_DB`, `MONGO_SERVICE`). |
-| `services/settings.ts` | Settings in the MongoDB `settings` collection, cached for sync reads. |
+| `services/settings.ts` | Settings in the MongoDB `settings` collection, cached for sync reads. Every profile save mirrors the display name and nickname to `~/.config/agent-monitor/user.json`; at startup a hand edit to that file (newer than the last mirror) wins, and a missing file is written from the stored profile. |
+| `services/userFile.ts` | Reads and writes `~/.config/agent-monitor/user.json` (`{ "name", "nickname" }`), the one place mods and tools read the user's name from, server or not. |
 | `services/history.ts` | Activity snapshots for the History page while a client is watching. |
 | `services/launchAgent.ts` | macOS LaunchAgent plist generation and install. |
 | `services/tailnet.ts` | This Mac's MagicDNS name and owner login. |

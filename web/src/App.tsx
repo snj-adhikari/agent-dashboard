@@ -16,6 +16,7 @@ import { useMongoStatus } from './useMongoStatus'
 import { Pending } from './components/Spinner'
 import { PluginPage } from './components/PluginPage'
 import { HookStatusPanel } from './components/HookStatusPanel'
+import { InboxBell } from './components/InboxBell'
 import { DeleteInactiveWorktrees } from './components/DeleteInactiveWorktrees'
 
 const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({ default: m.HistoryPage })))
@@ -69,6 +70,8 @@ export default function App() {
   const [wizardOpen, setWizardOpen] = useState(false)
   const [setupKey, setSetupKey] = useState(0)
   const mongo = useMongoStatus()
+  const cmuxHerdr = data?.state.herdr.filter((a) => a.host !== 'herdr-app')
+  const appHerdr = data?.state.herdr.filter((a) => a.host === 'herdr-app')
 
   const setView = useCallback((next: View) => {
     if (VIEW_PATHS[next] !== window.location.pathname) window.history.pushState(null, '', VIEW_PATHS[next])
@@ -83,6 +86,16 @@ export default function App() {
       })
       .catch(() => {})
   }, [])
+
+  const openInbox = useCallback(() => {
+    setView('hooks')
+    const scroll = (tries: number) => {
+      const card = document.getElementById('inbox')
+      if (card) card.scrollIntoView({ behavior: 'smooth' })
+      else if (tries > 0) window.setTimeout(() => scroll(tries - 1), 200)
+    }
+    scroll(10)
+  }, [setView])
 
   useEffect(() => {
     const onPop = () => setViewState(viewFromPath(window.location.pathname))
@@ -126,6 +139,7 @@ export default function App() {
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <MongoPulse status={mongo} />
+              <InboxBell onOpenInbox={openInbox} />
               <nav className="flex flex-wrap gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1">
                 <NavButton active={view === 'home'} onClick={() => setView('home')}>
                   Home
@@ -195,12 +209,16 @@ export default function App() {
 
               <aside className="space-y-5">
                 <div>
-                  <SectionHeader title="terminal tabs" count={data?.state.tabs.length} />
+                  <SectionHeader title="cmux · terminal tabs" count={data?.state.tabs.length} />
                   {data && <TabList tabs={data.state.tabs} />}
                 </div>
                 <div>
-                  <SectionHeader title="herdr agents" count={data?.state.herdr.length} />
-                  {data && <HerdrList agents={data.state.herdr} />}
+                  <SectionHeader title="cmux · herdr agents" count={cmuxHerdr?.length} />
+                  {cmuxHerdr && <HerdrList agents={cmuxHerdr} empty="No herdr session running" />}
+                </div>
+                <div>
+                  <SectionHeader title="Herdr app" count={appHerdr?.length} />
+                  {appHerdr && <HerdrList agents={appHerdr} empty="No Herdr app agent running" />}
                 </div>
                 <div>
                   <SectionHeader title="Bare agent processes" count={data?.state.agents.length} />

@@ -50,11 +50,16 @@ interface ReviewRequest {
 }
 
 export function reviewRequestToEvent(req: ReviewRequest): TriggerEvent | null {
-  const match = PR_URL_RE.exec(req.prUrl.trim())
+  if (!(Number(req.ts) * 1000 >= Date.now() - lookbackMin('slack-pr-review') * 60 * 1000)) return null
+  return prReviewEvent(req.prUrl)
+}
+
+/** The slack-pr-review event for one PR link, with no lookback check; null for a bad link or an org not allowed. */
+export function prReviewEvent(prUrl: string): TriggerEvent | null {
+  const match = PR_URL_RE.exec(prUrl.trim())
   if (!match) return null
   const [url, org, repo] = match
   if (!orgAllowed(org)) return null
-  if (!(Number(req.ts) * 1000 >= Date.now() - lookbackMin('slack-pr-review') * 60 * 1000)) return null
   return {
     source: 'slack-pr-review',
     id: url,

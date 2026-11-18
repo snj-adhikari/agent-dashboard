@@ -25,3 +25,103 @@ jobs:
           subject="$(git for-each-ref --format='%(contents:subject)' "refs/tags/$TAG")"
           git for-each-ref --format='%(contents:body)' "refs/tags/$TAG" > notes.md
           gh release create "$TAG" --title "$subject" --notes-file notes.md --verify-tag
+
+  cuckoo-macos:
+    needs: release
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+      MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+      MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import signing certificate
+        if: env.MACOS_CERT_P12 != '' && env.MACOS_SIGN_IDENTITY != ''
+        run: |
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm -f cert.p12
+          echo "CUCKOO_SIGN_IDENTITY=$MACOS_SIGN_IDENTITY" >> "$GITHUB_ENV"
+
+      - name: Build universal .dmg
+        run: |
+          export CUCKOO_VERSION="${GITHUB_REF_NAME#v}"
+          bash apps/agent-cuckoo/scripts/build-macos.sh
+
+      - name: Sign .dmg
+        if: env.CUCKOO_SIGN_IDENTITY != ''
+        run: |
+          for f in apps/agent-cuckoo/dist/*.dmg; do codesign --force --timestamp -s "$CUCKOO_SIGN_IDENTITY" "$f"; done
+
+      - name: Upload
+        run: gh release upload "$TAG" apps/agent-cuckoo/dist/*.dmg --clobber
+
+  cuckoo-windows:
+    needs: release
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+      WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+      WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build .exe and .msi
+        run: |
+          export CUCKOO_VERSION="${GITHUB_REF_NAME#v}"
+          bash apps/agent-cuckoo/scripts/build-tauri.sh
+
+      - name: Sign installers
+        if: env.WINDOWS_CERT_PFX != ''
+        shell: pwsh
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+          $signtool = Get-ChildItem "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+          Get-ChildItem apps/agent-cuckoo/dist -Include *.exe,*.msi -Recurse | ForEach-Object {
+            & $signtool.FullName sign /f cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 $_.FullName
+          }
+          Remove-Item cert.pfx
+
+      - name: Upload
+        run: gh release upload "$TAG" apps/agent-cuckoo/dist/*.exe apps/agent-cuckoo/dist/*.msi --clobber
+
+  cuckoo-linux:
+    needs: release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install system packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Build AppImage and .deb
+        run: |
+          export CUCKOO_VERSION="${GITHUB_REF_NAME#v}"
+          bash apps/agent-cuckoo/scripts/build-tauri.sh
+
+      - name: Upload
+        run: gh release upload "$TAG" apps/agent-cuckoo/dist/*.AppImage apps/agent-cuckoo/dist/*.deb --clobber

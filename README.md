@@ -429,7 +429,7 @@ Settings live in the MongoDB `settings` collection; env vars override them.
 | `--vault` | notes folder |
 | `--plist` | LaunchAgent plist path |
 | `--hooks-config` | `hooks.config.json` path |
-| `--display-name`, `--github` | profile |
+| `--display-name`, `--nickname`, `--github` | profile |
 | `--create-pr-skill`, `--pr-review-skill` | skill names |
 | `--atlassian-site`, `--repository-field` | Atlassian site and custom field id |
 | `--work-types`, `--subtask-type` | comma-separated types, subtask type |

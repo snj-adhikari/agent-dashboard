@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-cuckoo/contract/v1",
+  "title": "agent-cuckoo contract v1",
+  "type": "object",
+  "required": ["state", "usage", "clis", "error", "requests", "responses"],
+  "properties": {
+    "state": {
+      "type": "object",
+      "required": ["v", "ts", "agents", "approvals", "replies"],
+      "properties": {
+        "v": { "type": "integer", "enum": [1] },
+        "ts": { "type": "integer" },
+        "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
+        "approvals": { "type": "array", "items": { "$ref": "#/$defs/approval" } },
+        "replies": { "type": "array", "items": { "$ref": "#/$defs/reply" } }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "required": ["claude"],
+      "properties": {
+        "claude": {
+          "type": "object",
+          "required": ["fiveHour", "sevenDay", "resetsAt", "stale"],
+          "properties": {
+            "fiveHour": { "type": ["number", "null"] },
+            "sevenDay": { "type": ["number", "null"] },
+            "resetsAt": { "type": ["integer", "null"] },
+            "stale": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "clis": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["cli", "path", "version", "signedIn"],
+        "properties": {
+          "cli": { "type": "string", "enum": ["claude", "copilot", "gemini", "codex", "cursor-agent", "opencode"] },
+          "path": { "type": "string" },
+          "version": { "type": ["string", "null"] },
+          "signedIn": { "type": ["boolean", "string"], "enum": [true, false, "unknown"] }
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["ok", "error", "message"],
+      "properties": {
+        "ok": { "type": "boolean", "enum": [false] },
+        "error": { "type": "string", "enum": ["unauthorised", "unknown_agent", "stale", "cannot_send", "grant_in_terminal", "bad_request", "host_failed"] },
+        "message": { "type": "string" }
+      }
+    },
+    "requests": {
+      "type": "object",
+      "required": ["say", "approve", "focus", "launch"],
+      "properties": {
+        "say": { "type": "object", "required": ["agentId", "text"], "properties": { "agentId": { "type": "string" }, "text": { "type": "string" } } },
+        "approve": { "type": "object", "required": ["id", "decision"], "properties": { "id": { "type": "string" }, "decision": { "type": "string", "enum": ["allow", "always", "deny"] } } },
+        "focus": { "type": "object", "required": ["agentId"], "properties": { "agentId": { "type": "string" } } },
+        "launch": { "type": "object", "required": ["cwd", "prompt", "cli"], "properties": { "cwd": { "type": "string" }, "prompt": { "type": "string" }, "cli": { "type": "string" } } }
+      }
+    },
+    "responses": {
+      "type": "object",
+      "required": ["say", "approve", "focus", "launch"],
+      "properties": {
+        "say": { "type": "object", "required": ["ok", "relayKey", "sha256"], "properties": { "ok": { "type": "boolean" }, "relayKey": { "type": "string" }, "sha256": { "type": "string" } } },
+        "approve": { "type": "object", "required": ["ok", "sent"], "properties": { "ok": { "type": "boolean" }, "sent": { "type": "string", "enum": ["1", "2", "Escape"] } } },
+        "focus": { "type": "object", "required": ["ok", "focused"], "properties": { "ok": { "type": "boolean" }, "focused": { "type": "boolean" } } },
+        "launch": { "type": "object", "required": ["ok", "ref"], "properties": { "ok": { "type": "boolean" }, "ref": { "type": "string" } } }
+      }
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "object",
+      "required": ["id", "name", "codename", "colour", "state", "host", "terminalApp", "scope", "space", "isMain", "cwd", "branch", "lastLine", "cli", "canSend"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "codename": { "type": ["string", "null"] },
+        "colour": { "type": ["string", "null"] },
+        "state": { "type": "string", "enum": ["working", "waiting", "done", "unknown"] },
+        "host": { "type": "string", "enum": ["herdr", "herdr-app", "cmux", "tmux", "bare"] },
+        "terminalApp": { "type": ["string", "null"] },
+        "scope": { "type": ["string", "null"] },
+        "space": { "type": "string" },
+        "isMain": { "type": "boolean" },
+        "cwd": { "type": "string" },
+        "branch": { "type": ["string", "null"] },
+        "lastLine": { "type": ["string", "null"] },
+        "cli": { "type": ["string", "null"] },
+        "canSend": { "type": "boolean" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "required": ["id", "agentId", "tool", "command", "options", "receivedAt", "screenHash"],
+      "properties": {
+        "id": { "type": "string" },
+        "agentId": { "type": "string" },
+        "tool": { "type": "string" },
+        "command": { "type": "string" },
+        "options": {
+          "type": "array",
+          "items": { "type": "object", "required": ["key", "label"], "properties": { "key": { "type": "string" }, "label": { "type": "string" } } }
+        },
+        "receivedAt": { "type": "integer" },
+        "screenHash": { "type": "string" }
+      }
+    },
+    "reply": {
+      "type": "object",
+      "required": ["id", "agentId", "codename", "text", "at"],
+      "properties": {
+        "id": { "type": "string" },
+        "agentId": { "type": "string" },
+        "codename": { "type": ["string", "null"] },
+        "text": { "type": "string" },
+        "at": { "type": "integer" }
+      }
+    }
+  }
+}

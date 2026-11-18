@@ -1,0 +1,75 @@
+{
+  "state": {
+    "v": 1,
+    "ts": 1763430000000,
+    "agents": [
+      {
+        "id": "herdr:main:w1:p2",
+        "name": "agent-monitor",
+        "codename": "eon",
+        "colour": "#7c3aed",
+        "state": "working",
+        "host": "herdr",
+        "terminalApp": "cmux",
+        "scope": "herdr:main:w1",
+        "space": "Drive - Generic",
+        "isMain": true,
+        "cwd": "/abs/path",
+        "branch": "tech/overseer",
+        "lastLine": "⏺ Reading src/index.ts",
+        "cli": "claude",
+        "canSend": true
+      },
+      {
+        "id": "bare:4242:4242",
+        "name": "path",
+        "codename": null,
+        "colour": null,
+        "state": "unknown",
+        "host": "bare",
+        "terminalApp": null,
+        "scope": null,
+        "space": "Bare processes",
+        "isMain": false,
+        "cwd": "/abs/path",
+        "branch": null,
+        "lastLine": null,
+        "cli": "codex",
+        "canSend": false
+      }
+    ],
+    "approvals": [
+      {
+        "id": "0123456789abcdef",
+        "agentId": "herdr:main:w1:p2",
+        "tool": "Bash",
+        "command": "npm run check",
+        "options": [
+          { "key": "1", "label": "Yes" },
+          { "key": "2", "label": "Yes, and don't ask again" },
+          { "key": "3", "label": "No" }
+        ],
+        "receivedAt": 1763430000000,
+        "screenHash": "fedcba9876543210"
+      }
+    ],
+    "replies": [
+      { "id": "a1b2c3d4e5f60718", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "done, PR #86 open", "at": 1763430000000 }
+    ]
+  },
+  "usage": { "claude": { "fiveHour": 42, "sevenDay": 61, "resetsAt": 1763440000, "stale": false } },
+  "clis": [{ "cli": "claude", "path": "/abs/bin/claude", "version": "2.0.0", "signedIn": "unknown" }],
+  "error": { "ok": false, "error": "stale", "message": "agent changed since last poll" },
+  "requests": {
+    "say": { "agentId": "herdr:main:w1:p2", "text": "run the checks" },
+    "approve": { "id": "0123456789abcdef", "decision": "allow" },
+    "focus": { "agentId": "herdr:main:w1:p2" },
+    "launch": { "cwd": "/abs/path", "prompt": "fix the build", "cli": "claude" }
+  },
+  "responses": {
+    "say": { "ok": true, "relayKey": "main-w1_p2", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" },
+    "approve": { "ok": true, "sent": "1" },
+    "focus": { "ok": true, "focused": true },
+    "launch": { "ok": true, "ref": "workspace:3" }
+  }
+}

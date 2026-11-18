@@ -4,7 +4,7 @@ import { slackPrReviewHook } from './slackPrReviewHook'
 import { jiraMentionPrHook } from './jiraMentionPrHook'
 import { checkPollGate, checkStartGate, fiveHourUsage, sessionUsageHalt } from './usageGate'
 import { herdrRef, herdrSnapshot, parseHerdrRef, promptHerdrAgent, sendHerdrKeys } from '../herdr'
-import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, herdrHookRefs, idleCount, isNew, markSeen, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, setHerdrHookRefs, shouldAutoEnable } from './state'
+import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, clearAutoDisable, dequeue, disabledHooks, enqueue, haltedRefs, herdrHookRefs, idleCount, isNew, markSeen, PR_REVIEW_HOOKS, seenPr, nextIdleCount, overrideRefs, pausedHooks, queued, recordIdle, requeue, setHalted, setHerdrHookRefs, shouldAutoEnable } from './state'
 import { DeferredError, SkippedError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
 import { loadConfig, pollIntervalMin } from './config'
@@ -13,6 +13,7 @@ import { openOpUnlockTab, sendKey, sendToWorkspace, terminalTabs } from '../term
 import { log, logError } from './logger'
 import { HOOK_TAB_PREFIX } from './types'
 import type { HookStart, Trigger } from './types'
+import { inboxWatch } from '../inbox/health'
 
 const HOOKS: Trigger[] = [jiraHook, slackPrReviewHook, jiraMentionPrHook]
 const DRAIN_INTERVAL_MS = 5 * 60_000
@@ -75,7 +76,7 @@ async function pollHook(hook: Trigger): Promise<void> {
     const batch = (await hook.poll()).sort((a, b) => (a.priority ?? 2) - (b.priority ?? 2))
     let added = 0
     for (const event of batch) {
-      if (isNew(hook.name, event.id)) {
+      if (isNew(hook.name, event.id) && !(event.details?.url && seenPr(event.details.url))) {
         enqueue(hook.name, event)
         added++
       }
@@ -164,7 +165,7 @@ let pollChain: Promise<void> = Promise.resolve()
 const pollTimers = new Map<string, NodeJS.Timeout>()
 
 /** Each hook polls on its own interval, but one at a time so two `claude -p` polls never overlap. */
-function queuePoll(hook: Trigger): Promise<void> {
+export function queuePoll(hook: Trigger): Promise<void> {
   pollChain = pollChain.then(() => pollHook(hook)).catch((e) => logError(`${hook.name}: ${errorMessage(e)}`))
   return pollChain
 }
@@ -173,7 +174,13 @@ function scheduleHook(name: string): void {
   const hook = HOOKS.find((h) => h.name === name)
   if (!hook) return
   clearInterval(pollTimers.get(name))
-  pollTimers.set(name, setInterval(() => queuePoll(hook), pollIntervalMin(name) * 60_000))
+  pollTimers.set(
+    name,
+    setInterval(() => {
+      if (PR_REVIEW_HOOKS.includes(name) && inboxWatch().ok) return
+      queuePoll(hook)
+    }, pollIntervalMin(name) * 60_000)
+  )
 }
 
 /** Applies a changed interval; a no-op when polling never started (DISABLE_HOOKS). */
@@ -181,7 +188,7 @@ export function rescheduleHook(name: string): void {
   if (pollTimers.has(name)) scheduleHook(name)
 }
 
-async function drainTick(): Promise<void> {
+export async function drainTick(): Promise<void> {
   if (draining) return
   draining = true
   try {

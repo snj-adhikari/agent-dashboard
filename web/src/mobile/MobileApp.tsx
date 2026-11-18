@@ -10,6 +10,8 @@ interface MobileSession {
   cwd: string
   lastActive: string | null
   phase: string
+  /** Set for Herdr app agents, which are read and prompted through herdr instead of cmux. */
+  herdr?: { session: string; target: string }
 }
 
 const QUICK_REPLIES = ['1', '2', '3', 'continue']
@@ -154,14 +156,16 @@ interface Surface {
 const chip = (active: boolean) => `shrink-0 max-w-[45vw] truncate rounded-lg px-3 py-1.5 text-xs ${active ? 'bg-brand-dark text-white' : 'bg-slate-800 text-slate-300'}`
 const input = 'min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100'
 
-function TerminalPane({ workspace, surface, status, onSend }: { workspace: string; surface?: string; status: string; onSend: (text: string) => Promise<boolean> }) {
+type ScreenResult = { ok: boolean; screen?: string; error?: string }
+
+function TerminalPane({ read, readKey, status, onSend }: { read: () => Promise<ScreenResult>; readKey: string; status: string; onSend: (text: string) => Promise<boolean> }) {
   const [screen, setScreen] = useState('')
   const [text, setText] = useState('')
   const pre = useRef<HTMLPreElement>(null)
 
   usePolling(() => {
-    api.screen(workspace, surface).then((r) => setScreen(r.ok ? r.screen || '' : r.error || 'cannot read screen'))
-  }, 3000, `${workspace}|${surface}`)
+    read().then((r) => setScreen(r.ok ? r.screen || '' : r.error || 'cannot read screen'))
+  }, 3000, readKey)
 
   useEffect(() => {
     pre.current?.scrollTo(0, pre.current.scrollHeight)
@@ -328,8 +332,29 @@ function SessionView({ session, onBack }: { session: MobileSession; onBack: () =
       {current?.type === 'browser' ? (
         <BrowserPane key={current.ref} surface={current.ref} />
       ) : (
-        <TerminalPane key={current?.ref || session.ref} workspace={session.ref} surface={current?.ref} status={status} onSend={send} />
+        <TerminalPane key={current?.ref || session.ref} read={() => api.screen(session.ref, current?.ref)} readKey={`${session.ref}|${current?.ref}`} status={status} onSend={send} />
       )}
+    </div>
+  )
+}
+
+function HerdrSessionView({ session, herdr, onBack }: { session: MobileSession; herdr: { session: string; target: string }; onBack: () => void }) {
+  const [status, setStatus] = useState('')
+
+  async function send(value: string) {
+    const r = await api.herdrPrompt(herdr.session, herdr.target, value)
+    setStatus(r.ok ? 'sent' : r.code === 'agent_blocked' ? 'waiting on a question; answer it in the Herdr app' : String(r.error || 'failed'))
+    return r.ok
+  }
+
+  return (
+    <div className="flex h-dvh flex-col">
+      <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
+        <button className="shrink-0 text-sm text-sky-300" onClick={onBack}>← Back</button>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200">{session.title}</span>
+        <span className="shrink-0 text-xs text-slate-500">Herdr app</span>
+      </div>
+      <TerminalPane read={() => api.herdrRead(herdr.session, herdr.target)} readKey={session.ref} status={status} onSend={send} />
     </div>
   )
 }
@@ -377,6 +402,7 @@ export function MobileApp() {
   }
 
   const selected = sessions.find((s) => s.ref === ref || s.id === ref)
+  if (selected?.herdr) return <HerdrSessionView session={selected} herdr={selected.herdr} onBack={() => open('')} />
   if (selected) return <SessionView session={selected} onBack={() => open('')} />
 
   return (
@@ -400,11 +426,12 @@ export function MobileApp() {
               </div>
               <div className="mt-0.5 truncate text-xs text-slate-500">
                 {s.phase === 'awaiting-you' ? 'waiting for you · ' : ''}
+                {s.herdr ? 'Herdr app · ' : ''}
                 {s.cwd.split('/').slice(-2).join('/')}
                 {s.lastActive ? ` · ${s.lastActive}` : ''}
               </div>
             </button>
-            <ConfirmButton label="✕" title="Close tab" onConfirm={() => closeTab(s.ref)} />
+            {!s.herdr && <ConfirmButton label="✕" title="Close tab" onConfirm={() => closeTab(s.ref)} />}
           </li>
         ))}
         {!sessions.length && <li className="text-sm text-slate-500">No terminal sessions</li>}

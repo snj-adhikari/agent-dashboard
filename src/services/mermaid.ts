@@ -63,29 +63,18 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
     }
   }
 
-  for (const ws of state.tabs) {
-    if (!ws.cwd) continue
-    const wtId = `wt_${sanitize(ws.cwd)}`
-    const tabId = `tab_${sanitize(ws.cwd)}`
-    const safeTitle = ws.title.replace(/["\\]/g, '')
-    nodes.push(`${tabId}["\u{1F5A5} ${safeTitle}"]:::tab`)
-    edges.push(`${wtId} -.-> ${tabId}`)
-  }
-
-  for (const a of state.agents) {
-    const wtId = `wt_${sanitize(a.cwd)}`
-    const agentId = `agent_${a.pid}`
-    nodes.push(`${agentId}(["\u26A1 ${a.cmd} (pid ${a.pid})"]):::agent`)
-    edges.push(`${wtId} -.-> ${agentId}`)
-  }
-
   const styles: string[] = []
   const bySession = new Map<string, MonitorState['herdr']>()
   for (const a of state.herdr) bySession.set(a.session, [...(bySession.get(a.session) || []), a])
   const permanentLast = (s: string): number => (PERMANENT_SESSIONS.includes(s) ? 1 : 0)
-  for (const [session, agents] of [...bySession].sort(([a], [b]) => permanentLast(a) - permanentLast(b))) {
+  const sessions = [...bySession].sort(([a], [b]) => permanentLast(a) - permanentLast(b))
+  const isApp = (agents: MonitorState['herdr']) => agents[0].host === 'herdr-app'
+  const cmuxSessions = sessions.filter(([, agents]) => !isApp(agents))
+  const appSessions = sessions.filter(([, agents]) => isApp(agents))
+
+  function herdrSubgraph(session: string, agents: MonitorState['herdr'], label: string) {
     let linked = false
-    nodes.push(`subgraph herdr_${sanitize(session)}["${mermaidText(agents[0].host === 'herdr-app' ? 'Herdr app' : agents[0].display || session)}"]`)
+    nodes.push(`subgraph herdr_${sanitize(session)}["${mermaidText(label)}"]`)
     for (const a of agents) {
       const id = `herdr_${sanitize(session)}_${sanitize(a.paneId)}`
       nodes.push(`${id}(["${mermaidText([a.codename || a.label, a.ticket || a.tabTitle || a.paneId, a.status].filter(Boolean).join(' · '))}"]):::herdr`)
@@ -98,6 +87,35 @@ export function buildMermaid(state: MonitorState, expandedRepoIds: Set<string> =
     }
     nodes.push('end')
     if (!linked && lastRepoId) edges.push(`${lastRepoId} ~~~ herdr_${sanitize(session)}`)
+  }
+
+  /** herdr TUI sessions run inside cmux, so they share its group; the Herdr app is a separate app with its own. */
+  const cmuxTabs = state.tabs.filter((t) => t.cwd)
+  if (cmuxTabs.length || cmuxSessions.length) nodes.push('subgraph host_cmux["cmux"]')
+  for (const ws of cmuxTabs) {
+    const wtId = `wt_${sanitize(ws.cwd)}`
+    const tabId = `tab_${sanitize(ws.cwd)}`
+    const safeTitle = ws.title.replace(/["\\]/g, '')
+    nodes.push(`${tabId}["\u{1F5A5} ${safeTitle}"]:::tab`)
+    edges.push(`${wtId} -.-> ${tabId}`)
+  }
+  for (const [session, agents] of cmuxSessions) herdrSubgraph(session, agents, agents[0].display || session)
+  if (cmuxTabs.length || cmuxSessions.length) nodes.push('end')
+  if (appSessions.length) {
+    nodes.push('subgraph host_herdr_app["Herdr app"]')
+    for (const [session, agents] of appSessions) {
+      const byWorkspace = new Map<string, MonitorState['herdr']>()
+      for (const a of agents) byWorkspace.set(a.display || a.workspaceId, [...(byWorkspace.get(a.display || a.workspaceId) || []), a])
+      for (const [space, inSpace] of byWorkspace) herdrSubgraph(`${session}_${space}`, inSpace, space)
+    }
+    nodes.push('end')
+  }
+
+  for (const a of state.agents) {
+    const wtId = `wt_${sanitize(a.cwd)}`
+    const agentId = `agent_${a.pid}`
+    nodes.push(`${agentId}(["\u26A1 ${a.cmd} (pid ${a.pid})"]):::agent`)
+    edges.push(`${wtId} -.-> ${agentId}`)
   }
 
   return `graph LR

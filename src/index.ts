@@ -15,18 +15,20 @@ import { handleHerdrFocus, handleHerdrPrompt, handleHerdrRead } from './routes/h
 import { handleHistory } from './routes/history'
 import { handleLearning, handleLearningRefresh } from './routes/learning'
 import { handleVaultTree, handleVaultGraph, handleVaultFile } from './routes/vault'
-import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookStatus, handleJiraStart, handleRunQueued } from './routes/hookStatus'
+import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookStatus, handleInbox, handleInboxList, handleJiraStart, handleRunQueued } from './routes/hookStatus'
 import { handlePluginDownload, handlePluginImport } from './routes/plugin'
 import { handleMongoRestart, handleMongoStatus } from './routes/mongo'
 import { handleGetSettings, handleSaveSettings } from './routes/settings'
 import { handleCheckDir, handleServiceGenerate, handleServiceInstall, handleSetupStatus, handleTailscalePublish, handleTailscaleStatus } from './routes/setup'
 import { handleBrowserAction, handleBrowserShot, handleTabAction, handleMobileSessions, handleMobileSurfaces, handlePulse, handlePushKey, handlePushSubscribe, handlePushTest, handlePushUnsubscribe } from './routes/mobile'
 import { isTrustedRequest } from './http'
+import { handleCuckoo, isCuckooPath } from './routes/cuckoo'
 import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
+import { startInboxWatch } from './services/inbox'
 import { startLearningSnapshots } from './services/learning'
 import { startHerdrSync } from './services/state'
-import { loadSettings } from './services/settings'
+import { loadSettings, syncUserFile } from './services/settings'
 import { MONGO_URL } from './services/db'
 import { missingSteps } from './routes/setup'
 
@@ -68,6 +70,7 @@ const server = http.createServer(async (req, res) => {
     return
   }
 
+  if (isCuckooPath(url.pathname)) return handleCuckoo(req, res, url)
   if (url.pathname.startsWith('/api/') && url.pathname !== '/api/hook-session') noteClientSeen()
 
   if (url.pathname === '/api/graph') return handleGraph(res, url.searchParams.get('expanded') || '')
@@ -89,6 +92,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/vault/graph') return handleVaultGraph(res)
   if (url.pathname === '/api/vault/file') return handleVaultFile(res, url.searchParams.get('path') || '')
   if (url.pathname === '/api/hook-status') return handleHookStatus(res)
+  if (url.pathname === '/api/inbox') return req.method === 'POST' ? handleInbox(req, res) : handleInboxList(res)
   if (url.pathname === '/api/hooks/jira/start' && req.method === 'POST') return handleJiraStart(req, res)
   if (url.pathname === '/api/hooks/queue/run' && req.method === 'POST') return handleRunQueued(req, res)
   if (url.pathname === '/api/plugin/import' && req.method === 'POST') return handlePluginImport(req, res)
@@ -134,6 +138,7 @@ let downHinted = false
 async function initSettings(): Promise<void> {
   try {
     await loadSettings()
+    await syncUserFile().catch((e) => console.error(`user file not synced: ${(e as Error).message}`))
     setupHint(true)
   } catch (e) {
     console.error(`settings not loaded, retrying in ${SETTINGS_RETRY_MS / 1000}s: ${(e as Error).message}`)
@@ -149,5 +154,8 @@ server.listen(PORT, '127.0.0.1', async () => {
   await initSettings()
   startLearningSnapshots()
   startHerdrSync()
-  if (!process.env.DISABLE_HOOKS) startHookPolling()
+  if (!process.env.DISABLE_HOOKS) {
+    startHookPolling()
+    startInboxWatch()
+  }
 })
