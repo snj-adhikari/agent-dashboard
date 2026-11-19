@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { HerdrAgent } from '../types'
-import { api } from '../api'
+import { api, signed, type DemeritAgent, type DemeritsResponse } from '../api'
 import { Button, CardMeta, CardPath } from './Card'
 import { EmptyState } from './EmptyState'
 
@@ -11,7 +11,7 @@ const STATUS: Record<string, { symbol: string; className: string }> = {
   idle: { symbol: '○', className: 'text-slate-400' }
 }
 
-function HerdrCard({ agent }: { agent: HerdrAgent }) {
+function HerdrCard({ agent, points }: { agent: HerdrAgent; points?: DemeritAgent }) {
   const [expanded, setExpanded] = useState(false)
   const [screen, setScreen] = useState('')
   const [prompt, setPrompt] = useState('')
@@ -77,6 +77,11 @@ function HerdrCard({ agent }: { agent: HerdrAgent }) {
         <b className="text-base" style={{ color: colour }}>
           {agent.codename || agent.label || agent.name || agent.paneId}
         </b>
+        {points && (
+          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] tabular-nums text-slate-200" title="Points balance (this week)">
+            {points.balance} ({signed(points.week)})
+          </span>
+        )}
         {agent.name && <code className="rounded bg-slate-950 border border-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300">{agent.name}</code>}
         {agent.ticket && <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-200">{agent.ticket}</span>}
         <span className={`ml-auto text-[11px] ${status.className}`} title={agent.status}>
@@ -134,7 +139,8 @@ const scopeRank = (inScope: HerdrAgent[]): number => {
   return i < 0 ? -1 : i
 }
 
-export function HerdrList({ agents, empty }: { agents: HerdrAgent[]; empty: string }) {
+export function HerdrList({ agents, empty, points }: { agents: HerdrAgent[]; empty: string; points?: DemeritsResponse | null }) {
+  const byAgent = new Map((points?.agents ?? []).map((a) => [a.agent, a]))
   if (!agents.length) return <EmptyState label={empty} />
   const scopes = groupBy(agents, (a) => a.display || a.session).sort(([, a], [, b]) => scopeRank(a) - scopeRank(b))
   return (
@@ -146,7 +152,7 @@ export function HerdrList({ agents, empty }: { agents: HerdrAgent[]; empty: stri
             <div key={ticket} className="ml-1">
               <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">{ticket}</div>
               {inTicket.map((a) => (
-                <HerdrCard key={`${a.session}/${a.paneId}`} agent={a} />
+                <HerdrCard key={`${a.session}/${a.paneId}`} agent={a} points={a.codename ? byAgent.get(a.codename) : undefined} />
               ))}
             </div>
           ))}

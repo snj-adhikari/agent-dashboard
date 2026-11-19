@@ -124,6 +124,7 @@ When the session runs inside herdr (`HERDR_ENV=1` with `HERDR_SESSION` set) deve
 - The lead never puts brief text in a shell command: follow-ups are appended to `task.md` and announced with a fixed message.
 - `bin/relay.sh <target> <message>` (shipped in this mod) is the only way the lead types into another session: it writes the relay-log line, then types the message key by key and presses Enter (`herdr pane send-text` inside herdr, `hc keys` in the Herdr app, pasting the rest with `hc send` from the first character `hc keys` cannot type). Messages greet by codename (`Hey <codename>, ...`); a skill or command is sent raw (`/review-pr 7088`). Developers report back starting `<codename> here:`.
 - `FACTORY_DEV=1` makes this mod deny every `git commit` and `git push` in a developer session.
+- `FACTORY_LEAD=<lead terminal address>` is also set in each developer session (`--env` on the herdr tab, `env` in the Herdr app command), so it knows which lead started it.
 - Each developer tab gets its own codename and colour from `snj-term codename <session> --seed <KEY>-dev<n>`, shown in the herdr sidebar via `herdr pane report-metadata --display-agent <codename> --token codename=<codename>`. Without `snj-term` the agent is named `<key-lower>-dev<n>`.
 - Developer agents live in herdr only; watch one with `herdr agent attach <name>` when needed.
 - At most 4 developer tabs per ticket at once; the rest queue.

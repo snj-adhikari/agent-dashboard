@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { POLL_MS, usePolling } from './usePolling'
 import type { GraphResponse, Repo } from './types'
-import { api } from './api'
+import { api, fetchDemerits, type DemeritsResponse } from './api'
 import { StatBar } from './components/StatBar'
 import { MermaidGraph } from './components/MermaidGraph'
 import { TabList } from './components/TabList'
@@ -17,19 +17,23 @@ import { Pending } from './components/Spinner'
 import { PluginPage } from './components/PluginPage'
 import { HookStatusPanel } from './components/HookStatusPanel'
 import { InboxBell } from './components/InboxBell'
+import { PointsPill } from './components/PointsPill'
 import { DeleteInactiveWorktrees } from './components/DeleteInactiveWorktrees'
 
 const HistoryPage = lazy(() => import('./components/HistoryPage').then((m) => ({ default: m.HistoryPage })))
 const LearningPage = lazy(() => import('./components/LearningPage').then((m) => ({ default: m.LearningPage })))
 const SetupPage = lazy(() => import('./components/SetupPage').then((m) => ({ default: m.SetupPage })))
 const VaultPage = lazy(() => import('./components/VaultPage').then((m) => ({ default: m.VaultPage })))
+const PointsPage = lazy(() => import('./components/PointsPage').then((m) => ({ default: m.PointsPage })))
 const DexPage = lazy(() => import('./dex/DexPage').then((m) => ({ default: m.DexPage })))
+
+const POINTS_POLL_MS = 15_000
 
 const scopeOf = (repoName: string): string => repoName.replace(/^drive-/, '').toLowerCase()
 
-type View = 'home' | 'history' | 'learning' | 'vault' | 'dex' | 'hooks' | 'plugin' | 'setup'
+type View = 'home' | 'history' | 'learning' | 'vault' | 'dex' | 'hooks' | 'plugin' | 'setup' | 'points'
 
-const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', learning: '/learning', vault: '/vault', dex: '/dex', hooks: '/hooks', plugin: '/plugin', setup: '/setup' }
+const VIEW_PATHS: Record<View, string> = { home: '/', history: '/history', learning: '/learning', vault: '/vault', dex: '/dex', hooks: '/hooks', plugin: '/plugin', setup: '/setup', points: '/points' }
 
 function viewFromPath(pathname: string): View {
   const entry = Object.entries(VIEW_PATHS).find(([, p]) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)))
@@ -69,6 +73,7 @@ export default function App() {
   const [modalRepo, setModalRepo] = useState<Repo | null>(null)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [setupKey, setSetupKey] = useState(0)
+  const [points, setPoints] = useState<DemeritsResponse | null>(null)
   const mongo = useMongoStatus()
   const cmuxHerdr = data?.state.herdr.filter((a) => a.host !== 'herdr-app')
   const appHerdr = data?.state.herdr.filter((a) => a.host === 'herdr-app')
@@ -114,6 +119,9 @@ export default function App() {
   }, [expandedRepos])
 
   usePolling(poll, POLL_MS, poll)
+  usePolling(() => {
+    fetchDemerits().then((r) => setPoints(r.ok ? r : null)).catch(() => {})
+  }, POINTS_POLL_MS)
 
   const onRepoClick = useCallback(
     (repoPath: string) => {
@@ -139,6 +147,7 @@ export default function App() {
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <MongoPulse status={mongo} />
+              <PointsPill data={points} onOpen={() => setView('points')} />
               <InboxBell onOpenInbox={openInbox} />
               <nav className="flex flex-wrap gap-1 rounded-xl border border-slate-800 bg-slate-900/80 p-1">
                 <NavButton active={view === 'home'} onClick={() => setView('home')}>
@@ -180,6 +189,8 @@ export default function App() {
             <LearningPage />
           ) : view === 'vault' ? (
             <VaultPage />
+          ) : view === 'points' ? (
+            <PointsPage data={points} />
           ) : view === 'dex' ? (
             <DexPage />
           ) : view === 'setup' ? (
@@ -214,11 +225,11 @@ export default function App() {
                 </div>
                 <div>
                   <SectionHeader title="cmux · herdr agents" count={cmuxHerdr?.length} />
-                  {cmuxHerdr && <HerdrList agents={cmuxHerdr} empty="No herdr session running" />}
+                  {cmuxHerdr && <HerdrList agents={cmuxHerdr} empty="No herdr session running" points={points} />}
                 </div>
                 <div>
                   <SectionHeader title="Herdr app" count={appHerdr?.length} />
-                  {appHerdr && <HerdrList agents={appHerdr} empty="No Herdr app agent running" />}
+                  {appHerdr && <HerdrList agents={appHerdr} empty="No Herdr app agent running" points={points} />}
                 </div>
                 <div>
                   <SectionHeader title="Bare agent processes" count={data?.state.agents.length} />

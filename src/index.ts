@@ -14,6 +14,7 @@ import { handleNewSession } from './routes/newSession'
 import { handleHerdrFocus, handleHerdrPrompt, handleHerdrRead } from './routes/herdr'
 import { handleHistory } from './routes/history'
 import { handleLearning, handleLearningRefresh } from './routes/learning'
+import { handleDemerits } from './routes/demerits'
 import { handleVaultTree, handleVaultGraph, handleVaultFile } from './routes/vault'
 import { handleHookEnabled, handleHookInterval, handleHookSession, handleHookStatus, handleInbox, handleInboxList, handleJiraStart, handleRunQueued } from './routes/hookStatus'
 import { handlePluginDownload, handlePluginImport } from './routes/plugin'
@@ -27,6 +28,7 @@ import { noteClientSeen, startHistoryLogging } from './services/history'
 import { startHookPolling } from './services/hooks'
 import { startInboxWatch } from './services/inbox'
 import { startLearningSnapshots } from './services/learning'
+import { startDemeritsBackfill } from './services/demerits'
 import { startHerdrSync } from './services/state'
 import { loadSettings, syncUserFile } from './services/settings'
 import { MONGO_URL } from './services/db'
@@ -88,6 +90,7 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/history') return handleHistory(res, url.searchParams.get('range') || 'day')
   if (url.pathname === '/api/learning') return handleLearning(res, url.searchParams.get('gran') || 'day')
   if (url.pathname === '/api/learning/refresh' && req.method === 'POST') return handleLearningRefresh(res)
+  if (url.pathname === '/api/v1/demerits' && (req.method === 'GET' || req.method === 'POST')) return handleDemerits(req, res)
   if (url.pathname === '/api/vault/tree') return handleVaultTree(res)
   if (url.pathname === '/api/vault/graph') return handleVaultGraph(res)
   if (url.pathname === '/api/vault/file') return handleVaultFile(res, url.searchParams.get('path') || '')
@@ -153,6 +156,7 @@ server.listen(PORT, '127.0.0.1', async () => {
   startHistoryLogging()
   await initSettings()
   startLearningSnapshots()
+  startDemeritsBackfill()
   startHerdrSync()
   if (!process.env.DISABLE_HOOKS) {
     startHookPolling()

@@ -26,6 +26,40 @@ export interface InactiveWorktree {
   unpushed: string
 }
 
+export interface DemeritAgent {
+  agent: string
+  rank: 'sub' | 'main' | 'super'
+  balance: number
+  week: number
+  xp: number
+  level: number
+  biased: boolean
+}
+
+export interface DemeritEvent {
+  id: string
+  ts: number
+  agent: string
+  scope: 'agent' | 'pool'
+  by: string
+  rank?: 'sub' | 'main' | 'super'
+  points: number
+  rule: string
+  reason: string
+}
+
+export interface DemeritsResponse {
+  ok: boolean
+  source: 'mongo' | 'vault'
+  agents: DemeritAgent[]
+  pool: { balance: number; week: number }
+  events: DemeritEvent[]
+}
+
+export const signed = (n: number): string => (n > 0 ? `+${n}` : String(n))
+
+export const fetchDemerits = (): Promise<DemeritsResponse> => fetch('/api/v1/demerits').then((r) => r.json())
+
 export const api = {
   graph: (expandedRepoIds: string[] = []): Promise<GraphResponse> =>
     fetch('/api/graph' + (expandedRepoIds.length ? `?expanded=${expandedRepoIds.join(',')}` : '')).then((r) => r.json()),

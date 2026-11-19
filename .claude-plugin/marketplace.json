@@ -15,6 +15,7 @@
     { "name": "agent-device-qa", "source": "./mods/agent-device-qa" },
     { "name": "agent-orchestration", "source": "./mods/agent-orchestration" },
     { "name": "agent-more-like-you", "source": "./mods/agent-more-like-you" },
-    { "name": "nepali-voice", "source": "./mods/nepali-voice" }
+    { "name": "nepali-voice", "source": "./mods/nepali-voice" },
+    { "name": "demerits", "source": "./mods/demerits" }
   ]
 }
