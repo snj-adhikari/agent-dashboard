@@ -199,6 +199,7 @@ const taintedAsk = async ($: Engine, on: On, prompt: { text: string; origin?: un
   const asked: string[] = []
   quiet(on)
   mock.env(on, { HOME: '/h', HC_TERMINAL_ID: 't9' })
+  on('clock.now', () => ({ value: Date.now() }))
   on('fs.exists', (_$, e) => ({ value: relays !== '' && e.path === '/h/.claude/agent-relays/t9.jsonl' }))
   on('fs.read', () => ({ value: relays }))
   on('tool.call', (_, e) => {
@@ -228,7 +229,7 @@ test('the same comment after a plugin prompt still asks', async ($, on) => {
 
 test('the same comment after an untagged relay in the relay log still asks', async ($, on) => {
   const text = `Hey bond,  ${ASK}.`
-  const asked = await taintedAsk($, on, { text }, `${JSON.stringify({ ts: 1, from: 't3p', sha256: await sha(text) })}\n`)
+  const asked = await taintedAsk($, on, { text }, `${JSON.stringify({ ts: Math.floor(Date.now() / 1000), from: 't3p', sha256: await sha(text) })}\n`)
   await $.tool.call({ tool: JIRA_COMMENT, issueIdOrKey: 'MC-123', commentBody: 'done' } as never)
   expect(asked.length).toBe(1)
 })
@@ -401,9 +402,10 @@ const VERDICT = `Alex picked: Approve with comments. Submit the pending review o
 const localRelay = async ($: Engine, on: On, mode: 'log' | 'plugin' | 'subtab', text: string) => {
   const asked: string[] = []
   const sent = mode === 'subtab' ? `[subtab s1] ${text}` : `Hey kayak, ${text}`
-  const log = mode === 'log' ? `${JSON.stringify({ ts: 1, from: 't4h', sha256: await sha(sent) })}\n` : ''
+  const log = mode === 'log' ? `${JSON.stringify({ ts: Math.floor(Date.now() / 1000), from: 't4h', sha256: await sha(sent) })}\n` : ''
   quiet(on)
   mock.env(on, { HOME: '/h', HC_TERMINAL_ID: 't9' })
+  on('clock.now', () => ({ value: Date.now() }))
   on('fs.exists', (_$, e) => ({ value: log !== '' && e.path === '/h/.claude/agent-relays/t9.jsonl' }))
   on('fs.read', () => ({ value: log }))
   on('tool.call', (_, e) => {
@@ -526,9 +528,10 @@ const EVIL_JIRA = JSON.stringify({ comments: [{ author: { displayName: 'Mallory'
 /** A sub-tab turn started by `prompt` (in the run's relay log as `logged`), then a Jira read returning `body`. Answers every ask with Block. */
 const subtabTurn = async ($: Engine, on: On, prompt: string, logged: 'main' | 'agent' | '', body: string) => {
   const asked: string[] = []
-  const log = logged ? `${JSON.stringify({ ts: 1, from: 't4h', sha256: await sha(prompt), ...(logged === 'main' ? { main: true } : {}) })}\n` : ''
+  const log = logged ? `${JSON.stringify({ ts: Math.floor(Date.now() / 1000), from: 't4h', sha256: await sha(prompt), ...(logged === 'main' ? { main: true } : {}) })}\n` : ''
   quiet(on)
   mock.env(on, { HOME: '/h', AGENT_SUBTAB_ID: 'ab12cd34' })
+  on('clock.now', () => ({ value: Date.now() }))
   on('fs.exists', (_$, e) => ({ value: log !== '' && e.path === '/h/.claude/agent-relays/sub-ab12cd34.jsonl' }))
   on('fs.read', () => ({ value: log }))
   on('tool.call', (_, e) => {

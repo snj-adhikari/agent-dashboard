@@ -17,9 +17,15 @@ import { buildHouses } from './services/herdr'
 import { classify, prLinks } from './services/inbox/filter'
 import { prSeenIn } from './services/hooks/state'
 import { readNewerUserFile, writeUserFile } from './services/userFile'
+import { relayKey } from './services/cuckoo/relayLog'
 import './learningCheck'
 import './cuckooCheck'
 import './cuckooActionsCheck'
+import './cuckooClisCheck'
+import './cuckooChatCheck'
+import { execFileSync } from 'child_process'
+// These replace shared stubs (keys.io, chatDeps) or env paths that in-process checks also use, so each gets its own process.
+for (const name of ['cuckooFocusCheck', 'cuckooSessionsCheck', 'cuckooSideCheck', 'cuckooSuperviseCheck']) execFileSync(process.execPath, [path.join(__dirname, `${name}.js`)], { stdio: 'inherit' })
 
 assert.deepStrictEqual(houseOf('Grille + APIG'), houseOf('grille + apig'), 'house is deterministic and case-insensitive')
 assert.match(houseOf('Grille').house, /^House [A-Z][a-z]+ of Grille$/)
@@ -199,6 +205,23 @@ void assert.rejects(focusHerdrAgent('grille', 'w1:p1'), /invalid/, 'focus needs 
   fs.writeFileSync(file, '{not json')
   assert.strictEqual(readNewerUserFile(undefined, file), undefined, 'a broken file is ignored')
   fs.rmSync(dir, { recursive: true, force: true })
+}
+
+{
+  const ws = '0f4e2a8c-1b2d-4c3e-9f00-aa11bb22cc33'
+  const surf = '7d9c1e2f-3a4b-4c5d-8e6f-001122334455'
+  const scope = `cmux:${ws}`
+  assert.deepStrictEqual(
+    [
+      relayKey({ id: 'cmux:workspace:3:surface:7', host: 'cmux', scope }),
+      relayKey({ id: `cmux:workspace:3:${surf}`, host: 'cmux', scope }),
+      relayKey({ id: 'cmux:workspace:3', host: 'cmux', scope }),
+      relayKey({ id: `cmux:${ws}`, host: 'cmux', scope }),
+      relayKey({ id: 'tmux:ad-x:ad-x', host: 'tmux', scope: null }),
+    ],
+    ['surface:7', surf, ws, ws, 'ad-x'],
+    'relay key parity: same table as mods/stranger-danger/hooks/relayKey.test.ts'
+  )
 }
 
 console.log('check: ok')

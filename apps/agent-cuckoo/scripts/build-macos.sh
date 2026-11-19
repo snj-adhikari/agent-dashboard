@@ -42,6 +42,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSHumanReadableCopyright</key><string>Snj - nightwalker</string>
+  <key>NSAppleEventsUsageDescription</key><string>agent-cuckoo reads Mail headers, controls Music and Spotify, and opens composers only when you turn those cards on. It never sends for you.</string>
+  <key>NSMicrophoneUsageDescription</key><string>agent-cuckoo listens for dictation, the wake phrase and Notetaker only after you turn them on.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>agent-cuckoo transcribes dictation, the wake phrase and notes on this Mac.</string>
+  <key>NSScreenCaptureUsageDescription</key><string>agent-cuckoo captures screenshots you ask for and Notetaker system audio when you allow it.</string>
 </dict>
 </plist>
 PLIST
@@ -90,6 +94,18 @@ if [[ -f "$LOCK" ]]; then
 else
   echo "assets/emoji.lock missing, skipping emoji fetch (system emoji used)"
 fi
+
+for dir in mascot sounds; do
+  if compgen -G "$ASSETS/$dir/*" >/dev/null; then
+    mkdir -p "$APP/Contents/Resources/$dir"
+    find "$ASSETS/$dir" -maxdepth 1 -type f \( -name '*.png' -o -name '*.wav' -o -name '*.ogg' -o -name '*.m4a' -o -name 'License.txt' \) -exec cp {} "$APP/Contents/Resources/$dir/" \;
+  fi
+done
+cp "$ASSETS/whats-new.json" "$APP/Contents/Resources/whats-new.json"
+mkdir -p "$APP/Contents/Resources/i18n"
+cp "$ROOT"/i18n/*.json "$APP/Contents/Resources/i18n/"
+echo "bundled resources:"
+(cd "$APP/Contents/Resources" && find . -type f | sort)
 
 codesign --force --deep -s "${CUCKOO_SIGN_IDENTITY:--}" "$APP"
 

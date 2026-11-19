@@ -14,6 +14,39 @@ interface MobileSession {
   herdr?: { session: string; target: string }
 }
 
+interface PhoneView {
+  pills: { id: string; name: string; state: 'working' | 'waiting' | 'done' | 'unknown'; cli: string | null; space: string }[]
+  approvals: { id: string; agent: string; tool: string; command: string; kind: 'permission' | 'plan' | 'question' }[]
+}
+
+const PILL_DOT: Record<PhoneView['pills'][number]['state'], string> = { working: 'bg-brand', waiting: 'bg-warn', done: 'bg-ok', unknown: 'bg-slate-600' }
+
+/** Read-only: approvals are answered on the Mac, so this shows them without buttons. */
+function CuckooSection({ view }: { view: PhoneView }) {
+  return (
+    <section aria-label="Cuckoo" className="space-y-2">
+      {view.approvals.map((a) => (
+        <div key={a.id} className="rounded-xl border border-warn/40 bg-slate-900 px-4 py-3">
+          <div className="text-sm font-medium text-slate-200">
+            {a.agent} · {a.kind === 'permission' ? a.tool : a.kind}
+          </div>
+          {a.command && <div className="mt-0.5 truncate font-mono text-xs text-slate-400">{a.command}</div>}
+          <div className="mt-1 text-xs text-slate-500">Waiting for you on the Mac</div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-1.5">
+        {view.pills.map((p) => (
+          <span key={p.id} className="flex items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs text-slate-300">
+            <span className={`inline-block h-2 w-2 rounded-full ${PILL_DOT[p.state]}`} />
+            {p.name}
+            {p.cli && <span className="text-slate-500">{p.cli}</span>}
+          </span>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 const QUICK_REPLIES = ['1', '2', '3', 'continue']
 
 interface InstallPrompt extends Event {
@@ -382,12 +415,17 @@ function LearningRow() {
 
 export function MobileApp() {
   const [sessions, setSessions] = useState<MobileSession[]>([])
+  const [cuckoo, setCuckoo] = useState<PhoneView | null>(null)
   const [ref, setRef] = useState(() => new URLSearchParams(window.location.search).get('ref') || '')
 
   usePolling(() => {
     fetch('/api/mobile/sessions')
       .then((r) => r.json())
-      .then((j) => j.ok && setSessions(j.sessions))
+      .then((j) => {
+        if (!j.ok) return
+        setSessions(j.sessions)
+        setCuckoo(j.cuckoo ?? null)
+      })
       .catch(() => {})
   }, 5000)
 
@@ -416,6 +454,7 @@ export function MobileApp() {
         <NotifyToggle />
       </div>
       <LearningRow />
+      {cuckoo && <CuckooSection view={cuckoo} />}
       <ul className="space-y-2">
         {sessions.map((s) => (
           <li key={s.ref} className="flex items-center gap-2">

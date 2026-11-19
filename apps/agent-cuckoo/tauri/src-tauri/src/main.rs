@@ -1,11 +1,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use agent_cuckoo_lib::{api, island, settings};
+use agent_cuckoo_lib::{api, island, settings, side};
 use tauri::Manager;
 
 fn main() {
     tauri::Builder::default()
         .plugin(agent_cuckoo_lib::opener())
+        .plugin(side::shortcuts())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
@@ -25,7 +26,13 @@ fn main() {
             settings::get_settings,
             settings::save_settings,
             settings::add_recent,
-            island::set_hit_rect
+            island::set_hit_rect,
+            island::reduce_motion,
+            side::upload_path,
+            side::capture_region,
+            side::desktop_mascot,
+            side::save_png,
+            side::set_capture_shortcuts
         ])
         .run(tauri::generate_context!())
         .expect("agent-cuckoo failed to start");

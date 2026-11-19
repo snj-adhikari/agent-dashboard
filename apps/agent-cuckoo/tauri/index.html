@@ -2,12 +2,16 @@
 <html lang="en-AU">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=720, initial-scale=1.0" />
     <title>agent-cuckoo</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <div id="island" class="island compact"></div>
+    <div id="island" class="island" data-mode="compact">
+      <div class="shape"></div>
+      <div class="layer compact"></div>
+      <div class="layer home"></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

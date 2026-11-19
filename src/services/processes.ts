@@ -3,10 +3,10 @@ import { sh, watchDirs } from '../utils'
 import { reportedByPid } from './hooks/sessions'
 import type { AgentProcess } from '../types'
 
-const AGENT_BINARIES = 'claude|copilot|codex|antigravity|agentastic'
+export const AGENT_BINARIES = ['claude', 'copilot', 'codex', 'gemini', 'cursor-agent', 'opencode', 'antigravity', 'agentastic']
 const SCAN_TTL_MS = 5000
 
-type ScannedAgent = AgentProcess & { inHerdr: boolean }
+export type ScannedAgent = AgentProcess & { inHerdr: boolean }
 
 let scan: { at: number; agents: ScannedAgent[] } | null = null
 
@@ -54,7 +54,7 @@ export function herdrOwnedPids(psOut: string): Set<string> {
  */
 function scanAgents(): ScannedAgent[] {
   if (scan && Date.now() - scan.at < SCAN_TTL_MS) return scan.agents
-  const pids = sh(`pgrep -x '${AGENT_BINARIES}'`).split('\n').filter(Boolean)
+  const pids = sh(`pgrep -x '${AGENT_BINARIES.join('|')}'`).split('\n').filter(Boolean)
   const owned = pids.length ? herdrOwnedPids(sh(`ps eww -p ${pids.join(',')} -o pid=,command=`)) : new Set<string>()
   let agents: ScannedAgent[] = []
   if (pids.length) {
@@ -74,11 +74,19 @@ function scanAgents(): ScannedAgent[] {
   return agents
 }
 
-/** Bare agents only; processes inside herdr panes are listed by the herdr source. */
+/** Agents outside herdr panes, limited to `dirs` when given; processes inside herdr panes are listed by the herdr source. */
+export function bareOf(agents: ScannedAgent[], dirs?: string[]): AgentProcess[] {
+  return agents.filter((a) => !a.inHerdr && (!dirs || dirs.some((dir) => a.cwd.startsWith(dir)))).map(({ inHerdr: _inHerdr, ...a }) => a)
+}
+
+/** Bare agents inside WATCH_DIRS only. */
 export function agentProcesses(): AgentProcess[] {
-  return scanAgents()
-    .filter((a) => !a.inHerdr && watchDirs().some((dir) => a.cwd.startsWith(dir)))
-    .map(({ inHerdr: _inHerdr, ...a }) => a)
+  return bareOf(scanAgents(), watchDirs())
+}
+
+/** Every bare agent wherever it runs, for the island's sessions view. */
+export function allBareProcesses(): AgentProcess[] {
+  return bareOf(scanAgents())
 }
 
 /** Cwds of agent processes running in herdr panes, so their worktrees stay protected even when herdr can't be listed. */

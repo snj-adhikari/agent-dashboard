@@ -4,6 +4,18 @@ Live dashboard of git worktrees, terminal tabs (cmux or tmux) and bare agent CLI
 
 ![home](docs/home.png)
 
+## agent-cuckoo
+
+A notch island for your coding agents: see every agent's state, answer approvals and message your main agents without leaving the app you're in.
+
+| Compact island (macOS) | Chat (macOS) | Launcher (Windows/Linux) |
+| --- | --- | --- |
+| ![Compact island on macOS](apps/agent-cuckoo/shots/mac-compact.png) | ![Chat greeting on macOS](apps/agent-cuckoo/shots/mac-chat-greeting.png) | ![Launcher in the Tauri app](apps/agent-cuckoo/shots/tauri-launcher.png) |
+
+- Platforms: macOS 13+ (native Swift), Windows 10/11 and Linux (Tauri).
+- Reads live agents from this dashboard; no per-agent hooks or API keys.
+- Details and install: [apps/agent-cuckoo/README.md](apps/agent-cuckoo/README.md). Downloads: [releases](https://github.com/snj-adhikari/agent-dashboard/releases).
+
 ## How it fits together
 
 ```mermaid

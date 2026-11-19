@@ -13,7 +13,8 @@
         "ts": { "type": "integer" },
         "agents": { "type": "array", "items": { "$ref": "#/$defs/agent" } },
         "approvals": { "type": "array", "items": { "$ref": "#/$defs/approval" } },
-        "replies": { "type": "array", "items": { "$ref": "#/$defs/reply" } }
+        "replies": { "type": "array", "items": { "$ref": "#/$defs/reply" } },
+        "music": { "$ref": "#/$defs/music" }
       }
     },
     "usage": {
@@ -41,7 +42,8 @@
           "cli": { "type": "string", "enum": ["claude", "copilot", "gemini", "codex", "cursor-agent", "opencode"] },
           "path": { "type": "string" },
           "version": { "type": ["string", "null"] },
-          "signedIn": { "type": ["boolean", "string"], "enum": [true, false, "unknown"] }
+          "signedIn": { "type": ["boolean", "string"], "enum": [true, false, "unknown"] },
+          "chat": { "type": "boolean" }
         }
       }
     },
@@ -50,7 +52,7 @@
       "required": ["ok", "error", "message"],
       "properties": {
         "ok": { "type": "boolean", "enum": [false] },
-        "error": { "type": "string", "enum": ["unauthorised", "unknown_agent", "stale", "cannot_send", "grant_in_terminal", "bad_request", "host_failed"] },
+        "error": { "type": "string", "enum": ["unauthorised", "unknown_agent", "stale", "cannot_send", "grant_in_terminal", "bad_request", "host_failed", "timeout", "signed_out", "not_installed", "no_permission", "too_large", "needs_key"] },
         "message": { "type": "string" }
       }
     },
@@ -61,7 +63,16 @@
         "say": { "type": "object", "required": ["agentId", "text"], "properties": { "agentId": { "type": "string" }, "text": { "type": "string" } } },
         "approve": { "type": "object", "required": ["id", "decision"], "properties": { "id": { "type": "string" }, "decision": { "type": "string", "enum": ["allow", "always", "deny"] } } },
         "focus": { "type": "object", "required": ["agentId"], "properties": { "agentId": { "type": "string" } } },
-        "launch": { "type": "object", "required": ["cwd", "prompt", "cli"], "properties": { "cwd": { "type": "string" }, "prompt": { "type": "string" }, "cli": { "type": "string" } } }
+        "launch": { "type": "object", "required": ["cwd", "prompt", "cli"], "properties": { "cwd": { "type": "string" }, "prompt": { "type": "string" }, "cli": { "type": "string" } } },
+        "chat": { "type": "object", "required": ["cli", "text"], "properties": { "cli": { "type": "string" }, "text": { "type": "string" }, "conversationId": { "type": ["string", "null"] }, "attachments": { "type": "array", "maxItems": 4, "items": { "type": "string" } } } },
+        "chatEnd": { "type": "object", "required": ["conversationId"], "properties": { "conversationId": { "type": "string" } } },
+        "upload": { "description": "POST /api/v1/cuckoo/upload: raw body (max 25 MB), file name in header X-Cuckoo-Name", "type": "object", "required": ["name"], "properties": { "name": { "type": "string" } } },
+        "sideAction": { "type": "object", "required": ["id", "action"], "properties": { "id": { "$ref": "#/$defs/sideId" }, "action": { "type": "string" }, "itemId": { "type": ["string", "null"] }, "text": { "type": ["string", "null"] } } },
+        "sideSettings": { "description": "Partial SideSettings", "type": "object", "properties": { "enabled": { "type": "object" }, "holdings": { "type": "array", "items": { "$ref": "#/$defs/holding" } }, "currency": { "type": "string" }, "hideProjects": { "type": "boolean" }, "phonePush": { "type": "boolean" } } },
+        "notes": { "type": "object", "required": ["title", "transcript"], "properties": { "title": { "type": "string" }, "transcript": { "type": "string" } } },
+        "supervise": { "description": "POST /api/v1/cuckoo/supervise; cli only used by the chat fallback", "type": "object", "required": ["text"], "properties": { "text": { "type": "string" }, "conversationId": { "type": ["string", "null"] }, "cli": { "type": ["string", "null"] } } },
+        "superviseConfirm": { "description": "POST /api/v1/cuckoo/supervise/confirm: runs or drops the held action", "type": "object", "required": ["confirmId"], "properties": { "confirmId": { "type": "string" }, "cancel": { "type": "boolean" } } },
+        "stop": { "description": "POST /api/v1/cuckoo/stop: sends Escape to the agent", "type": "object", "required": ["agentId"], "properties": { "agentId": { "type": "string" } } }
       }
     },
     "responses": {
@@ -70,12 +81,50 @@
       "properties": {
         "say": { "type": "object", "required": ["ok", "relayKey", "sha256"], "properties": { "ok": { "type": "boolean" }, "relayKey": { "type": "string" }, "sha256": { "type": "string" } } },
         "approve": { "type": "object", "required": ["ok", "sent"], "properties": { "ok": { "type": "boolean" }, "sent": { "type": "string", "enum": ["1", "2", "Escape"] } } },
-        "focus": { "type": "object", "required": ["ok", "focused"], "properties": { "ok": { "type": "boolean" }, "focused": { "type": "boolean" } } },
-        "launch": { "type": "object", "required": ["ok", "ref"], "properties": { "ok": { "type": "boolean" }, "ref": { "type": "string" } } }
+        "focus": { "type": "object", "required": ["ok", "focused"], "properties": { "ok": { "type": "boolean" }, "focused": { "type": "boolean" }, "via": { "type": ["string", "null"], "enum": ["cmux", "herdr-app", "herdr", "app", null] } } },
+        "launch": { "type": "object", "required": ["ok", "ref"], "properties": { "ok": { "type": "boolean" }, "ref": { "type": "string" } } },
+        "chat": { "type": "object", "required": ["ok", "conversationId", "cli", "text"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "conversationId": { "type": "string" }, "cli": { "type": "string" }, "text": { "type": "string" } } },
+        "chatEnd": { "type": "object", "required": ["ok"], "properties": { "ok": { "type": "boolean", "enum": [true] } } },
+        "upload": { "type": "object", "required": ["ok", "uploadId", "name", "bytes", "mime"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "uploadId": { "type": "string" }, "name": { "type": "string" }, "bytes": { "type": "integer" }, "mime": { "type": "string" } } },
+        "side": { "type": "object", "required": ["ok", "providers", "settings"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "providers": { "type": "array", "items": { "$ref": "#/$defs/sideProvider" } }, "settings": { "$ref": "#/$defs/sideSettings" } } },
+        "sideData": { "type": "object", "required": ["ok", "id", "updatedAt", "items", "summary"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "id": { "$ref": "#/$defs/sideId" }, "updatedAt": { "type": "integer" }, "items": { "type": "array", "items": { "$ref": "#/$defs/sideItem" } }, "summary": { "type": ["string", "null"] } } },
+        "sideAction": { "type": "object", "required": ["ok", "result"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "result": { "type": ["string", "null"] } } },
+        "recap": {
+          "type": "object",
+          "required": ["ok", "week", "sessions", "approvals", "finishes", "errors", "byCli", "topProjects", "activeDays"],
+          "properties": {
+            "ok": { "type": "boolean", "enum": [true] },
+            "week": { "type": "string" },
+            "sessions": { "type": "integer" },
+            "approvals": { "type": "integer" },
+            "finishes": { "type": "integer" },
+            "errors": { "type": "integer" },
+            "byCli": { "type": "array", "items": { "type": "object", "required": ["cli", "count"], "properties": { "cli": { "type": "string" }, "count": { "type": "integer" } } } },
+            "topProjects": { "type": ["array", "null"], "items": { "type": "object", "required": ["name", "count"], "properties": { "name": { "type": "string" }, "count": { "type": "integer" } } } },
+            "activeDays": { "type": "integer" }
+          }
+        },
+        "notes": { "type": "object", "required": ["ok", "noteId", "summary"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "noteId": { "type": "string" }, "summary": { "type": "string" } } },
+        "supervise": { "$ref": "#/$defs/superviseResponse" },
+        "superviseConfirm": { "$ref": "#/$defs/superviseResponse" },
+        "stop": { "type": "object", "required": ["ok", "relayKey"], "properties": { "ok": { "type": "boolean", "enum": [true] }, "relayKey": { "type": "string" } } }
       }
     }
   },
   "$defs": {
+    "superviseResponse": {
+      "type": "object",
+      "required": ["ok", "conversationId", "intent", "text", "targets", "pending", "results"],
+      "properties": {
+        "ok": { "type": "boolean", "enum": [true] },
+        "conversationId": { "type": "string" },
+        "intent": { "type": "string", "enum": ["send", "status", "approve", "deny", "chat", "unclear"] },
+        "text": { "type": "string" },
+        "targets": { "type": "array", "items": { "type": "object", "required": ["agentId", "name"], "properties": { "agentId": { "type": "string" }, "name": { "type": "string" } } } },
+        "pending": { "type": ["object", "null"], "required": ["confirmId", "summary", "expiresAt"], "properties": { "confirmId": { "type": "string" }, "summary": { "type": "string" }, "expiresAt": { "type": "integer" } } },
+        "results": { "type": "array", "items": { "type": "object", "required": ["agentId", "ok", "error"], "properties": { "agentId": { "type": "string" }, "ok": { "type": "boolean" }, "error": { "type": ["string", "null"] } } } }
+      }
+    },
     "agent": {
       "type": "object",
       "required": ["id", "name", "codename", "colour", "state", "host", "terminalApp", "scope", "space", "isMain", "cwd", "branch", "lastLine", "cli", "canSend"],
@@ -94,7 +143,13 @@
         "branch": { "type": ["string", "null"] },
         "lastLine": { "type": ["string", "null"] },
         "cli": { "type": ["string", "null"] },
-        "canSend": { "type": "boolean" }
+        "canSend": { "type": "boolean" },
+        "hostApp": { "type": ["string", "null"] },
+        "pid": { "type": ["integer", "null"] },
+        "sessionId": { "type": ["string", "null"] },
+        "lastActiveAt": { "type": ["integer", "null"] },
+        "canFocus": { "type": "boolean" },
+        "cmuxWorkspace": { "type": ["string", "null"] }
       }
     },
     "approval": {
@@ -110,7 +165,8 @@
           "items": { "type": "object", "required": ["key", "label"], "properties": { "key": { "type": "string" }, "label": { "type": "string" } } }
         },
         "receivedAt": { "type": "integer" },
-        "screenHash": { "type": "string" }
+        "screenHash": { "type": "string" },
+        "kind": { "type": "string", "enum": ["permission", "plan", "question"] }
       }
     },
     "reply": {
@@ -121,7 +177,59 @@
         "agentId": { "type": "string" },
         "codename": { "type": ["string", "null"] },
         "text": { "type": "string" },
-        "at": { "type": "integer" }
+        "at": { "type": "integer" },
+        "kind": { "type": "string", "enum": ["reply", "ask", "summary"] },
+        "from": { "type": ["string", "null"] }
+      }
+    },
+    "music": {
+      "type": ["object", "null"],
+      "required": ["player", "playing", "title", "artist", "durationMs", "positionMs"],
+      "properties": {
+        "player": { "type": "string", "enum": ["music", "spotify"] },
+        "playing": { "type": "boolean" },
+        "title": { "type": "string" },
+        "artist": { "type": ["string", "null"] },
+        "durationMs": { "type": ["integer", "null"] },
+        "positionMs": { "type": ["integer", "null"] }
+      }
+    },
+    "sideId": { "type": "string", "enum": ["mail", "whatsapp", "music", "crypto", "github", "vercel", "stripe", "n8n", "resend", "notion", "calcom", "recap", "notes", "phone"] },
+    "sideProvider": {
+      "type": "object",
+      "required": ["id", "available", "enabled", "via", "reason"],
+      "properties": {
+        "id": { "$ref": "#/$defs/sideId" },
+        "available": { "type": "boolean" },
+        "enabled": { "type": "boolean" },
+        "via": { "type": ["string", "null"], "enum": ["cli", "applescript", "mcp", "local", "web", null] },
+        "reason": { "type": ["string", "null"], "enum": ["not_installed", "signed_out", "no_permission", "needs_key", "unsupported_os", "disabled", null] }
+      }
+    },
+    "sideItem": {
+      "type": "object",
+      "required": ["id", "title", "subtitle", "value", "url", "tone", "group", "actions"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": ["string", "null"] },
+        "value": { "type": ["string", "null"] },
+        "url": { "type": ["string", "null"] },
+        "tone": { "type": ["string", "null"], "enum": ["ok", "warn", "error", null] },
+        "group": { "type": ["string", "null"] },
+        "actions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "holding": { "type": "object", "required": ["symbol", "amount"], "properties": { "symbol": { "type": "string" }, "amount": { "type": "number" } } },
+    "sideSettings": {
+      "type": "object",
+      "required": ["enabled", "holdings", "currency", "hideProjects", "phonePush"],
+      "properties": {
+        "enabled": { "type": "object" },
+        "holdings": { "type": "array", "items": { "$ref": "#/$defs/holding" } },
+        "currency": { "type": "string" },
+        "hideProjects": { "type": "boolean" },
+        "phonePush": { "type": "boolean" }
       }
     }
   }

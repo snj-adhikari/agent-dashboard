@@ -40,6 +40,7 @@ if [[ -f "$LOCK" ]]; then
     curl -fsSL "$RAW/LICENSE" -o "$EMOJI_OUT/LICENSE"
     INDEX="{"
     while read -r name path; do
+      path="${path%$'\r'}"
       [[ -z "$name" || "$name" == \#* || "$name" == commit* || -z "$path" ]] && continue
       file="$name.${path##*.}"
       curl -fsSL "$RAW/${path// /%20}" -o "$EMOJI_OUT/$file"
@@ -50,6 +51,16 @@ if [[ -f "$LOCK" ]]; then
 else
   echo "assets/emoji.lock missing, skipping emoji fetch (system emoji used)"
 fi
+
+for dir in mascot sounds; do
+  rm -rf "$TAURI_DIR/public/$dir"
+  if compgen -G "$ASSETS/$dir/*" >/dev/null; then
+    mkdir -p "$TAURI_DIR/public/$dir"
+    find "$ASSETS/$dir" -maxdepth 1 -type f \( -name '*.png' -o -name '*.wav' -o -name '*.ogg' -o -name '*.m4a' -o -name 'License.txt' \) -exec cp {} "$TAURI_DIR/public/$dir/" \;
+  fi
+done
+echo "bundled public files:"
+(cd "$TAURI_DIR/public" && find . -type f | sort)
 
 case "$(uname -s)" in
   Darwin) BUNDLES="app" ;;

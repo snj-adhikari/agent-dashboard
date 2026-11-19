@@ -1,10 +1,10 @@
 # agent-cuckoo
 
-Inspired by [coucou](https://github.com/Louis-CFM/coucou)
+Inspired by [coucou](https://github.com/Louis-CFM/coucou) and built with the help of REA, [Reverse Engineer Anything](https://github.com/morluto/rea).
 
 agent-cuckoo is a notch island for your coding agents. It reads every live agent from a running agent-monitor (herdr, Herdr app, cmux, tmux and bare sessions), with no per-agent hook to install. Main agents carry a ⚑ MAIN badge and sort first, and the rest are grouped by space.
 
-Inspired by [coucou](https://github.com/Louis-CFM/coucou) by Louis Raille (MIT). The code here is written fresh and the name, icon and sounds are our own.
+The code here is written fresh; the name, mascot and icon are our own. Asset sources are listed in [ASSETS.md](ASSETS.md).
 
 ## What it does
 
@@ -12,6 +12,26 @@ Inspired by [coucou](https://github.com/Louis-CFM/coucou) by Louis Raille (MIT).
 - Super-agent panel: send a line to one main agent or to all mains, and see their `<codename> here: ...` replies.
 - Approvals: answers Claude permission dialogs with a click. Commit and push grants stay in the terminal.
 - Launcher: finds the agent CLIs installed on your machine (claude, copilot, gemini, codex, cursor-agent, opencode) and starts a new session in a folder you choose. Each CLI uses its own login; agent-cuckoo never reads credential files and needs no API key.
+
+## Screenshots
+
+### macOS
+
+| Compact island | Chat greeting |
+| --- | --- |
+| ![Compact island on macOS](shots/mac-compact.png) | ![Chat greeting on macOS](shots/mac-chat-greeting.png) |
+| **Settings** | **What's new** |
+| ![Settings on macOS](shots/mac-settings.png) | ![What's new on macOS](shots/mac-whats-new.png) |
+
+Desktop mascot: <img src="shots/mac-desktop-mascot.png" alt="Desktop mascot on macOS" width="120">
+
+### Windows and Linux (Tauri)
+
+| Compact island | Chat |
+| --- | --- |
+| ![Compact island in the Tauri app](shots/tauri-compact.png) | ![Chat in the Tauri app](shots/tauri-chat.png) |
+| **Launcher** | |
+| ![Launcher in the Tauri app](shots/tauri-launcher.png) | |
 
 ## Platforms
 

@@ -1,31 +1,31 @@
-export type Cue = 'needs-you' | 'finished' | 'sent';
+export type Sound = 'open' | 'close' | 'peek' | 'blip' | 'approval' | 'question' | 'finish' | 'error' | 'send' | 'pop' | 'gulp' | 'tick' | 'listen' | 'timer' | 'proud' | 'poke' | 'greeting';
 
-const NOTES: Record<Cue, number[]> = {
-  'needs-you': [880, 660, 880],
-  finished: [523, 659, 784],
-  sent: [660],
-};
+export const DEFAULT_VOLUME = 0.12;
+const POOL = 3;
 
-let ctx: AudioContext | null = null;
+const pools = new Map<Sound, HTMLAudioElement[]>();
+let volume = DEFAULT_VOLUME;
+let enabled = true;
 
-export function play(cue: Cue): void {
-  try {
-    ctx ??= new AudioContext();
-    const t0 = ctx.currentTime;
-    NOTES[cue].forEach((freq, i) => {
-      const osc = ctx!.createOscillator();
-      const gain = ctx!.createGain();
-      const start = t0 + i * 0.12;
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.15, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.11);
-      osc.connect(gain).connect(ctx!.destination);
-      osc.start(start);
-      osc.stop(start + 0.12);
+export function configure(opts: { enabled?: boolean; volume?: number }): void {
+  if (opts.enabled !== undefined) enabled = opts.enabled;
+  if (opts.volume !== undefined) volume = Math.min(0.2, Math.max(0, opts.volume));
+}
+
+/** Plays a bundled sound from `public/sounds`, up to three overlapping copies per name; silent if the file is missing. */
+export function play(name: Sound): void {
+  if (!enabled || typeof Audio === 'undefined') return;
+  let pool = pools.get(name);
+  if (!pool) {
+    pool = Array.from({ length: POOL }, () => {
+      const a = new Audio(`sounds/${name}.wav`);
+      a.preload = 'auto';
+      return a;
     });
-  } catch {
-    ctx = null;
+    pools.set(name, pool);
   }
+  const a = pool.find((x) => x.paused || x.ended) ?? pool[0];
+  a.volume = volume;
+  a.currentTime = 0;
+  void a.play().catch(() => {});
 }

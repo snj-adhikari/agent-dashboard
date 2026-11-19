@@ -18,7 +18,13 @@
         "branch": "tech/overseer",
         "lastLine": "⏺ Reading src/index.ts",
         "cli": "claude",
-        "canSend": true
+        "canSend": true,
+        "hostApp": "cmux",
+        "pid": 4141,
+        "sessionId": "5f0c1e2a-0000-4000-8000-000000000001",
+        "lastActiveAt": 1763429990000,
+        "canFocus": true,
+        "cmuxWorkspace": "0A0B0C0D-0000-4000-8000-000000000001"
       },
       {
         "id": "bare:4242:4242",
@@ -50,26 +56,96 @@
           { "key": "3", "label": "No" }
         ],
         "receivedAt": 1763430000000,
-        "screenHash": "fedcba9876543210"
+        "screenHash": "fedcba9876543210",
+        "kind": "permission"
+      },
+      {
+        "id": "1123456789abcdef",
+        "agentId": "herdr:main:w1:p2",
+        "tool": "ExitPlanMode",
+        "command": "Ship the contract freeze",
+        "options": [
+          { "key": "1", "label": "Yes" },
+          { "key": "2", "label": "No" }
+        ],
+        "receivedAt": 1763430001000,
+        "screenHash": "0edcba9876543210",
+        "kind": "plan"
       }
     ],
     "replies": [
-      { "id": "a1b2c3d4e5f60718", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "done, PR #86 open", "at": 1763430000000 }
-    ]
+      { "id": "a1b2c3d4e5f60718", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "done, PR #86 open", "at": 1763430000000 },
+      { "id": "b1b2c3d4e5f60719", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "which port for the test server?", "at": 1763430002000, "kind": "ask", "from": "hopper" }
+    ],
+    "music": { "player": "spotify", "playing": true, "title": "Night Drive", "artist": null, "durationMs": 215000, "positionMs": 42000 }
   },
   "usage": { "claude": { "fiveHour": 42, "sevenDay": 61, "resetsAt": 1763440000, "stale": false } },
-  "clis": [{ "cli": "claude", "path": "/abs/bin/claude", "version": "2.0.0", "signedIn": "unknown" }],
+  "clis": [{ "cli": "claude", "path": "/abs/bin/claude", "version": "2.0.0", "signedIn": "unknown" },
+    { "cli": "codex", "path": "/abs/bin/codex", "version": "0.50.0", "signedIn": true, "chat": true }
+  ],
   "error": { "ok": false, "error": "stale", "message": "agent changed since last poll" },
   "requests": {
     "say": { "agentId": "herdr:main:w1:p2", "text": "run the checks" },
     "approve": { "id": "0123456789abcdef", "decision": "allow" },
     "focus": { "agentId": "herdr:main:w1:p2" },
-    "launch": { "cwd": "/abs/path", "prompt": "fix the build", "cli": "claude" }
+    "launch": { "cwd": "/abs/path", "prompt": "fix the build", "cli": "claude" },
+    "chat": { "cli": "claude", "text": "what is eon doing?", "conversationId": null, "attachments": ["u-0001"] },
+    "chatEnd": { "conversationId": "c-0001" },
+    "upload": { "name": "screenshot.png" },
+    "sideAction": { "id": "mail", "action": "draft", "itemId": "m-1", "text": null },
+    "sideSettings": { "holdings": [{ "symbol": "BTC", "amount": 0.05 }], "hideProjects": true },
+    "notes": { "title": "Standup", "transcript": "we shipped the contract" },
+    "supervise": { "text": "tell eon and hopper to run the checks", "conversationId": null, "cli": null },
+    "superviseConfirm": { "confirmId": "k-0001", "cancel": false },
+    "stop": { "agentId": "herdr:main:w1:p2" }
   },
   "responses": {
     "say": { "ok": true, "relayKey": "main-w1_p2", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" },
     "approve": { "ok": true, "sent": "1" },
-    "focus": { "ok": true, "focused": true },
-    "launch": { "ok": true, "ref": "workspace:3" }
+    "focus": { "ok": true, "focused": true, "via": "cmux" },
+    "launch": { "ok": true, "ref": "workspace:3" },
+    "chat": { "ok": true, "conversationId": "c-0001", "cli": "claude", "text": "eon is reading src/index.ts." },
+    "chatEnd": { "ok": true },
+    "upload": { "ok": true, "uploadId": "u-0001", "name": "screenshot.png", "bytes": 48213, "mime": "image/png" },
+    "side": {
+      "ok": true,
+      "providers": [
+        { "id": "github", "available": true, "enabled": true, "via": "cli", "reason": null },
+        { "id": "resend", "available": false, "enabled": false, "via": null, "reason": "needs_key" }
+      ],
+      "settings": { "enabled": { "mail": false, "github": true }, "holdings": [{ "symbol": "BTC", "amount": 0.05 }], "currency": "AUD", "hideProjects": false, "phonePush": false }
+    },
+    "sideData": {
+      "ok": true,
+      "id": "mail",
+      "updatedAt": 1763430000000,
+      "items": [
+        { "id": "m-1", "title": "Release notes", "subtitle": "from a teammate", "value": null, "url": null, "tone": "warn", "group": "reply", "actions": ["draft", "open"] },
+        { "id": "m-2", "title": "Newsletter", "subtitle": null, "value": null, "url": null, "tone": null, "group": "fyi", "actions": [] }
+      ],
+      "summary": "1 to reply, 1 fyi"
+    },
+    "sideAction": { "ok": true, "result": null },
+    "recap": { "ok": true, "week": "2026-W47", "sessions": 12, "approvals": 30, "finishes": 9, "errors": 1, "byCli": [{ "cli": "claude", "count": 10 }, { "cli": "codex", "count": 2 }], "topProjects": null, "activeDays": 4 },
+    "notes": { "ok": true, "noteId": "n-0001", "summary": "Contract shipped." },
+    "supervise": {
+      "ok": true,
+      "conversationId": "s-0001",
+      "intent": "send",
+      "text": "Send \"run the checks\" to eon and hopper?",
+      "targets": [{ "agentId": "herdr:main:w1:p2", "name": "eon" }, { "agentId": "herdr:main:w1:p3", "name": "hopper" }],
+      "pending": { "confirmId": "k-0001", "summary": "Send \"run the checks\" to eon and hopper", "expiresAt": 1763430120000 },
+      "results": []
+    },
+    "superviseConfirm": {
+      "ok": true,
+      "conversationId": "s-0001",
+      "intent": "send",
+      "text": "Sent to eon. hopper is stale.",
+      "targets": [{ "agentId": "herdr:main:w1:p2", "name": "eon" }, { "agentId": "herdr:main:w1:p3", "name": "hopper" }],
+      "pending": null,
+      "results": [{ "agentId": "herdr:main:w1:p2", "ok": true, "error": null }, { "agentId": "herdr:main:w1:p3", "ok": false, "error": "stale" }]
+    },
+    "stop": { "ok": true, "relayKey": "main-w1_p2" }
   }
 }

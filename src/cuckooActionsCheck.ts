@@ -226,9 +226,9 @@ async function main(): Promise<void> {
   assert.strictEqual(fs.statSync(process.env.CUCKOO_TOKEN_PATH as string).mode & 0o777, 0o600, 'existing token tightened to 0600')
 
   calls.length = 0
-  assert.deepStrictEqual((await call('focus', { agentId: herdrA.id })).body, { ok: true, focused: true })
-  assert.deepStrictEqual(calls[0].args, ['attach', 'main', 'eon'])
-  assert.deepStrictEqual((await call('focus', { agentId: bareA.id })).body, { ok: true, focused: false })
+  assert.deepStrictEqual((await call('focus', { agentId: herdrA.id })).body, { ok: true, focused: true, via: 'herdr' })
+  assert.deepStrictEqual(calls[0].args, ['agent', 'focus', 'w1:p2'])
+  assert.deepStrictEqual((await call('focus', { agentId: bareA.id })).body, { ok: true, focused: false, via: null })
 
   const secret = 'ship it; rm -rf / $(whoami) "quoted"'
   const launchedRes = await call('launch', { cwd: tmp, prompt: secret, cli: 'claude' })

@@ -1,0 +1,9 @@
+textarea.chat-input { resize: none; font: inherit; line-height: 1.35; max-height: 96px; overflow-y: auto; }
+.chat-bubble.reply, .chat-bubble.ask { align-self: flex-start; border-radius: 8px; background: rgba(255, 255, 255, 0.05); }
+.chat-bubble.ask { background: rgba(245, 165, 36, 0.14); display: flex; flex-direction: column; gap: 6px; }
+.bubble-head { display: flex; align-items: center; gap: 6px; font-size: 11px; opacity: 0.75; }
+.bubble-head button.chev { margin-left: auto; }
+.bubble-text.clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; cursor: pointer; }
+.confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.confirm-row[hidden] { display: none; }
+.confirm-summary { flex: 1 1 100%; font-size: 12px; }

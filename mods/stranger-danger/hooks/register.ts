@@ -54,20 +54,28 @@ const isGrantedWrite = (e: { tool: string; name?: unknown }, g: Grant | undefine
 const sha256 = async (text: string) =>
   [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text.replace(/\s+/g, ' ').trim())))].map(b => b.toString(16).padStart(2, '0')).join('')
 
-/** How this exact text reached this terminal or sub-tab per the relay logs: 'main' when agent-orchestration logged it as the main agent's (`"main":true`), 'agent' for any other logged relay. */
+/** A relay is typed seconds after it is logged; older lines and lines already matched are replays. */
+const RELAY_FRESH_S = 120
+const consumed = new Set<string>()
+
+/** How this exact text reached this terminal or sub-tab per the relay logs: 'main' when agent-orchestration logged it as the main agent's (`"main":true`), 'agent' for any other logged relay. Each fresh line counts once. */
 const relayOf = async ($: EngineInterface, text: string): Promise<'main' | 'agent' | undefined> => {
   let found: 'agent' | undefined
   try {
-    const [home, hc, session, pane, cmux, run] = await Promise.all([$.env.get('HOME'), $.env.get('HC_TERMINAL_ID'), $.env.get('HERDR_SESSION'), $.env.get('HERDR_PANE_ID'), $.env.get('CMUX_SURFACE_ID'), $.env.get('AGENT_SUBTAB_ID')])
-    const keys = [hc, session && pane ? `${session}-${pane}` : '', cmux, run ? `sub-${run}` : ''].filter(Boolean).map(k => String(k).replace(/[^\w.:-]/g, '_'))
+    const [home, hc, session, pane, cmux, cmuxWs, tmuxPane, run] = await Promise.all([$.env.get('HOME'), $.env.get('HC_TERMINAL_ID'), $.env.get('HERDR_SESSION'), $.env.get('HERDR_PANE_ID'), $.env.get('CMUX_SURFACE_ID'), $.env.get('CMUX_WORKSPACE_ID'), $.env.get('TMUX_PANE'), $.env.get('AGENT_SUBTAB_ID')])
+    const tmux = tmuxPane && /^%\d+$/.test(tmuxPane) ? await $.process.run(['tmux', 'display-message', '-p', '-t', tmuxPane, '#S'], { timeoutMs: 1500 }).then(r => (r.exitCode === 0 ? r.stdout.trim() : ''), () => '') : ''
+    const keys = [hc, session && pane ? `${session}-${pane}` : '', cmux, cmuxWs, tmux, run ? `sub-${run}` : ''].filter(Boolean).map(k => String(k).replace(/[^\w.:-]/g, '_'))
     const digest = await sha256(text)
+    const now = (await $.clock.now()) / 1000
     for (const k of keys) {
       const file = `${home}/.claude/agent-relays/${k}.jsonl`
       if (!(await $.fs.exists(file))) continue
       for (const line of (await $.fs.read(file)).split('\n')) {
-        let entry: { sha256?: unknown; main?: unknown } = {}
+        let entry: { ts?: unknown; sha256?: unknown; main?: unknown } = {}
         try { entry = JSON.parse(line) } catch { continue }
-        if (entry.sha256 !== digest) continue
+        const id = `${k}\n${line}`
+        if (entry.sha256 !== digest || typeof entry.ts !== 'number' || Math.abs(now - entry.ts) > RELAY_FRESH_S || consumed.has(id)) continue
+        consumed.add(id)
         if (entry.main === true) return 'main'
         found = 'agent'
       }

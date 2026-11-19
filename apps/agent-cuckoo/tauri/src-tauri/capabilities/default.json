@@ -4,6 +4,7 @@
   "windows": ["island"],
   "permissions": [
     "core:default",
+    "opener:allow-reveal-item-in-dir",
     {
       "identifier": "opener:allow-open-url",
       "allow": [{ "url": "https://github.com/Louis-CFM/coucou" }]

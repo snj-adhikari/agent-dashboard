@@ -2,8 +2,9 @@ import { execFileSync } from 'child_process'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { herdrSnapshot, refreshHerdr, type HerdrSnapshot } from '../services/herdr'
 import { terminalBackend, terminalTabs } from '../services/terminal'
-import { agentProcesses } from '../services/processes'
-import { toAgents, type Agent, type CmuxSurfaces } from '../services/cuckoo/agents'
+import { allBareProcesses } from '../services/processes'
+import { parseProcTree, toAgents, type Agent, type CmuxSurfaces, type SessionInfo } from '../services/cuckoo/agents'
+import { liveSessions } from '../services/hooks/sessions'
 import { claimKey, readClaims, type Claims } from '../services/cuckoo/mainClaims'
 import { claudeUsage } from '../services/cuckoo/usage'
 import { localClis } from '../services/cuckoo/clis'
@@ -13,6 +14,9 @@ import { io } from '../services/cuckoo/keys'
 import { approvalsFor } from '../services/cuckoo/promptParse'
 import { repliesFor } from '../services/cuckoo/replyParse'
 import { handleCuckooAction } from './cuckooActions'
+import { handleCuckooSide } from './cuckooSide'
+import { currentMusic } from '../services/cuckoo/side/music'
+import { readSettings } from '../services/cuckoo/side/config'
 
 export const CUCKOO_PREFIX = '/api/v1/cuckoo/'
 
@@ -46,11 +50,22 @@ function claimedSurfaces(tabs: CmuxTab[], claims: Claims): CmuxSurfaces {
   return out
 }
 
+/** One `ps` call gives both the host app ancestry and which reported session pids are still running. */
+function sessionInfo(): SessionInfo {
+  let tree: SessionInfo['tree']
+  try {
+    tree = parseProcTree(execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm='], { encoding: 'utf8', timeout: 3000, maxBuffer: 10 * 1024 * 1024 }))
+  } catch {
+    return {}
+  }
+  return { tree, sessions: liveSessions().filter((s) => tree?.has(s.pid)) }
+}
+
 export function currentAgents(snap: HerdrSnapshot = herdrSnapshot()): Agent[] {
   const host = terminalBackend() === 'tmux' ? 'tmux' : 'cmux'
   const tabs = terminalTabs()
   const claims = readClaims()
-  return toAgents(snap, tabs, agentProcesses(), claims, host, host === 'cmux' ? claimedSurfaces(tabs, claims) : {})
+  return toAgents(snap, tabs, allBareProcesses(), claims, host, host === 'cmux' ? claimedSurfaces(tabs, claims) : {}, sessionInfo())
 }
 
 /**
@@ -67,13 +82,14 @@ io.fresh = async () => currentAgents(await refreshHerdr())
 
 export async function handleCuckoo(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (!requireToken(req, res)) return
+  if (await handleCuckooSide(req, res, url.pathname.slice(CUCKOO_PREFIX.length), url)) return
   if (req.method === 'POST' && (await handleCuckooAction(req, res, url))) return
   const route = url.pathname.slice(CUCKOO_PREFIX.length)
   try {
     if (req.method === 'GET' && route === 'state') {
       const agents = currentAgents(await pollSnapshot())
-      const [approvals, replies] = await Promise.all([approvalsFor(agents), repliesFor(agents)])
-      return json(res, { v: 1, ts: Date.now(), agents, approvals, replies })
+      const [approvals, replies, music] = await Promise.all([approvalsFor(agents), repliesFor(agents), readSettings().enabled.music ? currentMusic().catch(() => null) : null])
+      return json(res, { v: 1, ts: Date.now(), agents, approvals, replies, music })
     }
     if (req.method === 'GET' && route === 'usage') return json(res, claudeUsage())
     if (req.method === 'GET' && route === 'clis') return json(res, await localClis())

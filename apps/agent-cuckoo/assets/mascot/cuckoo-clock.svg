@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+  <radialGradient id="cbody" cx="0.38" cy="0.3" r="0.8"><stop offset="0" stop-color="#e0a565"/><stop offset="0.65" stop-color="#c98a4b"/><stop offset="1" stop-color="#a4622c"/></radialGradient>
+  <radialGradient id="cbelly" cx="0.5" cy="0.35" r="0.7"><stop offset="0" stop-color="#fffaf0"/><stop offset="1" stop-color="#f8e7c6"/></radialGradient>
+</defs>
+<clipPath id="door"><path d="M34 128 L34 64 Q64 34 94 64 L94 128 Z"/></clipPath>
+  <path d="M64 6 L124 54 L110 54 L110 128 L18 128 L18 54 L4 54 Z" fill="#8a5a33"/>
+  <path d="M64 6 L124 54 L4 54 Z" fill="#6b4226"/>
+  <path d="M34 128 L34 64 Q64 34 94 64 L94 128 Z" fill="#2b1a0e"/>
+  
+  <path d="M34 128 L34 64 Q64 34 94 64 L94 128" fill="none" stroke="#6b4226" stroke-width="4"/>
+</svg>

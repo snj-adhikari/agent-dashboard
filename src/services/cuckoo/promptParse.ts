@@ -1,10 +1,12 @@
 import { readTail, rememberAgents } from './keys'
 import { addressOf, shortHash } from './relayLog'
-import type { Agent, Approval } from './agents'
+import type { Agent, Approval, ApprovalKind } from './agents'
 
 export const TAIL_LINES = 30
 const BOX = /[│┃╭╮╰╯─━]/g
 const QUESTION = /^Do you want to .+\?$/
+const PLAN = /^Would you like to proceed\?$/
+const PICKER = /^Enter to select\b/
 const OPTION = /^(?:[❯>]\s*)?(\d)\.\s+(.+?)(?:\s*\(esc\))?$/
 const ASK = /needs your approval/i
 const TOOLS: [RegExp, string][] = [
@@ -22,6 +24,7 @@ export interface Dialog {
   command: string
   options: { key: string; label: string }[]
   text: string
+  kind: ApprovalKind
 }
 
 export const ASK_OPTIONS = [
@@ -29,21 +32,52 @@ export const ASK_OPTIONS = [
   { key: 'deny', label: 'Deny' }
 ]
 
-/** The last Claude permission dialog in a terminal tail, else the last `needs your approval` line, else null. */
+function optionsAfter(lines: string[], q: number, skipOther: boolean): { options: Dialog['options']; end: number } {
+  const options: Dialog['options'] = []
+  let end = q
+  for (let i = q + 1; i < lines.length; i++) {
+    const m = OPTION.exec(lines[i])
+    if (m) {
+      options.push({ key: m[1], label: m[2] })
+      end = i
+    } else if (lines[i] && options.length && (!skipOther || PICKER.test(lines[i]))) break
+  }
+  return { options, end }
+}
+
+const lastIndex = (lines: string[], re: RegExp): number => {
+  for (let i = lines.length - 1; i >= 0; i--) if (re.test(lines[i])) return i
+  return -1
+}
+
+/** The last AskUserQuestion picker: its question is the last `?` line above option 1, descriptions under options are skipped. */
+function questionDialog(lines: string[], picker: number): Dialog | null {
+  const first = lastIndex(lines.slice(0, picker), /^(?:[❯>]\s*)?1\.\s/)
+  if (first < 0) return null
+  const q = lastIndex(lines.slice(0, first), /\?$/)
+  if (q < 0) return null
+  const { options, end } = optionsAfter(lines, q, true)
+  return options.length >= 2 ? { tool: 'AskUserQuestion', command: lines[q], options, text: lines.slice(q, end + 1).join('\n'), kind: 'question' } : null
+}
+
+/** The last Claude permission, plan or question dialog in a terminal tail, else the last `needs your approval` line, else null. */
 export function parseDialog(tail: string): Dialog | null {
   const lines = tail.split('\n').slice(-TAIL_LINES).map((l) => l.replace(BOX, '').trim())
-  let q = -1
-  for (let i = lines.length - 1; i >= 0 && q < 0; i--) if (QUESTION.test(lines[i])) q = i
+  const q = lastIndex(lines, QUESTION)
+  const plan = lastIndex(lines, PLAN)
+  const picker = lastIndex(lines, PICKER)
+  if (picker > Math.max(q, plan)) {
+    const d = questionDialog(lines, picker)
+    if (d) return d
+  }
+  if (plan > q) {
+    const { options, end } = optionsAfter(lines, plan, false)
+    const head = lastIndex(lines.slice(0, plan), /^Here is Claude's plan:$/)
+    const command = head >= 0 ? lines.slice(head + 1, plan).find(Boolean) || '' : ''
+    if (options.length >= 2) return { tool: 'ExitPlanMode', command, options, text: lines.slice(head >= 0 ? head : plan, end + 1).join('\n'), kind: 'plan' }
+  }
   if (q >= 0) {
-    const options: Dialog['options'] = []
-    let end = q
-    for (let i = q + 1; i < lines.length; i++) {
-      const m = OPTION.exec(lines[i])
-      if (m) {
-        options.push({ key: m[1], label: m[2] })
-        end = i
-      } else if (lines[i] && options.length) break
-    }
+    const { options, end } = optionsAfter(lines, q, false)
     if (options.length >= 2) {
       let h = -1
       let tool = 'unknown'
@@ -52,11 +86,11 @@ export function parseDialog(tail: string): Dialog | null {
         if (hit) [h, tool] = [i, hit[1]]
       }
       const command = h >= 0 ? lines.slice(h + 1, q).find(Boolean) || '' : ''
-      return { tool, command, options, text: lines.slice(h >= 0 ? h : q, end + 1).join('\n') }
+      return { tool, command, options, text: lines.slice(h >= 0 ? h : q, end + 1).join('\n'), kind: 'permission' }
     }
   }
   const ask = [...lines].reverse().find((l) => ASK.test(l))
-  return ask ? { tool: 'ask', command: ask, options: ASK_OPTIONS, text: ask } : null
+  return ask ? { tool: 'ask', command: ask, options: ASK_OPTIONS, text: ask, kind: 'permission' } : null
 }
 
 const parsed = new Map<string, Dialog | null>()
@@ -92,7 +126,7 @@ export async function approvalsFor(agents: Agent[]): Promise<Approval[]> {
     if (!d) return
     const id = shortHash(agent.id + d.text)
     const receivedAt = pending.get(id)?.approval.receivedAt ?? Date.now()
-    next.set(id, { agent, text: d.text, approval: { id, agentId: agent.id, tool: d.tool, command: d.command, options: d.options, receivedAt, screenHash: shortHash(d.text) } })
+    next.set(id, { agent, text: d.text, approval: { id, agentId: agent.id, tool: d.tool, command: d.command, options: d.options, receivedAt, screenHash: shortHash(d.text), kind: d.kind } })
   })
   pending = next
   return [...next.values()].map((p) => p.approval)

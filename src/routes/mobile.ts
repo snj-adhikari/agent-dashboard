@@ -9,8 +9,28 @@ import { liveSessions } from '../services/hooks/sessions'
 import { herdrAgents } from '../services/herdr'
 import { agentTitle } from '../services/history'
 import { addSubscription, notify, removeSubscription, vapidPublicKey } from '../services/push'
+import { currentAgents, pollSnapshot } from './cuckoo'
+import { approvalsFor } from '../services/cuckoo/promptParse'
+import { readSettings } from '../services/cuckoo/side/config'
+import { approvalNotifier, lastPhoneView, phoneView, setPhoneView } from '../services/cuckoo/side/phone'
 
 const MOBILE_PAGE = path.join(__dirname, '..', '..', 'web', 'dist', 'm', 'index.html')
+const PHONE_POLL_MS = 5000
+
+const pushApprovals = approvalNotifier(notify)
+
+/** Refreshes the phone view and pushes new approvals while the phone link is on; does nothing while it is off. */
+export async function phoneTick(): Promise<void> {
+  const settings = readSettings()
+  if (!settings.enabled.phone) return setPhoneView(null)
+  const agents = currentAgents(await pollSnapshot())
+  const view = phoneView(agents, await approvalsFor(agents))
+  setPhoneView(view)
+  await pushApprovals(view, settings)
+}
+
+// ponytail: fixed 5 s poll beside the cuckoo state poll, move into that poll if the double tail read matters
+setInterval(() => void phoneTick().catch(() => undefined), PHONE_POLL_MS).unref()
 
 /** build changes on every deploy, so an installed phone app (which has no reload button) can reload itself. */
 export function handlePulse(res: ServerResponse): void {
@@ -37,7 +57,8 @@ export function handleMobileSessions(res: ServerResponse): void {
     const title = agentTitle(a.codename || a.name, a.tabTitle) || a.paneId
     sessions.push({ ref: `${a.session}:${a.paneId}`, id: '', title, cwd: a.cwd, lastActive: null, phase: s?.phase || (a.status === 'blocked' ? 'awaiting-you' : ''), herdr: { session: a.session, target: a.paneId } })
   }
-  sendJson(res, { ok: true, sessions: sessions.sort((a, b) => Number(b.phase === 'awaiting-you') - Number(a.phase === 'awaiting-you')) })
+  const cuckoo = readSettings().enabled.phone ? lastPhoneView() : null
+  sendJson(res, { ok: true, sessions: sessions.sort((a, b) => Number(b.phase === 'awaiting-you') - Number(a.phase === 'awaiting-you')), cuckoo })
 }
 
 /** Panes and tabs inside one terminal tab; empty without cmux, where a session has a single screen. */

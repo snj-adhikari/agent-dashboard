@@ -42,6 +42,100 @@ const fixture = JSON.parse(fs.readFileSync(path.join(CONTRACT, 'fixture.json'), 
 assert.deepStrictEqual(validate(fixture, schema, schema), [], 'fixture matches the v1 schema')
 assert.ok(validate({ ...fixture, state: { ...fixture.state, agents: [{ ...fixture.state.agents[0], state: 'busy' }] } }, schema, schema).length, 'schema rejects an unknown agent state')
 assert.ok(validate({ ...fixture, usage: { claude: { fiveHour: '42' } } }, schema, schema).length, 'schema rejects wrong types and missing keys')
+{
+  const [main, bare] = fixture.state.agents
+  for (const key of ['hostApp', 'pid', 'sessionId', 'lastActiveAt', 'canFocus']) {
+    assert.ok(key in main, `fixture main agent carries ${key}`)
+    assert.ok(!(key in bare), `fixture bare agent omits ${key}`)
+  }
+  assert.deepStrictEqual(fixture.state.approvals.map((a: { kind?: string }) => a.kind), ['permission', 'plan'])
+  assert.deepStrictEqual(fixture.state.replies.map((r: { kind?: string; from?: string }) => [r.kind, r.from]), [[undefined, undefined], ['ask', 'hopper']])
+  assert.ok(fixture.clis.some((c: { chat?: boolean }) => c.chat === true), 'fixture cli carries chat')
+  assert.ok(fixture.requests.chat && fixture.requests.chatEnd && fixture.responses.chat && fixture.responses.chatEnd, 'fixture carries chat requests and responses')
+  assert.strictEqual(fixture.responses.focus.via, 'cmux')
+  const bad = (over: Record<string, unknown>, at: 'approvals' | 'replies' | 'agents') =>
+    validate({ ...fixture, state: { ...fixture.state, [at]: [{ ...fixture.state[at][0], ...over }] } }, schema, schema).length > 0
+  assert.ok(bad({ kind: 'nope' }, 'approvals'), 'schema rejects an unknown approval kind')
+  assert.ok(bad({ kind: 'nope' }, 'replies'), 'schema rejects an unknown reply kind')
+  assert.ok(bad({ canFocus: null }, 'agents'), 'schema rejects a null canFocus')
+  assert.ok(bad({ pid: 1.5 }, 'agents'), 'schema rejects a fractional pid')
+  for (const code of ['timeout', 'signed_out'] as const) {
+    assert.deepStrictEqual(validate({ ...fixture, error: { ok: false, error: code, message: 'x' } }, schema, schema), [], `error ${code} in schema`)
+    assert.strictEqual(new CuckooError(code, 'x').status, code === 'timeout' ? 504 : 409)
+  }
+  assert.ok(validate({ ...fixture, responses: { ...fixture.responses, focus: { ok: true, focused: true, via: 'tmux' } } }, schema, schema).length, 'schema rejects an unknown focus via')
+  assert.deepStrictEqual(validate({ ...fixture, responses: { ...fixture.responses, focus: { ok: true, focused: false, via: null } } }, schema, schema), [], 'focus via may be null')
+  console.log('cuckoo contract fixture: ok')
+}
+
+/** Fixture as it stood before the addendum; clients built against it must keep decoding. */
+const PRE_ADDENDUM = {
+  state: {
+    v: 1,
+    ts: 1763430000000,
+    agents: [{"id": "herdr:main:w1:p2", "name": "agent-monitor", "codename": "eon", "colour": "#7c3aed", "state": "working", "host": "herdr", "terminalApp": "cmux", "scope": "herdr:main:w1", "space": "Drive - Generic", "isMain": true, "cwd": "/abs/path", "branch": "tech/overseer", "lastLine": "⏺ Reading src/index.ts", "cli": "claude", "canSend": true, "hostApp": "cmux", "pid": 4141, "sessionId": "5f0c1e2a-0000-4000-8000-000000000001", "lastActiveAt": 1763429990000, "canFocus": true}, {"id": "bare:4242:4242", "name": "path", "codename": null, "colour": null, "state": "unknown", "host": "bare", "terminalApp": null, "scope": null, "space": "Bare processes", "isMain": false, "cwd": "/abs/path", "branch": null, "lastLine": null, "cli": "codex", "canSend": false}],
+    approvals: [{"id": "0123456789abcdef", "agentId": "herdr:main:w1:p2", "tool": "Bash", "command": "npm run check", "options": [{"key": "1", "label": "Yes"}, {"key": "2", "label": "Yes, and don't ask again"}, {"key": "3", "label": "No"}], "receivedAt": 1763430000000, "screenHash": "fedcba9876543210", "kind": "permission"}, {"id": "1123456789abcdef", "agentId": "herdr:main:w1:p2", "tool": "ExitPlanMode", "command": "Ship the contract freeze", "options": [{"key": "1", "label": "Yes"}, {"key": "2", "label": "No"}], "receivedAt": 1763430001000, "screenHash": "0edcba9876543210", "kind": "plan"}],
+    replies: [{"id": "a1b2c3d4e5f60718", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "done, PR #86 open", "at": 1763430000000}, {"id": "b1b2c3d4e5f60719", "agentId": "herdr:main:w1:p2", "codename": "eon", "text": "which port for the test server?", "at": 1763430002000, "kind": "ask", "from": "hopper"}]
+  },
+  usage: {"claude": {"fiveHour": 42, "sevenDay": 61, "resetsAt": 1763440000, "stale": false}},
+  clis: [{"cli": "claude", "path": "/abs/bin/claude", "version": "2.0.0", "signedIn": "unknown"}, {"cli": "codex", "path": "/abs/bin/codex", "version": "0.50.0", "signedIn": true, "chat": true}],
+  error: {"ok": false, "error": "stale", "message": "agent changed since last poll"},
+  requests: {"say": {"agentId": "herdr:main:w1:p2", "text": "run the checks"}, "approve": {"id": "0123456789abcdef", "decision": "allow"}, "focus": {"agentId": "herdr:main:w1:p2"}, "launch": {"cwd": "/abs/path", "prompt": "fix the build", "cli": "claude"}, "chat": {"cli": "claude", "text": "what is eon doing?", "conversationId": null}, "chatEnd": {"conversationId": "c-0001"}},
+  responses: {"say": {"ok": true, "relayKey": "main-w1_p2", "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"}, "approve": {"ok": true, "sent": "1"}, "focus": {"ok": true, "focused": true, "via": "cmux"}, "launch": {"ok": true, "ref": "workspace:3"}, "chat": {"ok": true, "conversationId": "c-0001", "cli": "claude", "text": "eon is reading src/index.ts."}, "chatEnd": {"ok": true}}
+}
+
+{
+  assert.deepStrictEqual(validate(PRE_ADDENDUM, schema, schema), [], 'pre-addendum fixture still matches the schema')
+  const [main, bare] = fixture.state.agents
+  assert.strictEqual(main.cmuxWorkspace, '0A0B0C0D-0000-4000-8000-000000000001')
+  assert.ok(!('cmuxWorkspace' in bare), 'fixture bare agent omits cmuxWorkspace')
+  assert.deepStrictEqual(fixture.requests.chat.attachments, ['u-0001'])
+  assert.ok(fixture.state.music, 'fixture state carries music')
+  for (const key of ['upload', 'sideAction', 'sideSettings', 'notes']) assert.ok(fixture.requests[key], `fixture request ${key}`)
+  for (const key of ['upload', 'side', 'sideData', 'sideAction', 'recap', 'notes']) assert.ok(fixture.responses[key], `fixture response ${key}`)
+  const sideIds = schema.$defs.sideId.enum as string[]
+  assert.strictEqual(sideIds.length, 14, 'all 14 side ids in the schema')
+  for (const p of fixture.responses.side.providers) assert.ok(sideIds.includes(p.id))
+  const withState = (over: Record<string, unknown>) => validate({ ...fixture, state: { ...fixture.state, ...over } }, schema, schema)
+  assert.deepStrictEqual(withState({ music: null }), [], 'music may be null')
+  assert.ok(withState({ music: { ...fixture.state.music, player: 'winamp' } }).length, 'schema rejects an unknown music player')
+  const withResponse = (key: string, value: unknown) => validate({ ...fixture, responses: { ...fixture.responses, [key]: value } }, schema, schema)
+  assert.ok(withResponse('sideData', { ...fixture.responses.sideData, id: 'myspace' }).length, 'schema rejects an unknown side id')
+  assert.ok(withResponse('side', { ...fixture.responses.side, providers: [{ ...fixture.responses.side.providers[0], reason: 'nope' }] }).length, 'schema rejects an unknown side reason')
+  assert.ok(withResponse('upload', { ...fixture.responses.upload, bytes: 1.5 }).length, 'schema rejects fractional upload bytes')
+  assert.ok(validate({ ...fixture, requests: { ...fixture.requests, chat: { ...fixture.requests.chat, attachments: [1] } } }, schema, schema).length, 'schema rejects non-string attachments')
+  const statuses = { not_installed: 424, no_permission: 403, too_large: 413, needs_key: 424 } as const
+  for (const [code, status] of Object.entries(statuses) as [keyof typeof statuses, number][]) {
+    assert.deepStrictEqual(validate({ ...fixture, error: { ok: false, error: code, message: 'x' } }, schema, schema), [], `error ${code} in schema`)
+    assert.strictEqual(new CuckooError(code, 'x').status, status)
+  }
+  console.log('cuckoo contract addendum: ok')
+}
+
+/** Fixture as it stood before addendum 2; clients built against it must keep decoding. */
+const PRE_ADDENDUM_2 = {"state":{"v":1,"ts":1763430000000,"agents":[{"id":"herdr:main:w1:p2","name":"agent-monitor","codename":"eon","colour":"#7c3aed","state":"working","host":"herdr","terminalApp":"cmux","scope":"herdr:main:w1","space":"Drive - Generic","isMain":true,"cwd":"/abs/path","branch":"tech/overseer","lastLine":"⏺ Reading src/index.ts","cli":"claude","canSend":true,"hostApp":"cmux","pid":4141,"sessionId":"5f0c1e2a-0000-4000-8000-000000000001","lastActiveAt":1763429990000,"canFocus":true,"cmuxWorkspace":"0A0B0C0D-0000-4000-8000-000000000001"},{"id":"bare:4242:4242","name":"path","codename":null,"colour":null,"state":"unknown","host":"bare","terminalApp":null,"scope":null,"space":"Bare processes","isMain":false,"cwd":"/abs/path","branch":null,"lastLine":null,"cli":"codex","canSend":false}],"approvals":[{"id":"0123456789abcdef","agentId":"herdr:main:w1:p2","tool":"Bash","command":"npm run check","options":[{"key":"1","label":"Yes"},{"key":"2","label":"Yes, and don't ask again"},{"key":"3","label":"No"}],"receivedAt":1763430000000,"screenHash":"fedcba9876543210","kind":"permission"},{"id":"1123456789abcdef","agentId":"herdr:main:w1:p2","tool":"ExitPlanMode","command":"Ship the contract freeze","options":[{"key":"1","label":"Yes"},{"key":"2","label":"No"}],"receivedAt":1763430001000,"screenHash":"0edcba9876543210","kind":"plan"}],"replies":[{"id":"a1b2c3d4e5f60718","agentId":"herdr:main:w1:p2","codename":"eon","text":"done, PR #86 open","at":1763430000000},{"id":"b1b2c3d4e5f60719","agentId":"herdr:main:w1:p2","codename":"eon","text":"which port for the test server?","at":1763430002000,"kind":"ask","from":"hopper"}],"music":{"player":"spotify","playing":true,"title":"Night Drive","artist":null,"durationMs":215000,"positionMs":42000}},"usage":{"claude":{"fiveHour":42,"sevenDay":61,"resetsAt":1763440000,"stale":false}},"clis":[{"cli":"claude","path":"/abs/bin/claude","version":"2.0.0","signedIn":"unknown"},{"cli":"codex","path":"/abs/bin/codex","version":"0.50.0","signedIn":true,"chat":true}],"error":{"ok":false,"error":"stale","message":"agent changed since last poll"},"requests":{"say":{"agentId":"herdr:main:w1:p2","text":"run the checks"},"approve":{"id":"0123456789abcdef","decision":"allow"},"focus":{"agentId":"herdr:main:w1:p2"},"launch":{"cwd":"/abs/path","prompt":"fix the build","cli":"claude"},"chat":{"cli":"claude","text":"what is eon doing?","conversationId":null,"attachments":["u-0001"]},"chatEnd":{"conversationId":"c-0001"},"upload":{"name":"screenshot.png"},"sideAction":{"id":"mail","action":"draft","itemId":"m-1","text":null},"sideSettings":{"holdings":[{"symbol":"BTC","amount":0.05}],"hideProjects":true},"notes":{"title":"Standup","transcript":"we shipped the contract"}},"responses":{"say":{"ok":true,"relayKey":"main-w1_p2","sha256":"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"},"approve":{"ok":true,"sent":"1"},"focus":{"ok":true,"focused":true,"via":"cmux"},"launch":{"ok":true,"ref":"workspace:3"},"chat":{"ok":true,"conversationId":"c-0001","cli":"claude","text":"eon is reading src/index.ts."},"chatEnd":{"ok":true},"upload":{"ok":true,"uploadId":"u-0001","name":"screenshot.png","bytes":48213,"mime":"image/png"},"side":{"ok":true,"providers":[{"id":"github","available":true,"enabled":true,"via":"cli","reason":null},{"id":"resend","available":false,"enabled":false,"via":null,"reason":"needs_key"}],"settings":{"enabled":{"mail":false,"github":true},"holdings":[{"symbol":"BTC","amount":0.05}],"currency":"AUD","hideProjects":false,"phonePush":false}},"sideData":{"ok":true,"id":"mail","updatedAt":1763430000000,"items":[{"id":"m-1","title":"Release notes","subtitle":"from a teammate","value":null,"url":null,"tone":"warn","group":"reply","actions":["draft","open"]},{"id":"m-2","title":"Newsletter","subtitle":null,"value":null,"url":null,"tone":null,"group":"fyi","actions":[]}],"summary":"1 to reply, 1 fyi"},"sideAction":{"ok":true,"result":null},"recap":{"ok":true,"week":"2026-W47","sessions":12,"approvals":30,"finishes":9,"errors":1,"byCli":[{"cli":"claude","count":10},{"cli":"codex","count":2}],"topProjects":null,"activeDays":4},"notes":{"ok":true,"noteId":"n-0001","summary":"Contract shipped."}}}
+
+{
+  assert.deepStrictEqual(validate(PRE_ADDENDUM_2, schema, schema), [], 'pre-addendum-2 fixture still matches the schema')
+  for (const key of ['supervise', 'superviseConfirm', 'stop']) {
+    assert.ok(fixture.requests[key], `fixture request ${key}`)
+    assert.ok(fixture.responses[key], `fixture response ${key}`)
+    assert.ok(!(key in PRE_ADDENDUM_2.requests) && !(key in PRE_ADDENDUM_2.responses), `old fixture lacks ${key}`)
+  }
+  assert.ok(fixture.responses.supervise.pending && fixture.responses.superviseConfirm.pending === null, 'fixture carries pending and settled supervise')
+  const withRequest = (key: string, value: unknown) => validate({ ...fixture, requests: { ...fixture.requests, [key]: value } }, schema, schema)
+  const withResponse = (key: string, value: unknown) => validate({ ...fixture, responses: { ...fixture.responses, [key]: value } }, schema, schema)
+  assert.deepStrictEqual(withRequest('supervise', { text: 'hi' }), [], 'supervise conversationId and cli are optional')
+  assert.deepStrictEqual(withRequest('superviseConfirm', { confirmId: 'k' }), [], 'confirm cancel is optional')
+  assert.ok(withRequest('supervise', {}).length, 'schema rejects supervise without text')
+  assert.ok(withRequest('stop', {}).length, 'schema rejects stop without agentId')
+  const sup = fixture.responses.supervise
+  assert.ok(withResponse('supervise', { ...sup, intent: 'teleport' }).length, 'schema rejects an unknown intent')
+  assert.ok(withResponse('supervise', { ...sup, pending: { ...sup.pending, expiresAt: 1.5 } }).length, 'schema rejects fractional expiresAt')
+  assert.ok(withResponse('superviseConfirm', { ...sup, results: [{ agentId: 'x', ok: true }] }).length, 'schema rejects a result without error')
+  assert.ok(withResponse('stop', { ok: true }).length, 'schema rejects stop without relayKey')
+  console.log('cuckoo contract supervise: ok')
+}
 
 assert.strictEqual(mapState('blocked'), 'waiting')
 assert.strictEqual(mapState('working'), 'working')
@@ -92,6 +186,8 @@ assert.strictEqual(claimKey('hc:space 1/x'), 'hc_space_1_x', 'filename sanitised
   assert.strictEqual(byId['herdr:main:w1:p2'].isMain, true)
   assert.strictEqual(byId['herdr:main:w1:p2'].scope, 'herdr:main:w1')
   assert.strictEqual(byId['herdr:main:w1:p2'].terminalApp, 'cmux')
+  assert.strictEqual(byId['herdr:main:w1:p2'].cmuxWorkspace, 'cmux-ws-1', 'herdr agent carries its cmux workspace')
+  assert.strictEqual(byId['herdr:main:w1:p1'].cmuxWorkspace, null)
   assert.strictEqual(byId['herdr:main:w1:p1'].isMain, false)
   assert.strictEqual(byId['herdr:main:w1:p1'].state, 'waiting')
   assert.strictEqual(byId['herdr-app:hc:t1a'].isMain, false, 'stale hc claim gives no main')

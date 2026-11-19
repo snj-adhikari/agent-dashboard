@@ -4,19 +4,20 @@ import os from 'os'
 import path from 'path'
 import type { IncomingMessage, ServerResponse } from 'http'
 import { readJsonBody } from '../http'
-import { SESSION_RE, SNJ_TERM } from '../services/herdr'
 import { shellQuote } from '../services/cmuxControl'
 import { requireToken } from '../services/cuckoo/token'
-import { addressOf, CuckooError, logRelay, normalise, relayKey, shortHash } from '../services/cuckoo/relayLog'
+import { CuckooError, logRelay, normalise, relayKey, shortHash } from '../services/cuckoo/relayLog'
 import { assertFresh, io, notFlag, polledAgent, sendKeys, typeText } from '../services/cuckoo/keys'
 import { pendingApproval, readDialog } from '../services/cuckoo/promptParse'
 import { noteSent } from '../services/cuckoo/replyParse'
+import { focusAgent } from '../services/cuckoo/focus'
+import { chat, chatEnd } from '../services/cuckoo/chat'
+import { supervise, superviseConfirm, type SuperviseOps } from '../services/cuckoo/supervise'
 import type { Agent } from '../services/cuckoo/agents'
 
 const MAX_TEXT = 4000
 const CLIS = new Set(['claude', 'copilot', 'gemini', 'codex', 'cursor-agent', 'opencode'])
 const GIT_GRANT = /\bgit\b[^;&|]*?\s(commit|push)\b/
-const AGENT_NAME_RE = /^[a-z][a-z0-9_-]{0,31}$/
 
 type Body = Record<string, unknown>
 type Decision = 'allow' | 'always' | 'deny'
@@ -49,7 +50,7 @@ export function launchCommand(cli: string, promptFile?: string): string {
   return `zsh -lc ${shellQuote(`export CUCKOO_PROMPT="$(cat "$1")"; rm -f "$1"; exec ${cli} "$CUCKOO_PROMPT"`)} cuckoo ${shellQuote(promptFile)}`
 }
 
-async function say(body: Body): Promise<object> {
+export async function say(body: Body): Promise<object> {
   const agent = agentFor(body.agentId)
   const text = normalise(str(body.text, 'text'))
   if (text.length > MAX_TEXT) throw new CuckooError('bad_request', 'text is too long')
@@ -62,7 +63,7 @@ async function say(body: Body): Promise<object> {
   return { ok: true, relayKey: key, sha256 }
 }
 
-async function approve(body: Body): Promise<object> {
+export async function approve(body: Body): Promise<object> {
   const found = pendingApproval(str(body.id, 'id'))
   if (!found) throw new CuckooError('stale', 'that prompt is no longer pending')
   const { approval, agent, text } = found
@@ -79,15 +80,17 @@ async function approve(body: Body): Promise<object> {
   return { ok: true, sent }
 }
 
-async function focus(body: Body): Promise<object> {
+async function stop(body: Body): Promise<object> {
   const agent = agentFor(body.agentId)
-  if (agent.host !== 'herdr') return { ok: true, focused: false }
-  const { session } = addressOf(agent)
-  const name = agent.codename || agent.name
-  if (!SESSION_RE.test(session) || !AGENT_NAME_RE.test(name)) return { ok: true, focused: false }
-  await io.run(SNJ_TERM, ['attach', session, name])
-  return { ok: true, focused: true }
+  if (!agent.canSend) throw new CuckooError('cannot_send', `${agent.id} is read-only`)
+  const key = relayKey(agent)
+  await assertFresh(agent)
+  logRelay(key, 'Escape')
+  await sendKeys(agent, ['Escape'])
+  return { ok: true, relayKey: key }
 }
+
+const focus = (body: Body): Promise<object> => focusAgent(agentFor(body.agentId))
 
 export const launchDir = (): string => process.env.CUCKOO_LAUNCH_DIR || os.tmpdir()
 
@@ -111,7 +114,19 @@ async function launch(body: Body): Promise<object> {
   }
 }
 
-const ACTIONS = new Map<string, (body: Body) => Promise<object>>([['say', say], ['approve', approve], ['focus', focus], ['launch', launch]])
+const ops: SuperviseOps = { say, approve, chat }
+
+const ACTIONS = new Map<string, (body: Body) => Promise<object>>([
+  ['say', say],
+  ['approve', approve],
+  ['stop', stop],
+  ['focus', focus],
+  ['launch', launch],
+  ['chat', chat],
+  ['chat/end', chatEnd],
+  ['supervise', (body) => supervise(body, ops)],
+  ['supervise/confirm', (body) => superviseConfirm(body, ops)]
+])
 
 function fail(res: ServerResponse, e: unknown): void {
   const err = e instanceof CuckooError ? e : new CuckooError('host_failed', (e as Error)?.message || 'host command failed')
@@ -119,7 +134,7 @@ function fail(res: ServerResponse, e: unknown): void {
   res.end(JSON.stringify({ ok: false, error: err.code, message: err.message }))
 }
 
-/** Handles POST say/approve/focus/launch under /api/v1/cuckoo/; false for any other path. */
+/** Handles POST say/approve/stop/focus/launch/chat/chat/end/supervise/supervise/confirm under /api/v1/cuckoo/; false for any other path. */
 export async function handleCuckooAction(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean> {
   const action = ACTIONS.get(url.pathname.replace(/^\/api\/v1\/cuckoo\//, ''))
   if (!url.pathname.startsWith('/api/v1/cuckoo/') || !action) return false

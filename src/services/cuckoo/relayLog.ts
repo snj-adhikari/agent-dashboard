@@ -6,9 +6,9 @@ import { SESSION_RE, TARGET_RE } from '../herdr'
 import { isSurfaceRef, isWorkspaceRef } from '../cmuxControl'
 import type { Agent } from './agents'
 
-export type ErrorCode = 'unauthorised' | 'unknown_agent' | 'stale' | 'cannot_send' | 'grant_in_terminal' | 'bad_request' | 'host_failed'
+export type ErrorCode = 'unauthorised' | 'unknown_agent' | 'stale' | 'cannot_send' | 'grant_in_terminal' | 'bad_request' | 'host_failed' | 'timeout' | 'signed_out' | 'not_installed' | 'no_permission' | 'too_large' | 'needs_key'
 
-const STATUS: Record<ErrorCode, number> = { unauthorised: 401, unknown_agent: 404, stale: 409, cannot_send: 422, grant_in_terminal: 403, bad_request: 400, host_failed: 502 }
+const STATUS: Record<ErrorCode, number> = { unauthorised: 401, unknown_agent: 404, stale: 409, cannot_send: 422, grant_in_terminal: 403, bad_request: 400, host_failed: 502, timeout: 504, signed_out: 409, not_installed: 424, no_permission: 403, too_large: 413, needs_key: 424 }
 
 export class CuckooError extends Error {
   readonly status: number
@@ -41,10 +41,11 @@ export const textHash = (text: string): string => crypto.createHash('sha256').up
 
 export const shortHash = (text: string): string => crypto.createHash('sha256').update(text).digest('hex').slice(0, 16)
 
-/** Same keys the terminal-side gates look up: hc terminal id, `<session>-<pane>` for herdr, cmux surface id. */
-export function relayKey(agent: Pick<Agent, 'id' | 'host'>): string {
+/** Same keys the terminal-side gates look up: hc terminal id, `<session>-<pane>` for herdr, cmux surface id (else workspace id), tmux session. */
+export function relayKey(agent: Pick<Agent, 'id' | 'host'> & { scope?: string | null }): string {
   const a = addressOf(agent)
-  const key = a.host === 'herdr' ? `${a.session}-${a.pane}` : a.host === 'herdr-app' ? a.pane : a.pane || a.session
+  const workspace = a.host === 'cmux' && agent.scope?.startsWith('cmux:') ? agent.scope.slice(5) : a.session
+  const key = a.host === 'herdr' ? `${a.session}-${a.pane}` : a.host === 'herdr-app' ? a.pane : a.pane || workspace
   return key.replace(/[^\w.:-]/g, '_')
 }
 

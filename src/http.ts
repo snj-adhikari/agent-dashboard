@@ -44,8 +44,13 @@ export function isTrustedRequest(req: IncomingMessage, port: number): boolean {
   if (req.method !== 'POST') return true
   const origin = req.headers.origin
   if (origin && origin !== `${tailnet ? 'https' : 'http'}://${host}`) return false
-  return (req.headers['content-type'] || '').startsWith('application/json')
+  const type = req.headers['content-type'] || ''
+  if (type.startsWith('application/json')) return true
+  return type.startsWith('application/octet-stream') && isUploadPath(req.url) && /^Bearer\s+\S+$/i.test(String(req.headers.authorization || ''))
 }
+
+/** Raw uploads skip the JSON rule only here; the Bearer header still forces a preflight a foreign page can't pass. */
+const isUploadPath = (url: string | undefined): boolean => (url || '').split('?')[0] === '/api/v1/cuckoo/upload'
 
 export function sendJson(res: ServerResponse, body: unknown): void {
   res.writeHead(200, { 'Content-Type': 'application/json' })

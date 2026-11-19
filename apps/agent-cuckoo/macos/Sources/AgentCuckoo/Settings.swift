@@ -9,6 +9,16 @@ final class Settings: ObservableObject {
     @Published var preferredScreen: Int? { didSet { d.set(preferredScreen, forKey: "preferredScreen") } }
     @Published var recents: [String] { didSet { d.set(recents, forKey: "recents") } }
     @Published var launchCLI: String { didSet { d.set(launchCLI, forKey: "launchCLI") } }
+    @Published var chatCLI: String { didSet { d.set(chatCLI, forKey: "chatCLI") } }
+    @Published var soundVolume: Double { didSet { d.set(soundVolume, forKey: "soundVolume") } }
+    @Published var openOnHover: Bool { didSet { d.set(openOnHover, forKey: "openOnHover") } }
+    @Published var autoClose: Double { didSet { d.set(autoClose, forKey: "autoClose") } }
+    @Published var showDockIcon: Bool { didSet { d.set(showDockIcon, forKey: "showDockIcon") } }
+    /** Global shortcuts (capture, desktop cuckoo, wardrobe); off by default since Cmd-Shift-S is Save As elsewhere. */
+    @Published var captureShortcuts: Bool { didSet { d.set(captureShortcuts, forKey: "captureShortcuts") } }
+
+    static let maxVolume = 0.2
+    static let autoClosePresets: [Double] = [10, 15, 30]
 
     init() {
         var url = d.string(forKey: "monitorURL") ?? ""
@@ -19,6 +29,13 @@ final class Settings: ObservableObject {
         preferredScreen = d.object(forKey: "preferredScreen") as? Int
         recents = d.stringArray(forKey: "recents") ?? []
         launchCLI = d.string(forKey: "launchCLI") ?? "claude"
+        chatCLI = d.string(forKey: "chatCLI") ?? "claude"
+        soundVolume = min(Settings.maxVolume, max(0, d.object(forKey: "soundVolume") as? Double ?? 0.12))
+        openOnHover = d.object(forKey: "openOnHover") as? Bool ?? false
+        let ac = d.object(forKey: "autoClose") as? Double ?? 15
+        autoClose = Settings.autoClosePresets.contains(ac) ? ac : 15
+        showDockIcon = d.object(forKey: "showDockIcon") as? Bool ?? true
+        captureShortcuts = d.bool(forKey: "captureShortcuts")
     }
 
     var tokenURL: URL {
