@@ -82,7 +82,7 @@ Per agent and per rule. When one agent collects `threshold` demerits for the sam
 | `attribution` | `git commit`, `gh pr create`, `gh pr edit` |
 | `signature-bypass` | `git commit` with `-s`, `--signoff` or `--no-verify` |
 
-## Chain of command and `points_give`
+## Ranks and `points_give`
 
 Agents can score each other with the `points_give` tool: `target`, `points`, `reason` and `evidence`. The caller comes from the process, never from the arguments, and subagents are refused.
 
@@ -91,11 +91,11 @@ Ranks, highest first:
 - `snj`: you. Uncapped, through the commands.
 - `super`: set with `/demerits super @codename`.
 - `main`: an agent that claimed main on a prompt you typed (the main-agent claim from agent-orchestration), or a factory lead for the developers it started (`FACTORY_LEAD`). The parent record expires after 24 hours.
-- `sub`: everyone else. Subs cannot give points.
+- `sub`: everyone else.
 
 Rules for a give:
 
-- Points go down the chain only: super to main or sub, main to its own subs. Never to yourself.
+- Any agent can give points to any other agent, up, down or across the ranks. Never to yourself.
 - Evidence is required: `kind` (`task`, `hook-block`, `qa`, `snj-correction`) and a `ref`.
 - The rubric amount for the rule is a ceiling: +5 for most task kudos, +18 for `good-work`, 1 for a hook rule, 3 for `commit-without-ask`, 2 for any other demerit.
 - At most 20 points per giver per target per day.

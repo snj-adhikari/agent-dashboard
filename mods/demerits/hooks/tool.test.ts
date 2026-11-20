@@ -75,13 +75,11 @@ test('an amount above the rubric ceiling is refused', async () => {
   expect(w.refused()).toEqual([expect.objectContaining({ refused: '5 is above the rubric ceiling of 2' })])
 })
 
-test('a main cannot score an agent that is not its sub', async () => {
-  const w = world({}, 'main')
-  const r = await give(w.$, {}, { target: 'turing', points: 1, reason: 'good work', evidence: EVIDENCE })
-  expect(r).toMatchObject({ deny: expect.stringContaining('not one of your subs') })
-  expect(w.refused()).toEqual([expect.objectContaining({ refused: 'turing is not one of your subs' })])
-  const own = await give(w.$, {}, { target: 'ada', points: 1, reason: 'good work', evidence: EVIDENCE })
-  expect(own).toHaveProperty('result')
+test('a sub can score its main or another agent', async () => {
+  const w = world({}, 'sub')
+  const r = await give(w.$, {}, { target: 'turing', points: -1, reason: 'good work', evidence: EVIDENCE })
+  expect(r).toHaveProperty('result')
+  expect(w.refused()).toEqual([])
 })
 
 test('the daily cap per target is enforced', async () => {

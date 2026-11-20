@@ -11,17 +11,28 @@ type Target = { kind: 'self' } | { kind: 'agent'; name: string } | { kind: 'pool
 
 const DAY = 86_400_000
 const USAGE = {
-  demerit: 'Usage: /demerit [@codename|--all] <n> <reason>',
-  kudos: 'Usage: /kudos [@codename|--all] <n> <reason>',
+  demerit: 'Usage: /demerit [@codename|codename|--all] <n> <reason>, e.g. /demerit dirac 3 missed the LGTM image',
+  kudos: 'Usage: /kudos [@codename|codename|--all] <n> <reason>, e.g. /kudos dirac 5 clean review',
 }
 
 export function parseScore(args: string): { target: Target; n: number; reason: string } | undefined {
-  const m = args.trim().match(/^(?:(@[\w.-]+|--all)\s+)?(\d+)\s+(\S[\s\S]*)$/)
-  if (!m) return undefined
-  const n = Number(m[2])
-  if (n < 1) return undefined
-  const target: Target = !m[1] ? { kind: 'self' } : m[1] === '--all' ? { kind: 'pool' } : { kind: 'agent', name: m[1].slice(1) }
-  return { target, n, reason: m[3].trim() }
+  const words = args.trim().split(/\s+/).filter(Boolean)
+  let target: Target = { kind: 'self' }
+  let n: number | undefined
+  while (words.length && (n === undefined || target.kind === 'self')) {
+    const w = words[0]
+    const num = w.match(/^[+-]?(\d+)$/)
+    if (num && n === undefined) n = Number(num[1])
+    else if (w === '--all' && target.kind === 'self') target = { kind: 'pool' }
+    else if (target.kind === 'self' && (/^@[\w.-]+$/.test(w) || (n === undefined && /^[a-z][\w.-]*$/i.test(w)))) target = { kind: 'agent', name: w.replace(/^@/, '') }
+    else if (/^(points?|pts)$/i.test(w) && n !== undefined) {}
+    else break
+    words.shift()
+  }
+  if (words[0] && /^(points?|pts)$/i.test(words[0])) words.shift()
+  if (words[0] && /^for$/i.test(words[0])) words.shift()
+  if (!n) return undefined
+  return { target, n, reason: words.join(' ').trim() || 'no reason given' }
 }
 
 async function gitOut($: Engine, argv: string[]): Promise<string> {

@@ -43,23 +43,12 @@ test('SNJ can give anyone, uncapped', () => {
   refused(give({ giver: 'snj', giverRank: 'snj', target: 'snj' }), /yourself/)
 })
 
-test('super gives to main and below, never to another super or itself', () => {
+test('any agent can give any other agent, up, down or across', () => {
   expect(canGive(give({ giver: 'zed', giverRank: 'super', target: 'lynx', targetRank: 'main' })).ok).toBe(true)
-  expect(canGive(give({ giver: 'zed', giverRank: 'super', target: 'sub2', targetRank: 'sub' })).ok).toBe(true)
-  refused(give({ giver: 'zed', giverRank: 'super', target: 'zed', targetRank: 'super' }), /yourself/)
-  refused(give({ giver: 'zed', giverRank: 'super', target: 'zed2', targetRank: 'super' }), /down the chain/)
-})
-
-test('main gives to its own subs only', () => {
-  expect(canGive(give()).ok).toBe(true)
-  refused(give({ target: 'sub2' }), /another main/)
-  refused(give({ target: 'stray' }), /not one of your subs/)
-})
-
-test('nothing goes upward, to a peer main, or from a sub', () => {
-  refused(give({ target: 'zed', targetRank: 'super' }), /down the chain/)
-  refused(give({ target: 'otto', targetRank: 'main' }), /down the chain/)
-  refused(give({ giver: 'sub1', giverRank: 'sub', target: 'lynx', targetRank: 'main' }), /subs cannot give/)
+  expect(canGive(give({ giver: 'zed', giverRank: 'super', target: 'zed2', targetRank: 'super' })).ok).toBe(true)
+  expect(canGive(give({ target: 'sub2' })).ok).toBe(true)
+  expect(canGive(give({ target: 'zed', targetRank: 'super' })).ok).toBe(true)
+  expect(canGive(give({ giver: 'sub1', giverRank: 'sub', target: 'lynx', targetRank: 'main', points: -3 })).ok).toBe(true)
   refused(give({ giver: 'sub1', giverRank: 'sub', target: 'sub1', targetRank: 'sub' }), /yourself/)
 })
 

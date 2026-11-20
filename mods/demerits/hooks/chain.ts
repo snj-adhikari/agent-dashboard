@@ -41,7 +41,6 @@ const KUDOS: Record<string, number> = {
 }
 const HOOK_RULES = new Set(['push-without-ask', 'tamper', 'comment-style', 'attribution', 'signature-bypass'])
 const DEMERITS: Record<string, number> = { 'commit-without-ask': 3, 'biased-scoring': 5 }
-const ORDER: Record<Rank, number> = { sub: 0, main: 1, super: 2 }
 
 export function rubricCeiling(rule: string, sign: number): number {
   if (sign > 0) return KUDOS[rule] ?? DEFAULT_DEMERIT
@@ -54,13 +53,6 @@ export function canGive(i: GiveInput): Verdict {
   if (!Number.isInteger(i.points) || i.points === 0) return no('points must be a non-zero whole number')
   if (i.giver === i.target) return no('cannot give points to yourself')
   if (i.giverRank === 'snj') return { ok: true }
-  if (i.giverRank === 'sub') return no('subs cannot give points')
-  if (ORDER[i.targetRank] >= ORDER[i.giverRank]) return no('points only go down the chain of command')
-  if (i.giverRank === 'main') {
-    const owner = i.parentOf(i.target)
-    if (owner === undefined) return no(`${i.target} is not one of your subs`)
-    if (owner !== i.giver) return no(`${i.target} belongs to another main`)
-  }
   const size = Math.abs(i.points)
   if (size > i.rubricCeiling) return no(`${size} is above the rubric ceiling of ${i.rubricCeiling}`)
   if (i.givenToday + size > DAILY_CAP) return no(`daily cap of ${DAILY_CAP} per target reached`)
