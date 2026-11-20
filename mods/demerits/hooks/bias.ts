@@ -1,5 +1,6 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import { DAY_MS, parentMap } from './chain'
+import { refreshStatus } from './reminder'
 import { append, newId, read, readLines, stateDir, writeAtomic, type LedgerEvent } from './ledger'
 
 export const SWEEP_FILE = 'bias-sweep.json'
@@ -35,7 +36,7 @@ export async function biasCheck($: Engine, cfg: PluginOptions, giver: string): P
   const findings = audit(events, giver, parents, now)
   if (!findings.length) return undefined
   if (live(events).some(e => e.rule === BIAS_RULE && e.agent === giver && e.ts > now - DAY_MS && e.ts <= now)) return undefined
-  return append($, cfg, {
+  const row = await append($, cfg, {
     id: await newId($),
     ts: now,
     session: await $.session.id(),
@@ -51,6 +52,8 @@ export async function biasCheck($: Engine, cfg: PluginOptions, giver: string): P
     scope: 'agent',
     biased: true,
   })
+  await refreshStatus($, cfg)
+  return row
 }
 
 export async function biasSweep($: Engine, cfg: PluginOptions): Promise<void> {

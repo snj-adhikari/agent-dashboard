@@ -1,6 +1,7 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import { regenerate } from './files'
 import { isHumanPrompt } from './human'
+import { refreshStatus } from './reminder'
 import { REGISTRY_FILE, START_BY_RANK, fold, sight, type RegistryRow } from './balances'
 import { SUPER_FILE } from './chain'
 import { REFUSED_FILE, append, clip, identity, ledgerDir, newId, appendLine, read, readLines, ruleFor, stateDir, writeAtomic, type LedgerEvent } from './ledger'
@@ -51,6 +52,7 @@ export const describeCall = (e: Record<string, unknown>): string => {
 
 async function afterAppend($: Engine, cfg: PluginOptions): Promise<void> {
   await regenerate($, cfg).catch(() => undefined)
+  await refreshStatus($, cfg)
 }
 
 async function score($: Engine, cfg: PluginOptions, mem: Memory, sign: 1 | -1, args: string): Promise<string> {
@@ -180,9 +182,11 @@ export async function commandsToolCall(_$: Engine, e: any, next: Next, _cfg: Plu
   return next(e)
 }
 
-export async function commandsTurnComplete(_$: Engine, e: any, next: Next, _cfg: PluginOptions) {
+export async function commandsTurnComplete($: Engine, e: any, next: Next, cfg: PluginOptions) {
   if (!e.agentId) mem.lastAssistant = clip(e.answer)
-  return next(e)
+  const out = await next(e)
+  await refreshStatus($, cfg)
+  return out
 }
 
 export function install(on: On, cfg: PluginOptions): void {

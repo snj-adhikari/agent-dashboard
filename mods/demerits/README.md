@@ -69,6 +69,18 @@ The award also logs a `verified-task` line for the +1 XP. The counts, trigger an
 - Redirection: your prompt starts with "no" or says wrong, I said, not that, that's not, or repeats an earlier prompt (word overlap of 0.85 or more).
 - Rework: your prompt says redo, again or reopen, or a factory `CONTINUE` answer mentions QA or gaps.
 
+### Demerit criteria
+
+| Source | Points | When |
+| --- | --- | --- |
+| Hook block | -1 | A hook denies a tool call (see the table above). Once per distinct command per task |
+| `/demerit` or `points_give` | -2 default | Reason matches no seeded rule. You can set any amount; agents are capped at the rubric ceiling |
+| `commit-without-ask` | -3 | Committing or pushing without asking |
+| `biased-scoring` | -5 | The bias audit finds skewed scoring by a giver. Once per giver per day |
+| Task redirections | -1 each past two | Your prompts redirect the agent more than twice in one task (reduces the task kudos) |
+
+Agents giving demerits through `points_give` stay within the rubric ceiling: 1 for hook rules, 3 for `commit-without-ask`, 5 for `biased-scoring`, 2 for anything else. `/demerit undo` reverses the last manual event.
+
 ## Strict mode
 
 Per agent and per rule. When one agent collects `threshold` demerits for the same rule inside `windowDays`, matching tool calls ask for your confirmation (`tool.check` ask). It drops off after `windowDays` with no new demerit for that rule.
@@ -108,7 +120,7 @@ Run at every give and in a daily sweep. A giver who hands out kudos with no matc
 
 ## Reminders, status line and guidelines
 
-- Status line: `pts <balance> (<week change>)`.
+- Status line: `pts <balance> (+<week gains> -<week losses>)`, e.g. `pts 513 (+18 -5)`. It refreshes right after every ledger event and at the end of each turn, and is also written to `<state dir>/status/<session id>.json` as `{text, balance, plus, minus, agent}`.
 - Session start and each prompt: a short block such as `You: 512 (+12). Team pool: 4980 (-20). XP 12, level 0.`, how to earn points, the rules you lost points on (top 5, with counts) and any strict rules with a hint. Silent when the agent has nothing in the window.
 - New spawns (startup and clear, plus Agent-tool subagents) get a short guidelines block from `guidelines.md`: three do-nots, two dos and the top three good-work quotes.
 

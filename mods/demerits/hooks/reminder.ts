@@ -1,6 +1,6 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import { REGISTRY_FILE, START_BY_RANK, type Folded, type RegistryRow, fold } from './balances'
-import { identity, read, readLines, stateDir, type LedgerEvent } from './ledger'
+import { identity, read, readLines, stateDir, writeAtomic, type LedgerEvent } from './ledger'
 import { strictRules } from './strict'
 
 const DAY_MS = 86_400_000
@@ -26,7 +26,30 @@ function ago(ms: number): string {
 
 export function statusText(folded: Folded, agent: string): string {
   const me = folded.agents.find(a => a.agent === agent)
-  return `pts ${me?.balance ?? START_BY_RANK.sub} (${signed(me?.week ?? 0)})`
+  return `pts ${me?.balance ?? START_BY_RANK.sub} (+${me?.plus ?? 0} -${me?.minus ?? 0})`
+}
+
+async function publish($: Engine, folded: Folded, agent: string): Promise<void> {
+  const text = statusText(folded, agent)
+  $.ui.status(text)
+  const me = folded.agents.find(a => a.agent === agent)
+  const dir = `${await stateDir($)}/status`
+  const session = await $.session.id()
+  const row = { text, balance: me?.balance ?? START_BY_RANK.sub, plus: me?.plus ?? 0, minus: me?.minus ?? 0, agent }
+  await $.process.run(['mkdir', '-p', dir])
+  await writeAtomic($, `${dir}/${session}.json`, `${JSON.stringify(row)}\n`)
+}
+
+export async function refreshStatus($: Engine, cfg: PluginOptions): Promise<void> {
+  try {
+    const now = await $.clock.now()
+    const agent = await identity($)
+    const events = await read($, cfg)
+    const registry = await readLines<RegistryRow>($, `${await stateDir($)}/${REGISTRY_FILE}`)
+    await publish($, fold(events, registry, now, num(cfg.windowDays, 7)), agent)
+  } catch {
+    return
+  }
 }
 
 export function reminderText(
@@ -77,7 +100,7 @@ async function build($: Engine, cfg: PluginOptions): Promise<string> {
   const events = await read($, cfg)
   const registry = await readLines<RegistryRow>($, `${await stateDir($)}/${REGISTRY_FILE}`)
   const folded = fold(events, registry, now, windowDays)
-  $.ui.status(statusText(folded, agent))
+  await publish($, folded, agent).catch(() => $.ui.status(statusText(folded, agent)))
   const strict = strictRules(events, agent, now, num(cfg.threshold, 3), windowDays)
   return reminderText(folded, events, agent, strict, now, windowDays)
 }

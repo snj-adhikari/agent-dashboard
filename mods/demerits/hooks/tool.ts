@@ -1,6 +1,7 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import type { RegistryRow } from './balances'
 import { biasCheck } from './bias'
+import { refreshStatus } from './reminder'
 import { canGive, givenToday, parentMap, resolveRank, rubricCeiling } from './chain'
 import { REFUSED_FILE, append, appendLine, identity, ledgerDir, newId, read, readLines, ruleFor, stateDir } from './ledger'
 
@@ -98,6 +99,7 @@ export async function give($: Engine, cfg: PluginOptions, e: GiveCall): Promise<
     rank: callerRank,
   } as never)
   await biasCheck($, cfg, caller).catch(() => undefined)
+  await refreshStatus($, cfg)
   return { result: `Logged ${points > 0 ? '+' : ''}${points} for ${target}: ${rule} (${row.id}). Rubric amount suggested: ${ceiling}.` }
 }
 

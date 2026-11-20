@@ -67,9 +67,9 @@ test('tone has no threat words and stays short', () => {
   expect(out.split('\n').length).toBeLessThanOrEqual(6)
 })
 
-test('status line shows balance and week change', () => {
+test('status line shows balance and week gains and losses', () => {
   const events = [ev('x', -8, HOUR), ev('y', 20, HOUR, { source: 'snj' })]
-  expect(statusText(fold(events, [], NOW, 7), 'enigma')).toBe('pts 512 (+12)')
+  expect(statusText(fold(events, [], NOW, 7), 'enigma')).toBe('pts 512 (+20 -8)')
 })
 
 test('prompt hook adds context and status, silent when clean', async () => {
@@ -86,8 +86,8 @@ test('prompt hook adds context and status, silent when clean', async () => {
   }
   const clean = await run([])
   expect(clean.context).toBeUndefined()
-  expect(status).toBe('pts 500 (+0)')
+  expect(status).toBe('pts 500 (+0 -0)')
   const dirty = await run([ev(RULE, -1, HOUR)])
   expect(dirty.context[0]).toContain('Lost points: commit-without-ask 1x.')
-  expect(status).toBe('pts 499 (-1)')
+  expect(status).toBe('pts 499 (+0 -1)')
 })

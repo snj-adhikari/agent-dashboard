@@ -9,6 +9,7 @@ const mem = { lastTool: `Bash ${SHELL}`, lastAssistant: 'x'.repeat(500) }
 const typed = (command: string, args: string) => ({ command, args, origin: { kind: 'composer' } })
 
 function world(files: Record<string, string> = {}, env: Record<string, string> = {}) {
+  const statuses: (string | undefined)[] = []
   const vars: Record<string, string> = { HOME: '/h', ...env }
   const $ = {
     session: { id: async () => 's1' },
@@ -28,9 +29,10 @@ function world(files: Record<string, string> = {}, env: Record<string, string> =
         return { exitCode: 0, stdout, stderr: '' }
       },
     },
+    ui: { status: (t: string | undefined) => void (statuses.push(t)) },
   } as never
   const rows = (name = 'ledger.jsonl') => (files[`${DIR}/${name}`] ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l) as LedgerEvent)
-  return { $, rows, files: (p: string) => files[p] }
+  return { $, statuses, rows, files: (p: string) => files[p] }
 }
 
 test('/demerit writes the full ledger line with evidence and the seeded rule', async () => {
@@ -171,4 +173,11 @@ test('non-human undo and super are refused and change nothing', async () => {
   expect(w.rows().length).toBe(1)
   expect(w.files('/h/.claude/demerits-state/super.json')).toBeUndefined()
   expect(w.rows('refused.jsonl').length).toBe(2)
+})
+
+test('/demerit updates the status line and status file immediately', async () => {
+  const w = world()
+  await runCommand(w.$, {}, mem, typed('demerit', '3 committed without asking'))
+  expect(w.statuses.at(-1)).toBe('pts 497 (+0 -3)')
+  expect(JSON.parse(w.files('/h/.claude/demerits-state/status/s1.json'))).toEqual({ text: 'pts 497 (+0 -3)', balance: 497, plus: 0, minus: 3, agent: 's1' })
 })

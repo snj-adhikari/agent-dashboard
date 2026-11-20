@@ -1,5 +1,6 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import { isHumanPrompt } from './human'
+import { refreshStatus } from './reminder'
 import { append, identity, newId, stateDir, writeAtomic, type LedgerEvent } from './ledger'
 
 type Next = (e: any) => any
@@ -110,6 +111,7 @@ async function finish($: Engine, cfg: PluginOptions, path: string, state: TaskSt
     reason: `Task finished (${trigger}): ${points > 0 ? '+' : ''}${points}`,
   })
   await append($, cfg, { ...base, id: await newId($), ts, points: 0, rule: 'verified-task', reason: 'Verified task' })
+  await refreshStatus($, cfg)
 }
 
 export async function kudosPromptSubmit($: Engine, e: any, next: Next, cfg: PluginOptions) {

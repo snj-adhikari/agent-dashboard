@@ -1,4 +1,5 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
+import { refreshStatus } from './reminder'
 import { append, appendLine, clip, identity, newId, readLines, stateDir } from './ledger'
 
 export const SEEN_FILE = 'blocks-seen.jsonl'
@@ -67,6 +68,7 @@ export async function logBlock($: Engine, cfg: PluginOptions, e: Record<string, 
     by: 'hook',
     scope: 'agent',
   })
+  await refreshStatus($, cfg)
 }
 
 export async function blocksToolCall($: Engine, e: Record<string, unknown>, next: (e: never) => Promise<{ deny?: string }> | { deny?: string }, cfg: PluginOptions) {
