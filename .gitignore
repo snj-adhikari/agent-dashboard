@@ -1,4 +1,4 @@
-node_modules/
+node_modules
 dist/
 web/node_modules/
 web/dist/
