@@ -1,3 +1,4 @@
+import { GUIDELINE } from './reminder'
 import { expect, test } from 'claude-code/testing'
 import type { LedgerEvent } from './ledger'
 import { syncClassicSessionStart, syncClassicSubagentStart, syncTurnComplete } from './sync'
@@ -88,8 +89,9 @@ test('guidelines only on startup and clear; subagents always get them', async ()
   expect(JSON.stringify(sub.additionalContext)).toContain('shipped it clean')
 })
 
-test('silent when there is nothing to say', async () => {
+test('an empty ledger gives new spawns only the guideline', async () => {
   const w = world()
-  expect(await syncClassicSessionStart(w.$, { source: 'startup' }, () => undefined, OPTIONS)).toBeUndefined()
-  expect(await syncClassicSubagentStart(w.$, {}, () => undefined, OPTIONS)).toBeUndefined()
+  expect(await syncClassicSessionStart(w.$, { source: 'startup' }, () => undefined, OPTIONS)).toEqual({ additionalContext: [GUIDELINE] })
+  expect(await syncClassicSubagentStart(w.$, {}, () => undefined, OPTIONS)).toEqual({ additionalContext: [GUIDELINE] })
+  expect(await syncClassicSessionStart(w.$, { source: 'resume' }, () => undefined, OPTIONS)).toBeUndefined()
 })

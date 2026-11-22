@@ -54,6 +54,18 @@ test('a reason matching a seeded rule or a known slug reuses it', () => {
   expect(ruleFor('was late to standup again', ['late-standup'])).toBe('late-standup')
 })
 
+test('new flags map from plain reasons', () => {
+  expect(ruleFor('stopped short and handed it back')).toBe('not-doing-work')
+  expect(ruleFor('ignored the stop')).toBe('ignored-stop')
+  expect(ruleFor('opened a PR without approval')).toBe('unapproved-git')
+  expect(ruleFor('worked around the hook')).toBe('guard-bypass')
+  expect(ruleFor('padded wall of text')).toBe('over-explaining')
+  expect(ruleFor('changed files I didn\'t ask for')).toBe('wrong-scope')
+  expect(ruleFor('right first time')).toBe('first-time-right')
+  expect(ruleFor('followed the guards')).toBe('followed-guards')
+  expect(ruleFor('short and clear reply')).toBe('short-and-clear')
+})
+
 test('an unmatched reason falls back to slugify', () => {
   expect(ruleFor('Left console.log in prod!', ['late-standup'])).toBe('left-console-log-in-prod')
   expect(slugify('  ** ')).toBe('unspecified')

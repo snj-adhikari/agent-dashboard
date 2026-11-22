@@ -15,7 +15,7 @@ type GiveCall = { target?: string; points?: number; reason?: string; evidence?: 
 export async function toolSessionStart<E>($: Engine, e: E, next: (e: E) => unknown, _cfg: PluginOptions): Promise<unknown> {
   await $.tool.register({
     name: GIVE_TOOL,
-    description: 'Give points to an agent below you in the chain of command. Needs evidence. The amount is capped by the rubric for the reason and a daily limit per target. Positive for kudos, negative for a demerit.',
+    description: 'Give points to an agent below you in the chain of command. Needs evidence. The amount is capped by the rubric for the reason and a daily limit per target. Positive for a merit, negative for a demerit.',
     inputSchema: {
       type: 'object',
       properties: {

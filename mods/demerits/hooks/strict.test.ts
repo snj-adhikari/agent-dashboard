@@ -101,3 +101,11 @@ test('threshold option lowers the bar for the check', async () => {
   expect(await run(w, 'Bash', { command: 'git push' })).toBe('next')
   expect(await run(w, 'Bash', { command: 'git push' }, { threshold: 2 })).toMatchObject({ decision: 'ask' })
 })
+
+test('new flags ask for their commands once strict', async () => {
+  const git = world([ev('unapproved-git', 3), ev('unapproved-git', 2), ev('unapproved-git', 1)])
+  expect(await run(git, 'Bash', { command: 'gh pr merge 12' })).toMatchObject({ decision: 'ask' })
+  expect(await run(git, 'Bash', { command: 'git status' })).toBe('next')
+  const scope = world([ev('wrong-scope', 3), ev('wrong-scope', 2), ev('wrong-scope', 1)])
+  expect(await run(scope, 'Edit', { file_path: '/r/README.md' })).toMatchObject({ decision: 'ask' })
+})

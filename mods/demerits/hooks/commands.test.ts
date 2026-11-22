@@ -161,7 +161,7 @@ test('/demerits super writes super.json and the registry, then /demerits shows b
   expect(w.files('/h/.claude/demerits-state/agents.jsonl')).toContain('"super"')
   expect(await runCommand(w.$, {}, mem, typed('demerits', 'super'))).toContain('Usage')
   await runCommand(w.$, {}, mem, typed('kudos', '120 big win'))
-  expect(await runCommand(w.$, {}, mem, typed('demerits', ''))).toContain('balance 620, XP 120, level 1')
+  expect(await runCommand(w.$, {}, mem, typed('demerits', ''))).toContain('points 620, XP 120, level 1')
 })
 
 test('non-human undo and super are refused and change nothing', async () => {
@@ -178,6 +178,6 @@ test('non-human undo and super are refused and change nothing', async () => {
 test('/demerit updates the status line and status file immediately', async () => {
   const w = world()
   await runCommand(w.$, {}, mem, typed('demerit', '3 committed without asking'))
-  expect(w.statuses.at(-1)).toBe('pts 497 (+0 -3)')
-  expect(JSON.parse(w.files('/h/.claude/demerits-state/status/s1.json'))).toEqual({ text: 'pts 497 (+0 -3)', balance: 497, plus: 0, minus: 3, agent: 's1' })
+  expect(w.statuses.at(-1)).toBe('Points: 497  Merit: +0  Demerit: -3')
+  expect(JSON.parse(w.files('/h/.claude/demerits-state/status/s1.json'))).toEqual({ text: 'Points: 497  Merit: +0  Demerit: -3', balance: 497, plus: 0, minus: 3, merit: 0, demerit: 3, agent: 's1' })
 })

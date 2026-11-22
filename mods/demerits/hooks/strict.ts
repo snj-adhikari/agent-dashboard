@@ -12,6 +12,9 @@ export const STRICT_TABLE: readonly Guard[] = [
   { rule: 'comment-style', tool: /^(Write|Edit|MultiEdit)$/, pattern: /\.(tsx?|jsx?|php|py|s?css)$/ },
   { rule: 'attribution', tool: /^Bash$/, pattern: /\bgit\s+commit\b|\bgh\s+pr\s+(create|edit)\b/ },
   { rule: 'signature-bypass', tool: /^Bash$/, pattern: /\bgit\s+commit\b[^|;&]*(\s-\w*s\w*\b|--signoff|--no-verify)/ },
+  { rule: 'unapproved-git', tool: /^Bash$/, pattern: /\bgit\s+(commit|push|merge)\b|\bgh\s+pr\s+(create|merge)\b/ },
+  { rule: 'guard-bypass', tool: /^Bash$/, pattern: /--force\b|\bcore\.hooksPath\b|\bHUSKY=0\b/ },
+  { rule: 'wrong-scope', tool: /^(Write|Edit|MultiEdit|NotebookEdit)$/, pattern: /./ },
 ]
 
 export function strictRules(events: readonly LedgerEvent[], agent: string, now: number, threshold: number, windowDays: number): string[] {

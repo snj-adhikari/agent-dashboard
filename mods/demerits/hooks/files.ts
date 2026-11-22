@@ -1,6 +1,7 @@
 import type { EngineInterface as Engine, On, PluginOptions } from 'claude-code'
 import { fold, REGISTRY_FILE, type Folded, type RegistryRow, type Reversal } from './balances'
 import { ledgerDir, read, readLines, stateDir, writeAtomic, type LedgerEvent } from './ledger'
+import { GUIDELINE } from './reminder'
 
 export const POINTS_FILE = 'points.md'
 export const GOOD_WORK_FILE = 'good-work.md'
@@ -70,13 +71,13 @@ export function pointsMd(folded: Folded, events: readonly LedgerEvent[], now: nu
   return [
     '# Points',
     '',
-    '| Agent | Rank | Balance | Week | XP | Level |',
+    '| Agent | Rank | Points | Week | XP | Level |',
     '| --- | --- | --- | --- | --- | --- |',
     ...agents.map(a => `| ${cell(a.agent)} | ${a.rank} | ${a.balance} | ${signed(a.week)} | ${a.xp} | ${a.level} |`),
     '',
     `Team pool: ${folded.pool.balance} (${signed(folded.pool.week)} this week)`,
     '',
-    '## Top lost rules this week',
+    '## Top demerit rules this week',
     ...(lost.length ? lost.map(l => `- ${l.rule}: ${l.count}x, ${signed(l.sum)}`) : ['- None']),
     '',
     `## Last ${LAST_EVENTS} events`,
@@ -127,11 +128,11 @@ export function blockLines(events: readonly LedgerEvent[], overrides: ReadonlyMa
   const donts: Line[] = groupBy(rows.filter(e => e.points < 0))
     .sort((a, b) => b.count - a.count || a.sum - b.sum)
     .slice(0, DONTS)
-    .map(g => ({ slug: g.rule, text: `- ${g.rule}: Don't: ${oneLine(g.latest.reason)} (${g.count}x)` }))
+    .map(g => ({ slug: g.rule, text: `- ${g.rule}: Demerit: ${oneLine(g.latest.reason)} (${g.count}x)` }))
   const dos: Line[] = groupBy(goodWork(rows))
     .sort((a, b) => b.sum - a.sum)
     .slice(0, DOS)
-    .map(g => ({ slug: g.rule, text: `- ${g.rule}: Do: ${oneLine(g.best.reason)}` }))
+    .map(g => ({ slug: g.rule, text: `- ${g.rule}: Merit: ${oneLine(g.best.reason)}` }))
   const lessons = [...donts, ...dos].map(l => overrides.get(l.slug) ?? l.text)
   const quotes = goodWork(rows)
     .sort((a, b) => b.points - a.points || b.ts - a.ts)
@@ -156,7 +157,7 @@ async function readText($: Engine, path: string): Promise<string> {
 export async function guidelinesBlock($: Engine, cfg: PluginOptions): Promise<string> {
   const dir = await ledgerDir($, cfg)
   const existing = await readText($, `${dir}/${GUIDELINES_FILE}`)
-  return blockLines(await read($, cfg), manualOverrides(existing)).join('\n')
+  return [GUIDELINE, ...blockLines(await read($, cfg), manualOverrides(existing))].join('\n')
 }
 
 export async function regenerate($: Engine, cfg: PluginOptions): Promise<void> {

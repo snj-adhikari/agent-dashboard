@@ -151,6 +151,11 @@ test('rubric: auto-kudos amounts, hook rules 1, named demerits, default 2', () =
   expect(rubricCeiling('commit-without-ask', -1)).toBe(3)
   expect(rubricCeiling('biased-scoring', -1)).toBe(5)
   expect(rubricCeiling('anything-else', -1)).toBe(2)
+  expect(rubricCeiling('ignored-stop', -1)).toBe(5)
+  expect(rubricCeiling('unapproved-git', -1)).toBe(3)
+  expect(rubricCeiling('over-explaining', -1)).toBe(1)
+  expect(rubricCeiling('first-time-right', 1)).toBe(5)
+  expect(rubricCeiling('short-and-clear', 1)).toBe(2)
 })
 
 function world(env: Record<string, string>, files: Record<string, string> = {}) {

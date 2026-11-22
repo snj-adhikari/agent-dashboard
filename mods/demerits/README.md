@@ -1,6 +1,6 @@
 # Demerits - Points for agents
 
-A points ledger for your agents. You give demerits and kudos, hooks take a point off when a guard blocks an agent, and finished tasks earn kudos on their own. Every agent has a balance, the team has a shared pool, and good work earns XP and levels. Repeat offences turn on strict mode for that rule. No model calls: it is plain hooks, a JSONL file and a few markdown summaries.
+A points ledger for your agents. The score is points. A merit adds points for good work; a demerit takes points off for not respecting SNJ's hooks and guards, or not doing the work. You give merits (`/kudos`) and demerits (`/demerit`), hooks take a point off when a guard blocks an agent, and finished tasks earn a merit on their own. Every agent has a balance, the team has a shared pool, and good work earns XP and levels. Repeat offences turn on strict mode for that rule. No model calls: it is plain hooks, a JSONL file and a few markdown summaries.
 
 Plugin id: `demerits`.
 
@@ -28,13 +28,13 @@ Only a prompt you typed can score points (see [Human-prompt check](#human-prompt
 
 | Command | What it does |
 | --- | --- |
-| `/demerit [@codename\|--all] <n> <reason>` | Takes `n` points off. No target means the current agent, with the last tool call and last answer saved as evidence. `@codename` targets another agent. `--all` moves only the team pool |
-| `/kudos [@codename\|--all] <n> <reason>` | Same, adding points. Kudos also add XP for the agent |
+| `/demerit [@codename\|--all] <n> <reason>` | Demerit: takes `n` points off. No target means the current agent, with the last tool call and last answer saved as evidence. `@codename` targets another agent. `--all` moves only the team pool |
+| `/kudos [@codename\|--all] <n> <reason>` | Merit: same, adding points. Merits also add XP for the agent |
 | `/demerit undo [id]` | Reverses an event with a reversal line (XP too). No id reverses your last manual event; with an id, any event |
-| `/demerits` | This agent's balance, XP, level, change over the window, top rules and last 10 events. Anyone can run it |
+| `/demerits` | This agent's points, XP, level, change over the window with merit and demerit totals, top rules and last 10 events. Anyone can run it |
 | `/demerits super @codename` | Names the super agent (rank below) |
 
-The reason picks the rule: a keyword match to a known slug (`commit-without-ask`, `push-without-ask`, `tamper`, `comment-style`, `attribution`, `signature-bypass`), then a match to a slug already in the ledger, else the reason itself slugified.
+The reason picks the rule: a keyword match to a known flag (see [Merit, demerit and flags](#merit-demerit-and-flags)), then a match to a slug already in the ledger, else the reason itself slugified.
 
 ## Automatic points
 
@@ -53,7 +53,7 @@ When another hook denies a tool call, the agent loses 1 point, once per distinct
 
 Stranger-danger flags are not scored.
 
-### Task kudos
+### Task merit
 
 One award per task, when it finishes: a factory `FACTORY: DONE` after your approval, a successful `gh pr merge`, or you saying thanks, "looks good" or "lgtm".
 
@@ -69,7 +69,7 @@ The award also logs a `verified-task` line for the +1 XP. The counts, trigger an
 - Redirection: your prompt starts with "no" or says wrong, I said, not that, that's not, or repeats an earlier prompt (word overlap of 0.85 or more).
 - Rework: your prompt says redo, again or reopen, or a factory `CONTINUE` answer mentions QA or gaps.
 
-### Demerit criteria
+### Demerit amounts
 
 | Source | Points | When |
 | --- | --- | --- |
@@ -77,9 +77,30 @@ The award also logs a `verified-task` line for the +1 XP. The counts, trigger an
 | `/demerit` or `points_give` | -2 default | Reason matches no seeded rule. You can set any amount; agents are capped at the rubric ceiling |
 | `commit-without-ask` | -3 | Committing or pushing without asking |
 | `biased-scoring` | -5 | The bias audit finds skewed scoring by a giver. Once per giver per day |
-| Task redirections | -1 each past two | Your prompts redirect the agent more than twice in one task (reduces the task kudos) |
+| Other flags | -1 to -5 | See [Merit, demerit and flags](#merit-demerit-and-flags) for each ceiling |
+| Task redirections | -1 each past two | Your prompts redirect the agent more than twice in one task (reduces the task merit) |
 
-Agents giving demerits through `points_give` stay within the rubric ceiling: 1 for hook rules, 3 for `commit-without-ask`, 5 for `biased-scoring`, 2 for anything else. `/demerit undo` reverses the last manual event.
+Agents giving demerits through `points_give` stay within the rubric ceiling: 1 for hook rules, 3 for `commit-without-ask`, 5 for `biased-scoring`, the flag ceiling for the other flags, 2 for anything else. `/demerit undo` reverses the last manual event.
+
+## Merit, demerit and flags
+
+Points are the score. A merit is positive points for good work. A demerit is negative points for not respecting SNJ's hooks and guards, or not doing the work. The reason picks the flag by keyword.
+
+| Flag | Type | Ceiling | Example |
+| --- | --- | --- | --- |
+| `first-time-right` | Merit | +5 | `/kudos dirac 5 right first time` |
+| `followed-guards` | Merit | +3 | `/kudos dirac 3 followed the guards` |
+| `short-and-clear` | Merit | +2 | `/kudos dirac 2 short and clear reply` |
+| `not-doing-work` | Demerit | -3 | `/demerit dirac 3 stopped short, nothing to show` |
+| `ignored-stop` | Demerit | -5 | `/demerit dirac 5 ignored the stop` |
+| `unapproved-git` | Demerit | -3 | `/demerit dirac 3 opened a PR without approval` |
+| `guard-bypass` | Demerit | -3 | `/demerit dirac 3 worked around the hook` |
+| `over-explaining` | Demerit | -1 | `/demerit dirac 1 padded wall of text` |
+| `wrong-scope` | Demerit | -2 | `/demerit dirac 2 changed files I didn't ask for` |
+| `commit-without-ask` | Demerit | -3 | `/demerit dirac 3 committed without asking` |
+| `push-without-ask`, `tamper`, `comment-style`, `attribution`, `signature-bypass` | Demerit | -1 | Usually from a hook block |
+
+Ceilings cap `points_give`; your own commands are uncapped.
 
 ## Strict mode
 
@@ -93,6 +114,11 @@ Per agent and per rule. When one agent collects `threshold` demerits for the sam
 | `comment-style` | Writes to code and style files |
 | `attribution` | `git commit`, `gh pr create`, `gh pr edit` |
 | `signature-bypass` | `git commit` with `-s`, `--signoff` or `--no-verify` |
+| `unapproved-git` | `git commit`, `git push`, `git merge`, `gh pr create`, `gh pr merge` |
+| `guard-bypass` | Bash with `--force`, `core.hooksPath` or `HUSKY=0` |
+| `wrong-scope` | Any Write, Edit, MultiEdit or NotebookEdit |
+
+The other flags have no tool call to gate; in strict mode the reminder shows their hint.
 
 ## Ranks and `points_give`
 
@@ -109,20 +135,20 @@ Rules for a give:
 
 - Any agent can give points to any other agent, up, down or across the ranks. Never to yourself.
 - Evidence is required: `kind` (`task`, `hook-block`, `qa`, `snj-correction`) and a `ref`.
-- The rubric amount for the rule is a ceiling: +5 for most task kudos, +18 for `good-work`, 1 for a hook rule, 3 for `commit-without-ask`, 2 for any other demerit.
+- The rubric amount for the rule is a ceiling: +5 for most task merits, +18 for `good-work`, 1 for a hook rule, 3 for `commit-without-ask`, 2 for any other demerit.
 - At most 20 points per giver per target per day.
 
 Refused calls are written to `refused.jsonl` and denied with the reason.
 
 ## Bias audit
 
-Run at every give and in a daily sweep. A giver who hands out kudos with no matching evidence, or gives no demerit when the sub had hook blocks, gets -5 `biased-scoring`, at most once per giver per day. The event is marked `biased: true` and the dashboard flags the giver.
+Run at every give and in a daily sweep. A giver who hands out merits with no matching evidence, or gives no demerit when the sub had hook blocks, gets -5 `biased-scoring`, at most once per giver per day. The event is marked `biased: true` and the dashboard flags the giver.
 
 ## Reminders, status line and guidelines
 
-- Status line: `pts <balance> (+<week gains> -<week losses>)`, e.g. `pts 513 (+18 -5)`. It refreshes right after every ledger event and at the end of each turn, and is also written to `<state dir>/status/<session id>.json` as `{text, balance, plus, minus, agent}`.
-- Session start and each prompt: a short block such as `You: 512 (+12). Team pool: 4980 (-20). XP 12, level 0.`, how to earn points, the rules you lost points on (top 5, with counts) and any strict rules with a hint. Silent when the agent has nothing in the window.
-- New spawns (startup and clear, plus Agent-tool subagents) get a short guidelines block from `guidelines.md`: three do-nots, two dos and the top three good-work quotes.
+- Status line: `Points: <balance>  Merit: +<week gains>  Demerit: -<week losses>`, e.g. `Points: 513  Merit: +18  Demerit: -5`. It refreshes right after every ledger event and at the end of each turn, and is also written to `<state dir>/status/<session id>.json` as `{text, balance, plus, minus, merit, demerit, agent}` (`merit` and `demerit` equal `plus` and `minus`).
+- Session start and each prompt: a short block such as `Your points: 512 (+12). Team pool: 4980 (-20). XP 12, level 0.`, the merit and demerit guideline, the demerit rules (top 5, with counts) and any strict rules with a hint. Silent when the agent has nothing in the window.
+- New spawns (startup and clear, plus Agent-tool subagents) get the merit and demerit guideline and a short block from `guidelines.md`: three demerit rules, two merit rules and the top three good-work quotes.
 
 ## Files
 
@@ -132,9 +158,9 @@ In `ledgerDir`:
 | --- | --- |
 | `ledger.jsonl` | Append-only source of truth. One event per line: id, time, session, agent, repo, branch, points, rule, reason, evidence, source (`snj`, `hook`, `agent`, `auto`), by, scope (`agent` or `pool`), plus `reverses`, `rank` and `biased` when they apply. Evidence text is clipped to 300 characters |
 | `refused.jsonl` | Commands and `points_give` calls that were turned away, with the reason |
-| `points.md` | Balances, ranks, XP and levels, team pool, top lost rules this week and the last 20 events. Rewritten after every event |
+| `points.md` | Points, ranks, XP and levels, team pool, top demerit rules this week and the last 20 events. Rewritten after every event |
 | `guidelines.md` | Lessons for new agents. Write your own under `## Manual` and it is kept verbatim: a line starting `- <slug>:` there replaces the generated line for that rule. The mod rewrites only the block between its `demerits:start` and `demerits:end` markers |
-| `good-work.md` | The best recent kudos with the task and what went right |
+| `good-work.md` | The best recent merits with the task and what went right |
 
 State, kept out of the ledger folder in `~/.claude/demerits-state/`: the agent registry (`agents.jsonl`), parents, super agent, the human-prompt log, per-task counters and the seen-block keys.
 

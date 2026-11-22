@@ -13,7 +13,19 @@ const HINTS: Record<string, string> = {
   'comment-style': 'ask before writing code files',
   attribution: 'ask before commits and PRs',
   'signature-bypass': 'ask before commits',
+  'not-doing-work': 'finish and verify before saying done',
+  'ignored-stop': 'stop at once when SNJ says stop',
+  'unapproved-git': 'git commit/push/PR/merge need SNJ\'s yes',
+  'guard-bypass': 'ask instead of working around a guard',
+  'over-explaining': 'short bullets only',
+  'wrong-scope': 'ask before changing files',
 }
+
+export const GUIDELINE = [
+  'Points: your score. Merit: points added for good work. Demerit: points taken off.',
+  'Merit: verified work done right first time, following the hooks and guards, short clear replies.',
+  'Demerit: breaking a hook or guard, claiming done without doing the work, ignoring a stop, git actions without approval.',
+].join('\n')
 
 const signed = (n: number): string => (n >= 0 ? `+${n}` : `${n}`)
 
@@ -26,7 +38,7 @@ function ago(ms: number): string {
 
 export function statusText(folded: Folded, agent: string): string {
   const me = folded.agents.find(a => a.agent === agent)
-  return `pts ${me?.balance ?? START_BY_RANK.sub} (+${me?.plus ?? 0} -${me?.minus ?? 0})`
+  return `Points: ${me?.balance ?? START_BY_RANK.sub}  Merit: +${me?.plus ?? 0}  Demerit: -${me?.minus ?? 0}`
 }
 
 async function publish($: Engine, folded: Folded, agent: string): Promise<void> {
@@ -35,7 +47,9 @@ async function publish($: Engine, folded: Folded, agent: string): Promise<void> 
   const me = folded.agents.find(a => a.agent === agent)
   const dir = `${await stateDir($)}/status`
   const session = await $.session.id()
-  const row = { text, balance: me?.balance ?? START_BY_RANK.sub, plus: me?.plus ?? 0, minus: me?.minus ?? 0, agent }
+  const plus = me?.plus ?? 0
+  const minus = me?.minus ?? 0
+  const row = { text, balance: me?.balance ?? START_BY_RANK.sub, plus, minus, merit: plus, demerit: minus, agent }
   await $.process.run(['mkdir', '-p', dir])
   await writeAtomic($, `${dir}/${session}.json`, `${JSON.stringify(row)}\n`)
 }
@@ -68,8 +82,8 @@ export function reminderText(
   if (!mine.length && !live.some(e => e.scope === 'pool')) return ''
   const me = folded.agents.find(a => a.agent === agent)
   const lines = [
-    `You: ${me?.balance ?? START_BY_RANK.sub} (${signed(me?.week ?? 0)}). Team pool: ${folded.pool.balance} (${signed(folded.pool.week)}). XP ${me?.xp ?? 0}, level ${me?.level ?? 0}.`,
-    'Earn points: finish tasks verified, ask before commits, follow the hooks.',
+    `Your points: ${me?.balance ?? START_BY_RANK.sub} (${signed(me?.week ?? 0)}). Team pool: ${folded.pool.balance} (${signed(folded.pool.week)}). XP ${me?.xp ?? 0}, level ${me?.level ?? 0}.`,
+    GUIDELINE,
   ]
   const lost = new Map<string, { count: number; points: number; last: number }>()
   for (const e of mine) {
@@ -80,7 +94,7 @@ export function reminderText(
   const top = [...lost].sort((a, b) => b[1].points - a[1].points).slice(0, MAX_RULES)
   if (top.length) {
     const parts = top.map(([rule, r]) => (r.count > 1 ? `${rule} ${r.count}x (last ${ago(now - r.last)})` : `${rule} ${r.count}x`))
-    lines.push(`Lost points: ${parts.join(', ')}.`)
+    lines.push(`Demerits: ${parts.join(', ')}.`)
   }
   if (strict.length) {
     lines.push(`Strict now: ${strict.map(r => `${r} (${HINTS[r] ?? 'ask first'})`).join('; ')}.`)

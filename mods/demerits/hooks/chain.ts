@@ -38,9 +38,21 @@ const KUDOS: Record<string, number> = {
   'few-prompts': 3,
   'good-work': 18,
   redirections: 5,
+  'first-time-right': 5,
+  'followed-guards': 3,
+  'short-and-clear': 2,
 }
 const HOOK_RULES = new Set(['push-without-ask', 'tamper', 'comment-style', 'attribution', 'signature-bypass'])
-const DEMERITS: Record<string, number> = { 'commit-without-ask': 3, 'biased-scoring': 5 }
+const DEMERITS: Record<string, number> = {
+  'commit-without-ask': 3,
+  'biased-scoring': 5,
+  'not-doing-work': 3,
+  'ignored-stop': 5,
+  'unapproved-git': 3,
+  'guard-bypass': 3,
+  'over-explaining': 1,
+  'wrong-scope': 2,
+}
 
 export function rubricCeiling(rule: string, sign: number): number {
   if (sign > 0) return KUDOS[rule] ?? DEFAULT_DEMERIT

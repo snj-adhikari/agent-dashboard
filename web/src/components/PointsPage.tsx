@@ -22,7 +22,7 @@ export function PointsPage({ data }: { data: DemeritsResponse | null }) {
             <table className="w-full text-left text-sm">
               <thead className="text-[11px] uppercase tracking-wide text-slate-500">
                 <tr>
-                  {['Agent', 'Rank', 'Balance', 'Week', 'XP', 'Level', 'Biased'].map((h) => (
+                  {['Agent', 'Rank', 'Points', 'Week', 'XP', 'Level', 'Biased'].map((h) => (
                     <th key={h} className="px-3 py-2 font-medium">
                       {h}
                     </th>

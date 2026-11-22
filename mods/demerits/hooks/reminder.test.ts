@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import { fold } from './balances'
 import type { LedgerEvent } from './ledger'
-import { reminderPromptSubmit, reminderText, statusText } from './reminder'
+import { GUIDELINE, reminderPromptSubmit, reminderText, statusText } from './reminder'
 
 const DAY = 86_400_000
 const HOUR = 3_600_000
@@ -36,14 +36,14 @@ test('clean window is empty', () => {
 
 test('balance, pool, xp and level lead', () => {
   const out = text([ev(RULE, -12, HOUR), ev('good', 5, HOUR, { source: 'snj' })])
-  expect(out.split('\n')[0]).toBe('You: 493 (-7). Team pool: 4993 (-7). XP 5, level 0.')
-  expect(out).toContain('Earn points:')
+  expect(out.split('\n')[0]).toBe('Your points: 493 (-7). Team pool: 4993 (-7). XP 5, level 0.')
+  expect(out).toContain('Merit: verified work done right first time')
 })
 
 test('top rules capped at 5, worst first', () => {
   const events = ['a', 'b', 'c', 'd', 'e', 'f'].map((r, i) => ev(`rule-${r}`, -(i + 1), HOUR))
-  const lost = text(events).split('\n').find(l => l.startsWith('Lost points:')) ?? ''
-  const rules = lost.replace(/^Lost points: /, '').replace(/\.$/, '').split(', ')
+  const lost = text(events).split('\n').find(l => l.startsWith('Demerits:')) ?? ''
+  const rules = lost.replace(/^Demerits: /, '').replace(/\.$/, '').split(', ')
   expect(rules.length).toBe(5)
   expect(rules[0]).toBe('rule-f 1x')
   expect(lost).not.toContain('rule-a')
@@ -69,7 +69,7 @@ test('tone has no threat words and stays short', () => {
 
 test('status line shows balance and week gains and losses', () => {
   const events = [ev('x', -8, HOUR), ev('y', 20, HOUR, { source: 'snj' })]
-  expect(statusText(fold(events, [], NOW, 7), 'enigma')).toBe('pts 512 (+20 -8)')
+  expect(statusText(fold(events, [], NOW, 7), 'enigma')).toBe('Points: 512  Merit: +20  Demerit: -8')
 })
 
 test('prompt hook adds context and status, silent when clean', async () => {
@@ -86,8 +86,14 @@ test('prompt hook adds context and status, silent when clean', async () => {
   }
   const clean = await run([])
   expect(clean.context).toBeUndefined()
-  expect(status).toBe('pts 500 (+0 -0)')
+  expect(status).toBe('Points: 500  Merit: +0  Demerit: -0')
   const dirty = await run([ev(RULE, -1, HOUR)])
-  expect(dirty.context[0]).toContain('Lost points: commit-without-ask 1x.')
-  expect(status).toBe('pts 499 (+0 -1)')
+  expect(dirty.context[0]).toContain('Demerits: commit-without-ask 1x.')
+  expect(status).toBe('Points: 499  Merit: +0  Demerit: -1')
+})
+
+test('guideline is short and names merit and demerit', () => {
+  expect(GUIDELINE.split('\n').length).toBeLessThan(12)
+  expect(GUIDELINE).toContain('ignoring a stop')
+  expect(GUIDELINE).not.toContain('demerit points')
 })

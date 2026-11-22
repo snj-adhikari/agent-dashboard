@@ -35,6 +35,15 @@ export const RULES: readonly { slug: string; match: RegExp }[] = [
   { slug: 'comment-style', match: /\bcomment[- ]style\b|\bstacked comments?\b/i },
   { slug: 'attribution', match: /\battribution\b|\bco-authored-by\b/i },
   { slug: 'signature-bypass', match: /\bsignature\b|\bcrafted-by\b|\bsigned-off-by\b/i },
+  { slug: 'not-doing-work', match: /\bstopped short\b|\bhanded (it|work) back\b|\bnothing to show\b|\bclaimed done\b|\bnot doing (the )?work\b|\bdidn'?t do (the )?work\b/i },
+  { slug: 'ignored-stop', match: /\bignored (a |the )?(stop|halt)\b|\bkept (going|working) after\b.*\b(stop|halt)\b/i },
+  { slug: 'unapproved-git', match: /\bunapproved\b|\b(merge|pr|git)\b.*\bwithout (approval|a yes|asking)\b/i },
+  { slug: 'guard-bypass', match: /\bbypass\w*\b|\bworked around\b.*\b(hook|guard)\b|\b(hook|guard)\b.*\bworked around\b/i },
+  { slug: 'over-explaining', match: /\bover[- ]?explain\w*|\bpadded\b|\btoo long\b|\bverbose\b|\bwall of text\b/i },
+  { slug: 'wrong-scope', match: /\bwrong scope\b|\bout of scope\b|\bscope creep\b|\bdidn'?t ask for\b|\bnot asked for\b/i },
+  { slug: 'first-time-right', match: /\bfirst time right\b|\bright (the )?first time\b|\bfirst[- ]time[- ]right\b/i },
+  { slug: 'followed-guards', match: /\bfollowed (the )?(guards?|hooks?)\b|\brespected (the )?(guards?|hooks?)\b/i },
+  { slug: 'short-and-clear', match: /\bshort and clear\b|\bconcise\b|\bclear and short\b/i },
 ]
 
 export const slugify = (text: string): string =>

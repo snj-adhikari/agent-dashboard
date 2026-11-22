@@ -82,7 +82,7 @@ async function score($: Engine, cfg: PluginOptions, mem: Memory, sign: 1 | -1, a
     scope: target.kind === 'pool' ? 'pool' : 'agent',
   })
   await afterAppend($, cfg)
-  return `${sign < 0 ? 'Demerit' : 'Kudos'} ${event.points > 0 ? '+' : ''}${event.points} logged for ${agent}: ${event.rule} (${event.id})`
+  return `${sign < 0 ? 'Demerit' : 'Merit'} ${event.points > 0 ? '+' : ''}${event.points} logged for ${agent}: ${event.rule} (${event.id})`
 }
 
 async function undo($: Engine, cfg: PluginOptions, id?: string): Promise<string> {
@@ -133,7 +133,7 @@ async function list($: Engine, cfg: PluginOptions): Promise<string> {
   const days = Number(cfg.windowDays) || 7
   const events = await read($, cfg)
   const registry = await readLines<RegistryRow>($, `${await stateDir($)}/${REGISTRY_FILE}`)
-  const me = fold(events, registry, now, days).agents.find(a => a.agent === self) ?? { balance: START_BY_RANK.sub, week: 0, xp: 0, level: 0 }
+  const me = fold(events, registry, now, days).agents.find(a => a.agent === self) ?? { balance: START_BY_RANK.sub, week: 0, plus: 0, minus: 0, xp: 0, level: 0 }
   const mine = events.filter(ev => ev.scope === 'agent' && ev.agent === self)
   const recent = mine.filter(ev => ev.ts >= now - days * DAY)
   const change = me.week
@@ -142,8 +142,8 @@ async function list($: Engine, cfg: PluginOptions): Promise<string> {
   const top = [...byRule].sort((a, b) => a[1] - b[1]).slice(0, 5).map(([rule, pts]) => `  ${pts > 0 ? '+' : ''}${pts} ${rule}`)
   const last = mine.slice(-10).reverse().map(ev => `  ${new Date(ev.ts).toISOString().slice(0, 16)} ${ev.points > 0 ? '+' : ''}${ev.points} ${ev.rule}: ${ev.reason} (${ev.id})`)
   return [
-    `${self}: balance ${me.balance}, XP ${me.xp}, level ${me.level}`,
-    `${change > 0 ? '+' : ''}${change} in the last ${days} days`,
+    `${self}: points ${me.balance}, XP ${me.xp}, level ${me.level}`,
+    `${change > 0 ? '+' : ''}${change} in the last ${days} days (Merit: +${me.plus}  Demerit: -${me.minus})`,
     `Top rules\n${top.join('\n') || '  none'}`,
     `Last ${last.length} events\n${last.join('\n') || '  none'}`,
   ].join('\n')
@@ -170,8 +170,8 @@ export async function runCommand(
 const mem: Memory = {}
 
 export async function commandsSessionStart($: Engine, e: any, next: Next, _cfg: PluginOptions) {
-  await $.command.register({ name: 'demerit', description: 'Give an agent demerit points', argumentHint: '[@codename|--all] <n> <reason> | undo [id]' })
-  await $.command.register({ name: 'kudos', description: 'Give an agent kudos points', argumentHint: '[@codename|--all] <n> <reason>' })
+  await $.command.register({ name: 'demerit', description: 'Take points off an agent (demerit)', argumentHint: '[@codename|--all] <n> <reason> | undo [id]' })
+  await $.command.register({ name: 'kudos', description: 'Give an agent points for good work (merit)', argumentHint: '[@codename|--all] <n> <reason>' })
   await $.command.register({ name: 'demerits', description: 'Show this agent\'s points, top rules and last events', argumentHint: '[super @codename]' })
   return next(e)
 }
