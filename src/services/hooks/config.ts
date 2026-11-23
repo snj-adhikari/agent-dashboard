@@ -33,7 +33,6 @@ export interface GateLimits {
 }
 
 export interface HooksConfig {
-  pollModel: string
   completion: 'approve' | 'draft-pr'
   maxConcurrent: number
   gate: GateLimits
@@ -48,7 +47,6 @@ export interface HooksConfig {
 const CONFIG_PATH = path.join(__dirname, '..', '..', '..', 'hooks.config.json')
 
 const DEFAULTS: HooksConfig = {
-  pollModel: 'claude-sonnet-5',
   completion: 'approve',
   maxConcurrent: 1,
   gate: { fiveHourPct: 50, sevenDayPct: 95 },
@@ -72,7 +70,7 @@ export function hookSettings(): Partial<Settings> {
 }
 
 export function atlassianSettings(): AtlassianSettings {
-  return { siteUrl: '', repositoryFieldId: '', workIssueTypes: ['Bug'], subtaskIssueType: '', extraInstructions: '', ...hookSettings().atlassian }
+  return { siteUrl: '', apiEmail: '', apiToken: '', repositoryFieldId: '', workIssueTypes: ['Bug'], subtaskIssueType: '', extraInstructions: '', ...hookSettings().atlassian }
 }
 
 export function profileSettings(): ProfileSettings {

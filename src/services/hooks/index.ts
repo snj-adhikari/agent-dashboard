@@ -8,6 +8,7 @@ import { addOverrideRef, autoDisable, autoDisableDecision, autoDisabledHooks, cl
 import { DeferredError, SkippedError, executeEvent, shouldRequeue } from './execute'
 import { recordStart, updateStatus } from './status'
 import { loadConfig, pollIntervalMin } from './config'
+import { NeedsTokenError } from './jiraHook'
 import { OpLockedError } from './op'
 import { openOpUnlockTab, sendKey, sendToWorkspace, terminalTabs } from '../terminal'
 import { log, logError } from './logger'
@@ -16,6 +17,8 @@ import type { HookStart, Trigger } from './types'
 import { inboxWatch } from '../inbox/health'
 
 const HOOKS: Trigger[] = [jiraHook, slackPrReviewHook, jiraMentionPrHook]
+/** Actions that would start Claude; only the dashboard's Run now and Start buttons may run them. */
+const OPENS_SESSION = ['worktree', 'command']
 const DRAIN_INTERVAL_MS = 5 * 60_000
 const FIVE_HOURS_S = 5 * 60 * 60
 
@@ -59,7 +62,7 @@ async function haltRef(ref: string, message: string): Promise<void> {
 
 function refreshGateStatus(): boolean {
   const gate = checkStartGate()
-  for (const hook of HOOKS) updateStatus(hook.name, { usageGateOk: gate.ok, gateReason: gate.reason })
+  for (const hook of HOOKS) updateStatus(hook.name, { usageGateOk: gate.ok, gateReason: gate.reason, script: hook.script })
   return gate.ok
 }
 
@@ -82,8 +85,12 @@ async function pollHook(hook: Trigger): Promise<void> {
       }
     }
     applyAutoDisable(hook.name, added)
-    updateStatus(hook.name, { lastError: null })
+    updateStatus(hook.name, { lastError: null, needsToken: false, lastResult: `${batch.length} found, ${added} new` })
   } catch (e) {
+    if (e instanceof NeedsTokenError) {
+      updateStatus(hook.name, { lastError: null, needsToken: true, lastResult: 'needs a token' })
+      return
+    }
     if (e instanceof OpLockedError) {
       updateStatus(hook.name, { lastError: '1Password locked — unlock tab opened' })
       openOpUnlockTab()
@@ -116,16 +123,16 @@ function autoEnable(): void {
   log(`${ready.join(', ')}: polling auto-resumed`)
 }
 
-// Queued work starts one at a time, only while fewer than maxConcurrent hook tabs are open; at most one session command per tick.
+// Only session commands to an already-open session are delivered here; everything else waits in the queue for a click. At most one per tick.
 async function drainQueue(): Promise<void> {
   if (!refreshGateStatus()) return
   let sessionCommandTried = false
-  while (queued().length && activeHookTabs().length < loadConfig().maxConcurrent) {
-    const next = dequeue(undefined, disabledHooks(), sessionCommandTried ? ['session-command'] : [])
+  while (queued().length) {
+    const next = dequeue(undefined, disabledHooks(), [...OPENS_SESSION, ...(sessionCommandTried ? ['session-command'] : [])])
     if (!next) return
     if (next.event.action === 'session-command') sessionCommandTried = true
     try {
-      recordStart(next.hook, await executeEvent(next.hook, next.event))
+      recordStart(next.hook, await executeEvent(next.hook, next.event, false))
     } catch (e) {
       if (e instanceof SkippedError) {
         log(`${next.hook}: skipped ${next.event.id}: ${e.message}`)
@@ -164,7 +171,7 @@ let draining = false
 let pollChain: Promise<void> = Promise.resolve()
 const pollTimers = new Map<string, NodeJS.Timeout>()
 
-/** Each hook polls on its own interval, but one at a time so two `claude -p` polls never overlap. */
+/** Each hook polls on its own interval, but one at a time so two polls never overlap. */
 export function queuePoll(hook: Trigger): Promise<void> {
   pollChain = pollChain.then(() => pollHook(hook)).catch((e) => logError(`${hook.name}: ${errorMessage(e)}`))
   return pollChain
@@ -235,7 +242,7 @@ export async function runQueued(id?: string): Promise<HookStart> {
   const item = dequeue(id)
   if (!item) throw new Error(id ? `${id} is not in the queue` : 'queue is empty')
   try {
-    const start = await executeEvent(item.hook, item.event)
+    const start = await executeEvent(item.hook, item.event, true)
     if (!start.reused) addOverrideRef(start.ref)
     recordStart(item.hook, start)
     return start
@@ -262,7 +269,7 @@ export async function startJiraTicket(key: string): Promise<ManualStartResult> {
     enqueue(jiraHook.name, event)
     return { queued: true, reason: gate.reason || `${loadConfig().maxConcurrent} hook sessions already running` }
   }
-  const start = await executeEvent(jiraHook.name, event)
+  const start = await executeEvent(jiraHook.name, event, true)
   markSeen(jiraHook.name, event.id)
   recordStart(jiraHook.name, start)
   return { queued: false, start }

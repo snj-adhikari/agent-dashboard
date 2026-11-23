@@ -59,13 +59,15 @@ export function shouldRequeue(event: TriggerEvent, e: unknown): boolean {
   return e instanceof DeferredError || event.action === 'session-command'
 }
 
-export async function executeEvent(hookName: string, event: TriggerEvent): Promise<HookStart> {
+/** `allowOpen` is true only for a dashboard click; the background drain never starts Claude. */
+export async function executeEvent(hookName: string, event: TriggerEvent, allowOpen: boolean): Promise<HookStart> {
   if (!event.repoHint) throw new Error(`no repo mapping for ${event.title} — add it in Setup`)
   const at = new Date().toISOString()
 
   if (event.action === 'session-command') {
     const target = pickSessionTarget(repoSessions(event.repoHint))
     if (target.kind === 'defer') throw new DeferredError(target.reason)
+    if (target.kind === 'open' && !allowOpen) throw new DeferredError('no open session for this repo; start one, or use Run now on /hooks')
     if (target.kind === 'send') {
       const pane = parseHerdrRef(target.ref)
       try {
@@ -79,6 +81,8 @@ export async function executeEvent(hookName: string, event: TriggerEvent): Promi
       return { id: event.id, title: event.title, ref: target.ref, url: event.details?.url, at, reused: true }
     }
   }
+
+  if (!allowOpen) throw new DeferredError('needs a session started from /hooks')
 
   if (event.action === 'command' && event.source === 'slack-pr-review' && terminalBackend() === 'cmux') {
     const ref = openInTitledWorkspace(PR_REVIEW_WORKSPACE, event.repoHint, claudeCommand(event.context, sessionEnv(hookName, event)))

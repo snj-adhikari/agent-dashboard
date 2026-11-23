@@ -115,6 +115,9 @@ export interface HookStart {
 export interface HookStatus {
   name: string
   lastPollAt: string | null
+  script: string
+  lastResult: string | null
+  needsToken: boolean
   lastEvent: string | null
   usageGateOk: boolean
   gateReason: string | null
@@ -182,7 +185,6 @@ export interface GateLimits {
 }
 
 export interface HooksConfig {
-  pollModel: string
   completion: 'approve' | 'draft-pr'
   maxConcurrent: number
   gate: GateLimits
@@ -204,6 +206,9 @@ export interface ProfileSettings {
 
 export interface AtlassianSettings {
   siteUrl: string
+  apiEmail: string
+  apiToken: string
+  apiTokenSet?: boolean
   repositoryFieldId: string
   workIssueTypes: string[]
   subtaskIssueType: string

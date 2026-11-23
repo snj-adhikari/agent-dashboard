@@ -278,3 +278,30 @@ void (async () => {
   assert.ok(!prSeenIn({ seen: { jira: [PR] }, queue: [] }, PR), 'other hooks do not count')
   assert.ok(!prSeenIn({ seen: { 'slack-pr-review': [`${PR}1`] }, queue: [] }, PR), 'a longer PR number is a different PR')
 }
+
+// No server code may start claude for its own purposes. Allowed: cuckoo chat (a person typing in the phone app) and the tab openers a click triggers.
+{
+  const ALLOWED = new Set(['services/cuckoo/chat.ts', 'services/cmuxControl.ts', 'services/terminal.ts'])
+  const SPAWNS_CLAUDE = /claudeBin|CLAUDE_BIN|runClaudeJson|pollModel|claude -p|--json-schema|--output-format/
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]))
+  const srcDir = path.join(__dirname, '..', 'src')
+  const offenders = walk(srcDir)
+    .filter((f) => f.endsWith('.ts') && !/(^|\/)[^/]*[cC]heck\.ts$/.test(f) && !/\.check\.ts$/.test(f))
+    .filter((f) => !ALLOWED.has(path.relative(srcDir, f)) && SPAWNS_CLAUDE.test(fs.readFileSync(f, 'utf8')))
+  assert.deepStrictEqual(offenders.map((f) => path.relative(srcDir, f)), [], 'server code must not spawn claude on its own')
+}
+
+// The Jira API token never leaves the server: responses carry a flag, a blank save keeps the stored token.
+{
+  const { redactSettings, keepStoredToken } = require('./routes/settings')
+  const stored = { atlassian: { siteUrl: 'https://x.atlassian.net', apiEmail: 'a@b.c', apiToken: 'secret', repositoryFieldId: '', workIssueTypes: [], subtaskIssueType: '', extraInstructions: '' } }
+  const shown = redactSettings(stored)
+  assert.strictEqual(shown.atlassian.apiToken, '')
+  assert.strictEqual(shown.atlassian.apiTokenSet, true)
+  assert.ok(!JSON.stringify(shown).includes('secret'), 'token must not appear in a settings response')
+  assert.strictEqual(keepStoredToken({ atlassian: { ...stored.atlassian, apiToken: '' } }, stored).atlassian.apiToken, 'secret')
+  assert.strictEqual(keepStoredToken({ atlassian: { ...stored.atlassian, apiToken: 'new' } }, stored).atlassian.apiToken, 'new')
+  assert.strictEqual(redactSettings({ ...stored, atlassian: { ...stored.atlassian, apiToken: '' } }).atlassian.apiTokenSet, false)
+  console.log('ok jira token redaction')
+}

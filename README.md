@@ -26,8 +26,8 @@ flowchart TD
   S --> T["terminal tabs: cmux or tmux"]
   S --> A[Agent CLI processes]
   S --> H[Hooks]
-  H -->|claude -p polls| J[Jira and Slack]
-  H -->|new worktree session| T
+  H -->|gh and Jira REST polls, no tokens| J[GitHub and Jira]
+  H -->|send to an open session| T
   O[Mods in sessions] -->|report back| S
 ```
 
@@ -45,7 +45,7 @@ flowchart TD
 | MongoDB | yes | settings and history (step 2) |
 | gh | no | open-PR badges |
 | cmux or tmux | no | tab listing, send, read and new sessions; without either, Terminal.app opens sessions only |
-| Claude CLI | no | hooks run `claude -p` |
+| Claude CLI | no | sessions you open; hooks never start it |
 
 ```bash
 node -v && git --version

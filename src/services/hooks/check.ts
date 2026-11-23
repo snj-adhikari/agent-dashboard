@@ -21,10 +21,12 @@ import os from 'os'
 import path from 'path'
 import { findTicketWork } from './branchName'
 import type { QueuedEvent } from './state'
-import type { MentionComment } from './jiraMentionPrHook'
+import type { FoundPr } from './github'
+import { NeedsTokenError, jiraHook } from './jiraHook'
+import { executeEvent, DeferredError as Deferred } from './execute'
 
 overrideHookSettings({
-  atlassian: { siteUrl: 'example.atlassian.net', repositoryFieldId: '', workIssueTypes: ['Bug', 'Defect subtask', 'Dev subtask'], subtaskIssueType: 'Dev subtask', extraInstructions: '' },
+  atlassian: { siteUrl: 'example.atlassian.net', apiEmail: '', apiToken: '', repositoryFieldId: '', workIssueTypes: ['Bug', 'Defect subtask', 'Dev subtask'], subtaskIssueType: 'Dev subtask', extraInstructions: '' },
   profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: 'pr-review' }
 })
 
@@ -164,39 +166,34 @@ assert.deepStrictEqual(pollingPaused(['jira'], {}), ['jira'], 'clearing auto-dis
 assert.deepStrictEqual(pollingPaused(['jira'], { jira: { reason: 'idle', until: 1 }, slack: { reason: 'queue', until: 1 } }), ['jira', 'slack'])
 
 const T = Date.parse('2026-09-29T10:00:00+10:00')
-const mention = (over: Partial<MentionComment> = {}): MentionComment => ({
-  issueKey: 'PROJ-1300',
-  commentId: '10042',
-  created: '2026-09-29T09:50:00.000+1000',
-  mentionsMe: true,
-  mentionedAccountIds: ['me-1'],
-  prUrls: ['https://github.com/acme/web-app/pull/42'],
-  ...over
-})
+const found = (over: Partial<FoundPr> = {}): FoundPr => ({ url: 'https://github.com/acme/web-app/pull/42', ts: String((T - 600_000) / 1000), author: 'sam', ...over })
 const localRepo = (name: string) => (name === 'web-app' ? '/repos/web-app' : undefined)
-const mapped = (over: Partial<MentionComment> = {}, orgs: string[] = ['acme']) =>
-  mentionsToEvents({ accountId: 'me-1', comments: [mention(over)] }, T, orgs, localRepo)
-const [pr] = mapped()
+const mapped = (prs: FoundPr[], orgs: string[] = ['acme']) => mentionsToEvents(prs, 'me', T, orgs, localRepo)
+const [pr] = mapped([found()])
 assert.ok(pr, 'repo resolves via the injected resolver')
 assert.strictEqual(pr.repoHint, '/repos/web-app')
-assert.strictEqual(pr.id, 'jira:PROJ-1300:10042:https://github.com/acme/web-app/pull/42')
+assert.strictEqual(pr.id, 'https://github.com/acme/web-app/pull/42')
 assert.strictEqual(pr.context, '/pr-review https://github.com/acme/web-app/pull/42')
 overrideHookSettings({ profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '' } })
-assert.ok(!mapped()[0].context.startsWith('/'), 'blank skill falls back to a plain instruction')
+assert.ok(!mapped([found()])[0].context.startsWith('/'), 'blank skill falls back to a plain instruction')
 overrideHookSettings(null)
 assert.strictEqual(pr.action, 'session-command')
-assert.deepStrictEqual(mapped({}, ['someone-else']), [], 'org not on the allowlist is rejected')
-assert.deepStrictEqual(mapped({ created: '2026-09-29T09:20:00+10:00' }), [], 'comment outside the lookback is rejected')
-assert.deepStrictEqual(mapped({ created: 'yesterday' }), [])
-assert.deepStrictEqual(mapped({ mentionsMe: false }), [])
-assert.deepStrictEqual(mapped({ mentionedAccountIds: ['other'] }), [], 'mention must match my accountId')
-assert.deepStrictEqual(mapped({ commentId: '1; rm' }), [])
-assert.deepStrictEqual(
-  mapped({ prUrls: ['https://github.com/acme/web-app/issues/1', 'https://evil.com/a/b/pull/1', 'https://github.com/acme/web-app/pull/42'] }).map((e) => e.id),
-  [pr.id],
-  'non-PR URLs are ignored and duplicates collapse'
+assert.deepStrictEqual(mapped([found()], ['someone-else']), [], 'org not on the allowlist is rejected')
+assert.deepStrictEqual(mapped([found({ ts: String((T - 3600_000) / 1000) })]), [], 'PR updated outside the lookback is rejected')
+assert.deepStrictEqual(mapped([found({ author: 'me' })]), [], 'my own PR is not a mention to act on')
+assert.deepStrictEqual(mapped([found({ url: 'https://evil.com/a/b/pull/1' }), found({ url: 'https://github.com/acme/no-such-local-repo/pull/1' })]), [], 'bad link or unmapped repo is rejected')
+assert.strictEqual(mapped([found(), found()]).length, 1, 'duplicates collapse')
+
+overrideHookSettings({ atlassian: { siteUrl: 'example.atlassian.net', apiEmail: '', apiToken: '', repositoryFieldId: '', workIssueTypes: ['Bug'], subtaskIssueType: '', extraInstructions: '' } })
+jiraHook.poll().then(
+  () => assert.fail('jira poll without a token must not run'),
+  (e) => assert.ok(e instanceof NeedsTokenError, 'no token: poll throws needs-token, never falls back to Claude')
 )
-assert.deepStrictEqual(mapped({ prUrls: ['https://github.com/acme/no-such-local-repo/pull/1'] }), [], 'unmapped repo is rejected')
+overrideHookSettings(null)
+executeEvent('jira', { ...q('w', 2).event, repoHint: '/r' }, false).then(
+  () => assert.fail('drain must not open a session'),
+  (e) => assert.ok(e instanceof Deferred, 'worktree event is deferred, not opened, when the drain runs it')
+)
 
 assert.ok(hasPendingReview([{ state: 'PENDING', user: { login: 'me' } }], 'me'), 'my pending review is flagged')
 assert.ok(!hasPendingReview([{ state: 'PENDING', user: { login: 'other' } }], 'me'))

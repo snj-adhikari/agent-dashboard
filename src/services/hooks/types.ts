@@ -15,6 +15,8 @@ export interface TriggerEvent {
 
 export interface Trigger {
   name: string
+  /** The read-only command or request the poll runs, shown on /hooks. */
+  script: string
   poll(): Promise<TriggerEvent[]>
 }
 
@@ -32,6 +34,9 @@ export interface HookStart {
 export interface HookStatus {
   name: string
   lastPollAt: string | null
+  script: string
+  lastResult: string | null
+  needsToken: boolean
   lastEvent: string | null
   usageGateOk: boolean
   gateReason: string | null

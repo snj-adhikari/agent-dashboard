@@ -13,6 +13,8 @@ export interface ProfileSettings {
 
 export interface AtlassianSettings {
   siteUrl: string
+  apiEmail: string
+  apiToken: string
   repositoryFieldId: string
   workIssueTypes: string[]
   subtaskIssueType: string

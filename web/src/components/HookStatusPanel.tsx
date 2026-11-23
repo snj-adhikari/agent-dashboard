@@ -114,7 +114,14 @@ function HookCard({ hook, onChange }: { hook: HookStatus; onChange: () => void }
         </Button>
         <IntervalPicker hook={hook} onChange={onChange} />
       </div>
-      {!hook.enabled && <CardMeta>not polling or auto-starting; queued items wait, Run now still works</CardMeta>}
+      <CardMeta>
+        Polling uses no tokens: <code className="text-slate-300">{hook.script || 'script'}</code>
+      </CardMeta>
+      <CardMeta>
+        last script run: {hook.lastPollAt ? `${timeAgo(hook.lastPollAt)}${hook.lastResult ? `, ${hook.lastResult}` : ''}` : 'not yet'}
+      </CardMeta>
+      {hook.needsToken && <CardMeta><span className="text-amber-300">needs a token: add the Jira email and API token in Setup</span></CardMeta>}
+      {!hook.enabled && <CardMeta>not polling or sending; queued items wait, Run now still works</CardMeta>}
       {hook.enabled && hook.autoPaused && (
         <CardMeta>
           auto-paused:{' '}
@@ -124,7 +131,7 @@ function HookCard({ hook, onChange }: { hook: HookStatus; onChange: () => void }
         </CardMeta>
       )}
       {error && <CardMeta><span className="text-red-300">Failed: {error}</span></CardMeta>}
-      {!hook.usageGateOk && hook.gateReason && <CardMeta>starts paused: {hook.gateReason} (still polling, queuing)</CardMeta>}
+      {!hook.usageGateOk && hook.gateReason && <CardMeta>sends paused: {hook.gateReason} (still polling, queuing)</CardMeta>}
       {hook.lastError && <CardMeta><span className="text-red-300">error: {hook.lastError}</span></CardMeta>}
       {hook.flags.map((f) => <CardMeta key={f}><span className="text-amber-300">flag: {f}</span></CardMeta>)}
       {hook.recent.map((s) => (

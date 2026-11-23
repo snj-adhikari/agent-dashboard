@@ -1,5 +1,4 @@
 {
-  "pollModel": "claude-sonnet-5",
   "completion": "approve",
   "maxConcurrent": 1,
   "gate": {

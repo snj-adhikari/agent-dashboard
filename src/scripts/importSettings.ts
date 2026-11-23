@@ -76,6 +76,8 @@ function buildSeed(a: Record<string, string | boolean>): { seed: Partial<Setting
   if (str('atlassian-site') || str('repository-field') || str('work-types') || str('subtask-type') || extraFile) {
     seed.atlassian = {
       siteUrl: str('atlassian-site') || '',
+      apiEmail: '',
+      apiToken: '',
       repositoryFieldId: str('repository-field') || '',
       workIssueTypes: list(str('work-types') || ''),
       subtaskIssueType: str('subtask-type') || '',

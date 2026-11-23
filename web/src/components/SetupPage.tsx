@@ -10,7 +10,6 @@ import { WizardShell, WIZARD_STEPS, type WizardStepId } from './OnboardingWizard
 import { ChipList, CopyLine, Field, fromRows, RowsEditor, TextInput, toRows } from './SetupFields'
 
 const DEFAULT_HOOKS: HooksConfig = {
-  pollModel: 'claude-sonnet-5',
   completion: 'approve',
   maxConcurrent: 1,
   gate: { fiveHourPct: 50, sevenDayPct: 95 },
@@ -31,7 +30,7 @@ const withDefaults = (s: Partial<Settings>, d: ServiceSettings): Settings => ({
   vaultPath: s.vaultPath ?? '',
   usageStatePath: s.usageStatePath ?? '',
   profile: { displayName: '', nickname: '', githubHandle: '', createPrSkill: '', prReviewSkill: '', ...s.profile },
-  atlassian: { siteUrl: '', repositoryFieldId: '', workIssueTypes: [], subtaskIssueType: '', extraInstructions: '', ...s.atlassian },
+  atlassian: { siteUrl: '', apiEmail: '', apiToken: '', repositoryFieldId: '', workIssueTypes: [], subtaskIssueType: '', extraInstructions: '', ...s.atlassian },
   hooks: { ...DEFAULT_HOOKS, ...s.hooks, gate: { ...DEFAULT_HOOKS.gate, ...s.hooks?.gate } },
   service: {
     label: s.service?.label || d.label,
@@ -328,6 +327,12 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
           <Field label="Atlassian site URL">
             <TextInput value={s.atlassian.siteUrl} onChange={(v) => upd({ atlassian: { ...s.atlassian, siteUrl: v } })} placeholder="https://example.atlassian.net" />
           </Field>
+          <Field label="Jira email" hint="Optional. With the API token, lets the jira hook search Jira directly. Polling never uses Claude; with no token the jira hook does nothing.">
+            <TextInput value={s.atlassian.apiEmail} onChange={(v) => upd({ atlassian: { ...s.atlassian, apiEmail: v } })} placeholder="you@example.com" />
+          </Field>
+          <Field label="Jira API token" hint={s.atlassian.apiTokenSet ? 'A token is saved. Leave blank to keep it, or type a new one to replace it.' : undefined}>
+            <TextInput type="password" value={s.atlassian.apiToken} onChange={(v) => upd({ atlassian: { ...s.atlassian, apiToken: v } })} placeholder={s.atlassian.apiTokenSet ? 'saved' : ''} />
+          </Field>
           <Field label="Repository field id" hint="Jira custom field used to record the repo.">
             <TextInput value={s.atlassian.repositoryFieldId} onChange={(v) => upd({ atlassian: { ...s.atlassian, repositoryFieldId: v } })} placeholder="customfield_12345" />
           </Field>
@@ -347,9 +352,6 @@ export function SetupPage({ wizard, onClose, onRunGuide }: { wizard?: boolean; o
           </Field>
           <Field label="Usage state file" hint="Optional. JSON with five_hour and seven_day used_percentage; hooks pause above the limits below. Blank skips the gate.">
             <TextInput value={s.usageStatePath} onChange={(v) => upd({ usageStatePath: v })} placeholder="/path/to/usage-state.json" />
-          </Field>
-          <Field label="Poll model">
-            <TextInput value={s.hooks.pollModel} onChange={(v) => updHooks({ pollModel: v })} />
           </Field>
           <Field label="Completion">
             <select

@@ -16,8 +16,18 @@ function validate(patch: Partial<Settings>): string | null {
   return null
 }
 
+export function redactSettings(s: Partial<Settings>): Partial<Settings> {
+  if (!s.atlassian) return s
+  return { ...s, atlassian: { ...s.atlassian, apiToken: '', apiTokenSet: Boolean(s.atlassian.apiToken) } as Settings['atlassian'] }
+}
+
+export function keepStoredToken(patch: Partial<Settings>, stored: Partial<Settings>): Partial<Settings> {
+  if (!patch.atlassian || patch.atlassian.apiToken) return patch
+  return { ...patch, atlassian: { ...patch.atlassian, apiToken: stored.atlassian?.apiToken ?? '' } }
+}
+
 export function handleGetSettings(res: ServerResponse): void {
-  sendJson(res, { ok: true, settings: settings() })
+  sendJson(res, { ok: true, settings: redactSettings(settings()) })
 }
 
 export async function handleSaveSettings(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -27,8 +37,8 @@ export async function handleSaveSettings(req: IncomingMessage, res: ServerRespon
     for (const key of KEYS) if (key in body) Object.assign(patch, { [key]: body[key] })
     const error = validate(patch)
     if (error) return sendJson(res, { ok: false, error })
-    await saveSettings(patch)
-    sendJson(res, { ok: true, settings: await loadSettings() })
+    await saveSettings(keepStoredToken(patch, settings()))
+    sendJson(res, { ok: true, settings: redactSettings(await loadSettings()) })
   } catch (e) {
     sendJson(res, { ok: false, error: (e as Error).message })
   }

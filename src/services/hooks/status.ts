@@ -9,6 +9,9 @@ function current(name: string): HookStatus {
     statuses.get(name) || {
       name,
       lastPollAt: null,
+      script: '',
+      lastResult: null,
+      needsToken: false,
       lastEvent: null,
       usageGateOk: true,
       gateReason: null,
